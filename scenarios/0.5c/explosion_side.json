@@ -1,0 +1,64 @@
+{
+  "name": "explosion_side",
+  "milestone": "0.5c",
+  "$added": "추가 시나리오 (v0.5c 품질 확인용, SPEC 9.2 목록에는 없음)",
+  "description": "왼쪽(+X) 2m 지면에서 폭발(1m 기준 Δv 8, COM Δv 약 3.6 m/s) → 오른쪽으로 날아감. 공중 허우적 → 착지 준비 → 옆으로 떨어짐.",
+  "duration": 8,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "events": [
+    {
+      "t": 1,
+      "type": "hit",
+      "hit": {
+        "type": "explosion",
+        "point": [
+          2.0,
+          0.1,
+          0
+        ],
+        "direction": [
+          0,
+          0,
+          0
+        ],
+        "magnitude": 8
+      }
+    }
+  ],
+  "expect": {
+    "exploded": false,
+    "fell": true,
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      },
+      "airTimeMax": {
+        "min": 0.3
+      },
+      "prepLandingLead": {
+        "min": 0.3
+      }
+    }
+  }
+}

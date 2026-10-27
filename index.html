@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>액티브 랙돌</title>
+    <link rel="stylesheet" href="/src/app/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <div id="viewport">
+        <div id="hud" class="overlay-col">
+          <div id="status" class="overlay"></div>
+          <div id="chars"></div>
+        </div>
+        <div id="assistWarn" class="overlay"></div>
+        <div id="pushInfo" class="overlay"></div>
+        <div id="legend" class="overlay"></div>
+        <div id="graphBox" class="overlay"><canvas id="graph"></canvas></div>
+        <div id="loading" class="overlay">불러오는 중…</div>
+      </div>
+      <aside id="panel"><h1 id="appTitle">액티브 랙돌</h1></aside>
+    </div>
+    <script type="module" src="/src/app/main.ts"></script>
+  </body>
+</html>

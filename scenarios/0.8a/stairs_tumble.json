@@ -1,0 +1,63 @@
+{
+  "name": "stairs_tumble",
+  "milestone": "0.8a",
+  "description": "SPEC 9.2 v0.8a: 계단 맨 위(받침 끝)에 아래 계단 쪽을 보고 서 있다가 1초에 등 뒤에서 Spine2를 앞으로 큰 충격(large, Δv 1.5) → 계단으로 넘어져 굴러 내려감: 웅크리고 머리 보호, 팔로 속도를 줄이려 함(Tumble).",
+  "duration": 6,
+  "seed": 1,
+  "terrain": "stairs",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      1.7,
+      -0.3
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          0,
+          0,
+          1
+        ],
+        "magnitude": "large",
+        "duration": 0.15
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "fell": true,
+    "metrics": {
+      "assistUsage.root": {
+        "max": 0
+      },
+      "assistUsage.pin": {
+        "max": 0
+      },
+      "tumbled": {
+        "min": 1
+      },
+      "tumbleGuardFrac": {
+        "min": 0.5
+      }
+    }
+  }
+}

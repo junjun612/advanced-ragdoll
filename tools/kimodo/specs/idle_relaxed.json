@@ -1,0 +1,41 @@
+{
+  "clip": "idle_relaxed",
+  "label": "편안한 서기 (루프)",
+  "text": "a person stands idle in a relaxed way, slowly shifting their weight from the left leg to the right leg and back, breathing calmly",
+  "duration_s": 8.0,
+  "startPose": "stand",
+  "loop": {
+    "minLenS": 3.0,
+    "maxLenS": 6.0,
+    "fromS": 0.5
+  },
+  "rootMotion": "removed",
+  "expect": {
+    "minHipSwayCm": 1.5,
+    "maxHipSwayCm": 10
+  },
+  "weights": {
+    "startPoseDeg": 1.0,
+    "endPoseDeg": 0,
+    "footSlideRawCmPerS": 2.0,
+    "footLockCorrectionCm": 1.0,
+    "seamPosCm": 2.0,
+    "seamVelCmS": 1.0,
+    "seamAccelCm": 1.0
+  },
+  "filmCycles": 1,
+  "models": [
+    "rp12",
+    "seed11"
+  ],
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "top": 3,
+  "filmCamera": "front,side"
+}

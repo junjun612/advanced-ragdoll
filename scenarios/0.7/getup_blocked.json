@@ -1,0 +1,27 @@
+{
+  "name": "getup_blocked",
+  "$added": "v0.7 추가 (SPEC 12 v0.7 '게임이 막을 수 있음'): getup_supine과 같은 쓰러짐, 0.5초에 setGetup(false) → 일어서지 않고 누워 몸부림. 8초에 다시 켜면 일어선다.",
+  "milestone": "0.7",
+  "description": "게임이 일어서기를 막음 → 누운 채(몸부림) 유지, 다시 허용하면 일어섬",
+  "duration": 15,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": { "position": [0, 0, 0], "yaw": 0, "state": "Active", "pose": "stand" },
+  "clip": "stand",
+  "assist": { "root": false },
+  "events": [
+    { "t": 0.5, "type": "setGetup", "on": false },
+    { "t": 1, "type": "hit", "hit": { "type": "push", "body": "Spine2", "direction": [0, 0, -1], "magnitude": "large", "duration": 0.15 } },
+    { "t": 8, "type": "setGetup", "on": true }
+  ],
+  "cameras": ["side"],
+  "expect": {
+    "exploded": false,
+    "fell": true,
+    "metrics": {
+      "getupSuccess": { "min": 1 },
+      "getupFirstStart": { "min": 8 }
+    }
+  }
+}

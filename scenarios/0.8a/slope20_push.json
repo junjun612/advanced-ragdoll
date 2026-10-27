@@ -1,0 +1,58 @@
+{
+  "name": "slope20_push",
+  "milestone": "0.8a",
+  "description": "SPEC 9.2 v0.8a: 20° 경사에 내리막 쪽(정면 −Z)을 보고 서 있다가(발목을 굽혀 발바닥을 경사면에 맞춘 자세 — 오르막을 보고 서기는 발목 배굴 제한 25°에 걸린다) 1초에 오른쪽에서 Spine2를 왼쪽으로(경사를 가로질러) 중간 충격(medium) → 폭발 없이, 경사에 맞춰 발을 디디며(발바닥이 경사면에 평평, 지지 다각형·착지 목표가 경사면 기준) 버팀. 내리막 쪽 밀림은 slope20_push_downhill(추가).",
+  "duration": 5,
+  "seed": 1,
+  "terrain": "slope20",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      -0.04,
+      0
+    ],
+    "yaw": 3.141592653589793,
+    "state": "Active",
+    "pose": "stand_slope20_down",
+    "levelFeet": false
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          -1,
+          0,
+          0
+        ],
+        "magnitude": "medium",
+        "duration": 0.15
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "assistUsage.root": {
+        "max": 0
+      },
+      "assistUsage.pin": {
+        "max": 0
+      }
+    }
+  }
+}

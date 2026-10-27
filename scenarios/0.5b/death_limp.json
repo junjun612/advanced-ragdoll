@@ -1,0 +1,23 @@
+{
+  "name": "death_limp",
+  "milestone": "0.5b",
+  "description": "SPEC 9.2 v0.5b: 서 있다가 1초에 사망 트리거(trigger Limp) → 전 관절 strength → 0.05 근처, 하체부터 약해져 무릎부터 무너짐. 무릎 굽힘 45° 도달이 Spine2 0.3m 하강보다 먼저(※), 폭발 없음.",
+  "duration": 4,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": { "position": [0, 0, 0], "yaw": 0, "state": "Active", "pose": "stand" },
+  "clip": "stand",
+  "assist": { "root": false },
+  "events": [
+    { "t": 1, "type": "trigger", "behavior": "Limp", "params": { "cause": "death" } }
+  ],
+  "cameras": ["side", "front"],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "fell": true,
+    "firstGroundContactNot": ["Head"],
+    "metrics": { "assistUsage": { "max": 0 }, "limpKneeLeadTime": { "min": 0 } }
+  }
+}

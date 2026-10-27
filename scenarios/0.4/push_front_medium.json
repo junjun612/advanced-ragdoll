@@ -1,0 +1,64 @@
+{
+  "name": "push_front_medium",
+  "milestone": "0.4",
+  "description": "Spine2를 앞(+Z)으로 medium(Δv 0.8). 사람 레퍼런스(Kimodo push_back_hard RP 시드4, 뒤에서 밀림 Δv 0.84: 3걸음, COM 68cm, 회복 1.5초)처럼 1~5걸음으로 버팀.",
+  "duration": 5.0,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1.0,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          0,
+          0,
+          1
+        ],
+        "magnitude": "medium"
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": "assets/kimodo/push_back_hard/rp12_s4/clip.json",
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "steps": [
+      1,
+      5
+    ],
+    "recoveredWithin": 3.0,
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      },
+      "landingErrorMean": {
+        "max": 0.05
+      },
+      "footSlide": {
+        "max": 0.3
+      }
+    }
+  }
+}

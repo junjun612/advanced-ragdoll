@@ -1,0 +1,67 @@
+{
+  "models": [
+    "rp12"
+  ],
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "rootMotion": "kept",
+  "weights": {
+    "startPoseDeg": 0,
+    "endPoseDeg": 1
+  },
+  "top": 3,
+  "clip": "push_twice",
+  "label": "앞에서 두 번 밀림 (0.6초 간격, 각 12cm/0.4초)",
+  "text": "a person standing still is suddenly pushed twice in quick succession on the chest from the front, pushing them backward, and recovers their balance",
+  "holdStartFrames": [
+    24,
+    30
+  ],
+  "rootPath": {
+    "points": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        -0.12
+      ],
+      [
+        0,
+        -0.14
+      ],
+      [
+        0,
+        -0.26
+      ]
+    ],
+    "frames": [
+      0,
+      30,
+      42,
+      48,
+      60
+    ]
+  },
+  "duration_s": 4.5,
+  "startPose": "stand",
+  "expect": {
+    "dir": [
+      0,
+      -1
+    ],
+    "endStillSpeed": 0.3
+  },
+  "filmCamera": "side"
+}

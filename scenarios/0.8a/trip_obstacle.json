@@ -1,0 +1,43 @@
+{
+  "name": "trip_obstacle",
+  "milestone": "0.8a",
+  "description": "SPEC 9.2 v0.8a: Kimodo 걷기 클립을 따라 앞으로 걷다가(Animated → 0.3초에 Active) 길 위 낮은 상자(높이 0.14m, z = 2.9~3.1m)에 스윙발 발끝이 걸림 → 걸림(Trip): 몸이 앞으로 쏠리고 팔을 앞으로 내밀며 걸린 발을 들어 넘기려 함 → 비틀거리며 내딛어 버팀, 넘어지면 손 짚기.",
+  "duration": 6,
+  "seed": 1,
+  "terrain": "box_obstacle",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Animated",
+    "pose": "kimodo_walk_forward"
+  },
+  "clip": null,
+  "events": [
+    {
+      "t": 0.3,
+      "type": "setState",
+      "state": "Active"
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "metrics": {
+      "tripped": {
+        "min": 1
+      },
+      "pinDuringReaction": {
+        "max": 0
+      }
+    }
+  }
+}

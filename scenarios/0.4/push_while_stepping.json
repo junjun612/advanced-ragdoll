@@ -1,0 +1,79 @@
+{
+  "name": "push_while_stepping",
+  "milestone": "0.4",
+  "description": "앞으로 medium(Δv 0.8)에 밀려 첫 스텝 스윙 중(1.2초) 오른쪽(−X)으로 Δv 0.4. 레퍼런스 Kimodo push_side_during_step_stop 시드4(걷기 첫 걸음 스윙 중 왼쪽에서 밀려 4걸음 뒤 멈춤; 방향을 레퍼런스에 맞춤 — README 결정 67).",
+  "knownIssue": "결정 74 ③: 넓은 발로 끝나 0.1 m/s 흔들림이 남아 3초 안 회복 못 함, 7걸음",
+  "duration": 5.0,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1.0,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          0,
+          0,
+          1
+        ],
+        "magnitude": "medium"
+      }
+    },
+    {
+      "t": 1.2,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          -1,
+          0,
+          0
+        ],
+        "magnitude": 0.4
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": "assets/poses/kimodo_push_side_during_step.json",
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "steps": [
+      1,
+      6
+    ],
+    "recoveredWithin": 3.5,
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      },
+      "landingErrorMean": {
+        "max": 0.05
+      },
+      "footSlide": {
+        "max": 0.3
+      }
+    }
+  }
+}

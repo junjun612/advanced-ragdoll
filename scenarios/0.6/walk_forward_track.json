@@ -1,0 +1,54 @@
+{
+  "name": "walk_forward_track",
+  "milestone": "0.6",
+  "description": "Kimodo 앞으로 걷기 클립(1.4 m/s) 추종 10초: 키네마틱 재생(Animated)으로 시작해 0.3초에 Active로 넘김(애니 속도 넘김) → 전신 QP가 클립을 따라 걷는다. 넘어지지 않고, 핀 보조 사용량이 상한 이하. 핀 상한(※ 첫 구현 기준, 사람 검토): 추종 중 핀 0(쓰지 않음), Animated→Active 전환 블렌드 적분 ≤ 200 N·s(지금 141). 걷기 품질 상한(※): 클립 COM 오차 ≤ 4cm, 지지발 미끄러짐 ≤ 5cm/걸음, 착지 오차 ≤ 3cm.",
+  "duration": 10,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [0, 0, 0],
+    "yaw": 0,
+    "state": "Animated",
+    "pose": "kimodo_walk_forward"
+  },
+  "clip": null,
+  "events": [
+    {
+      "t": 0.3,
+      "type": "setState",
+      "state": "Active"
+    }
+  ],
+  "cameras": ["side", "front"],
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "walkEngagedFrac": {
+        "min": 0.99
+      },
+      "walkDistance": {
+        "min": 12
+      },
+      "pinUsageTracking": {
+        "max": 0
+      },
+      "pinUsageBlend": {
+        "max": 200
+      },
+      "pinDuringReaction": {
+        "max": 0
+      },
+      "clipComErrCm": {
+        "max": 4
+      },
+      "walkFootSlidePerStep": {
+        "max": 0.05
+      },
+      "walkLandingErrorMean": {
+        "max": 0.03
+      }
+    }
+  }
+}

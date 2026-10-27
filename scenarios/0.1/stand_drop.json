@@ -1,0 +1,15 @@
+{
+  "name": "stand_drop",
+  "milestone": "0.1",
+  "description": "근육 없이 A포즈로 서 있는 상태에서 시작 (SPEC 9.2 v0.1)",
+  "duration": 4.0,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": { "position": [0, 0, 0], "yaw": 0, "state": "Ragdoll" },
+  "clip": null,
+  "events": [],
+  "cameras": ["side", "front"],
+  "reference": null,
+  "expect": { "exploded": false, "fell": true }
+}

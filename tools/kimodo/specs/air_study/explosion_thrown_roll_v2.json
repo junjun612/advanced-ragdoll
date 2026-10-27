@@ -1,0 +1,16 @@
+{
+  "clip": "explosion_thrown_roll_v2",
+  "label": "폭발에 날아감 v2 (등으로 떨어져 뒤로 구름)",
+  "text": "a person standing still is blown off their feet by a huge explosion in front of them, flies backward through the air, crashes flat on their back on the ground and tumbles over backward, then lies on the ground",
+  "holdStartFrames": [24, 30],
+  "rootPath": { "points": [[0, 0], [0, 0], [0, -2.0]], "frames": [0, 30, 50] },
+  "duration_s": 4,
+  "models": ["rp12"],
+  "seeds": [1, 2, 3, 4, 5, 6, 7, 8],
+  "startPose": "stand",
+  "rootMotion": "kept",
+  "expect": {},
+  "weights": { "startPoseDeg": 0, "endPoseDeg": 0 },
+  "top": 4,
+  "filmCamera": "side"
+}

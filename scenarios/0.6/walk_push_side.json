@@ -1,0 +1,50 @@
+{
+  "name": "walk_push_side",
+  "milestone": "0.6",
+  "description": "앞으로 걷는 중(Kimodo 걷기 추종) 3.0초(왼발 스윙 중간)에 오른쪽에서 가슴을 옆으로 민다(Δv 0.25 m/s, 0.15초, 왼쪽 = 스윙발 쪽) — Kimodo 레퍼런스 push_side_during_step과 같은 상황. 감지 지연(0.08초) 때문에 밀린 스윙발은 거의 그대로 딛고, 다음 오른발이 지지발 앞으로 건너 디디고(교차 디딤) 그다음 왼발을 크게 벌려 2~3걸음 비틀거리며 옆 속도를 받은 뒤 클립 경로로 돌아와 계속 걷는다. 더 세면(Δv ≥ 0.35) 균형·스텝 계층으로 넘긴 뒤 넘어진다 — walk_push_side_medium(knownIssue, 결정 v0.6). 반응 중 핀 0.",
+  "duration": 12,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [0, 0, 0],
+    "yaw": 0,
+    "state": "Animated",
+    "pose": "kimodo_walk_forward"
+  },
+  "clip": null,
+  "events": [
+    {
+      "t": 0.3,
+      "type": "setState",
+      "state": "Active"
+    },
+    {
+      "t": 3.0,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [1, 0, 0],
+        "magnitude": 0.25,
+        "duration": 0.15
+      }
+    }
+  ],
+  "cameras": ["front", "side"],
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "pinDuringReaction": {
+        "max": 0
+      },
+      "walkEngagedFrac": {
+        "min": 0.95
+      },
+      "walkDistance": {
+        "min": 9
+      }
+    }
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "name": "explosion_near",
+  "milestone": "0.5c",
+  "description": "SPEC 9.2 v0.5c: 서 있다가 1초에 정면 1.5m 지면(높이 0.1m)에서 폭발(1m 기준 Δv 8 m/s → COM Δv 약 4.4 m/s) → 폭풍 충격으로 힘이 풀린 채 뒤로 날아감. 공중 구간 동안 공중 허우적(Flail), 착지 0.3초 전부터 착지 준비(PrepareLanding), 엉덩이·등으로 떨어져 뒤로 구름(Roll), 누운 뒤 몸부림(Writhe). 레퍼런스: Kimodo explosion_thrown_roll_v2.",
+  "duration": 9,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": "assets/kimodo/explosion_thrown_roll_v2/rp12_s8/clip.json",
+  "events": [
+    {
+      "t": 1,
+      "type": "hit",
+      "hit": {
+        "type": "explosion",
+        "point": [
+          0,
+          0.1,
+          1.5
+        ],
+        "direction": [
+          0,
+          0,
+          0
+        ],
+        "magnitude": 8
+      }
+    }
+  ],
+  "expect": {
+    "exploded": false,
+    "fell": true,
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      },
+      "airTimeMax": {
+        "min": 0.4
+      },
+      "flailAirCoverage": {
+        "min": 0.9
+      },
+      "prepLandingLead": {
+        "min": 0.3
+      },
+      "rolled": {
+        "min": 1
+      }
+    }
+  }
+}

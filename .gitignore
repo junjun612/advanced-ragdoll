@@ -1,0 +1,22 @@
+out/
+node_modules/
+spike/**/out/
+test-results/
+
+.omc/
+
+# Kimodo 원본 후보(시드로 재생성 가능). INDEX.md와 assets/poses만 추적
+assets/kimodo/*/
+
+
+# 겟업 라이브러리 후보 클립·병렬 시험 조각 (npm run getup:build로 재생성, Kimodo 응답 캐시 사용)
+assets/library/candidates/
+assets/library/parts/
+assets/library/getup_candidates_*.json
+
+# 병렬 에이전트 worktree
+.claude/worktrees/
+
+# Mixamo 애니 원본 (재배포 제한, 사용 안 함 — 스파이크 도구만 참조). 로컬에만 둔다
+assets/mixamo_anim/
+dist/

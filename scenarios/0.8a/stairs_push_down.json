@@ -1,0 +1,56 @@
+{
+  "name": "stairs_push_down",
+  "milestone": "0.8a",
+  "description": "SPEC 9.2 v0.8a: 계단 맨 위(받침 끝, 발끝이 첫 단 코에서 약 12cm 뒤)에 정면(+Z, 아래 계단 쪽)을 보고 서 있다가 1초에 등 뒤에서 Spine2를 앞으로 중간 충격(medium, Δv 0.6) → 아래 계단으로 스텝(계단 디딤: 발을 디딤면 안에 맞추고 단 모서리를 넘는 스윙) 또는 구름.",
+  "duration": 5,
+  "seed": 1,
+  "terrain": "stairs",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      1.7,
+      -0.3
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          0,
+          0,
+          1
+        ],
+        "magnitude": "medium",
+        "duration": 0.15
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "metrics": {
+      "assistUsage.root": {
+        "max": 0
+      },
+      "assistUsage.pin": {
+        "max": 0
+      }
+    }
+  }
+}

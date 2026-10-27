@@ -1,0 +1,23 @@
+{
+  "name": "kneel_trigger",
+  "milestone": "0.5b",
+  "description": "SPEC 9.2 v0.5b: 1초에 trigger(\"Kneel\") → 상체를 세운 채 무릎을 꿇음. 1초 안에 kneeled, 3초 이상 유지, 폭발 없음.",
+  "duration": 6,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": { "position": [0, 0, 0], "yaw": 0, "state": "Active", "pose": "stand" },
+  "clip": "stand",
+  "assist": { "root": false },
+  "events": [
+    { "t": 1, "type": "trigger", "behavior": "Kneel" }
+  ],
+  "cameras": ["side", "front"],
+  "reference": "assets/kimodo/collapse_to_knees/rp12_s1/clip.json",
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "kneeled": true,
+    "metrics": { "assistUsage": { "max": 0 }, "kneelTime": { "max": 2.0 }, "kneelHeldMax": { "min": 3.0 } }
+  }
+}

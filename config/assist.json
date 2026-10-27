@@ -1,0 +1,15 @@
+{
+  "$comment": "명시적 보조 힘 (SPEC 3 원칙 6). 사용량은 CharacterState.assist와 summary metrics assistUsage(.root)에 남는다. 정의: docs/ALGORITHMS.md v0.2 '루트 보조'.",
+  "root": {
+    "$comment": "루트 보조 (SPEC v0.2): Hips를 스폰 때 회전(똑바로, 스폰 방향)으로 돌리는 가상 토크 + Hips 높이 스프링(수직 힘). v0.2 검증용, 기본 꺼짐(시나리오가 켬). 허용 범위 = 아래 상한(컨트롤러가 넘지 않음): 토크 maxTorque N·m, 힘 maxForceBodyWeight × 체중. 힘 상한이 체중의 30%라 다리가 체중 대부분을 받쳐야 선다.",
+    "enabledByDefault": false,
+    "uprightKp": 1500,
+    "uprightKd": 150,
+    "maxTorque": 300,
+    "heightKp": 3000,
+    "heightKd": 300,
+    "maxForceBodyWeight": 0.3,
+    "$usageLeverArm": "사용량 assist.root = |F| + |τ| / usageLeverArm (N). 토크를 1 m 지렛대의 힘으로 환산.",
+    "usageLeverArm": 1.0
+  }
+}

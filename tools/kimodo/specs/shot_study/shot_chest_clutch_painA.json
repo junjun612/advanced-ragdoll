@@ -1,0 +1,59 @@
+{
+  "clip": "shot_chest_clutch_painA",
+  "label": "뒤로 비틀 + 오른손 가슴 움켜쥠 (프롬프트 A)",
+  "text": "a person stumbles backward and clutches their chest with their right hand in pain",
+  "holdStartFrames": [
+    24,
+    30
+  ],
+  "rootPath": {
+    "points": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        -0.28
+      ]
+    ],
+    "frames": [
+      0,
+      30,
+      42
+    ]
+  },
+  "duration_s": 4,
+  "models": [
+    "rp12"
+  ],
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "startPose": "stand",
+  "rootMotion": "kept",
+  "expect": {
+    "dir": [
+      0,
+      -1
+    ],
+    "endStillSpeed": 0.3
+  },
+  "weights": {
+    "startPoseDeg": 0,
+    "endPoseDeg": 0
+  },
+  "top": 4,
+  "filmCamera": "side"
+}

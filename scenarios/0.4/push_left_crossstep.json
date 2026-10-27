@@ -1,0 +1,75 @@
+{
+  "name": "push_left_crossstep",
+  "milestone": "0.4",
+  "description": "셋업: trigger LiftFoot(RightFoot)으로 왼발 외발 서기. 1.5초에 왼쪽(+X, 디딤발 쪽)으로 Δv 0.4 → 2단 스텝(든 오른발을 왼발 옆·뒤에 내려 디딘 뒤 왼발을 왼쪽으로). 레퍼런스 Kimodo push_side_single_support_step 시드4(같은 2단 스텝; 교차 걸음은 후보 18개 중 없음 — README 결정 68).",
+  "knownIssue": "결정 74 ②: 2단 스텝 지지발 뒤 내리기가 뒤꿈치에 막혀 착지 오차 0.06 > 0.05",
+  "duration": 5.0,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 0.5,
+      "type": "trigger",
+      "behavior": "LiftFoot",
+      "params": {
+        "foot": "RightFoot",
+        "height": 0.1,
+        "duration": 3.0
+      }
+    },
+    {
+      "t": 1.5,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          1,
+          0,
+          0
+        ],
+        "magnitude": 0.25
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": "assets/poses/kimodo_push_side_single_support.json",
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "steps": [
+      1,
+      4
+    ],
+    "recoveredWithin": 3.0,
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      },
+      "landingErrorMean": {
+        "max": 0.05
+      },
+      "footSlide": {
+        "max": 0.3
+      }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "drop_from_height",
+  "milestone": "0.1",
+  "description": "A포즈로 발바닥이 2m 높이에 있는 상태에서 낙하",
+  "duration": 4.0,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": { "position": [0, 2, 0], "yaw": 0, "state": "Ragdoll" },
+  "clip": null,
+  "events": [],
+  "cameras": ["side", "front"],
+  "reference": null,
+  "expect": { "exploded": false, "metrics": { "limitViolationP99Deg": { "max": 5 } } }
+}

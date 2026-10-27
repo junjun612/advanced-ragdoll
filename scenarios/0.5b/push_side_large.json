@@ -1,0 +1,24 @@
+{
+  "name": "push_side_large",
+  "milestone": "0.5b",
+  "description": "SPEC 9.2 v0.5b: 1초에 오른쪽에서 Spine2를 왼쪽(+X)으로 큰 충격(large) → 옆으로 비틀거리다 넘어짐 → 넘어지는 쪽 손으로 짚고 다른 팔·턱으로 머리 보호. 머리가 먼저 닿지 않음.",
+  "duration": 5,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": { "position": [0, 0, 0], "yaw": 0, "state": "Active", "pose": "stand" },
+  "clip": "stand",
+  "assist": { "root": false },
+  "events": [
+    { "t": 1, "type": "hit", "hit": { "type": "push", "body": "Spine2", "direction": [1, 0, 0], "magnitude": "large", "duration": 0.15 } }
+  ],
+  "cameras": ["front", "side"],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "fell": true,
+    "firstGroundContactNot": ["Head"],
+    "fallDirection": { "dir": [1, 0, 0], "maxAngleDeg": 35 },
+    "metrics": { "assistUsage": { "max": 0 }, "headImpactSpeed": { "max": 2.0 } }
+  }
+}

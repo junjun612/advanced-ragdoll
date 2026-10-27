@@ -1,0 +1,58 @@
+{
+  "models": [
+    "rp12"
+  ],
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "rootMotion": "kept",
+  "weights": {
+    "startPoseDeg": 0,
+    "endPoseDeg": 1
+  },
+  "top": 3,
+  "clip": "push_side_during_step_stop",
+  "label": "첫 걸음 스윙 중 왼쪽에서 밀림 → 옆걸음으로 버티고 멈춤 (15cm/0.4초)",
+  "text": "a person starts walking forward from standing, and during their first step is suddenly pushed on their left shoulder from the left side, pushing them to their right, takes a quick step to the side to catch their balance, then stops and stands still",
+  "rootPath": {
+    "points": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0.13
+      ],
+      [
+        -0.15,
+        0.45
+      ]
+    ],
+    "frames": [
+      0,
+      12,
+      24,
+      36
+    ]
+  },
+  "duration_s": 4,
+  "startPose": "stand",
+  "expect": {
+    "dir": [
+      -1,
+      0
+    ],
+    "endStillSpeed": 0.3
+  },
+  "filmCamera": "front"
+}

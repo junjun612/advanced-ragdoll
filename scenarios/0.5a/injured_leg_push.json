@@ -1,0 +1,71 @@
+{
+  "name": "injured_leg_push",
+  "milestone": "0.5a",
+  "description": "셋업 trigger(\"InjuredLeg\", 왼다리) 뒤 1.5초에 뒤에서 앞(+Z)으로 밀림 (Δv 0.4). 성한(오른) 다리로 먼저 디딤, 다친 다리는 짧게. (뒤로 밀기는 v0.4 알려진 문제 74 ①로 다친 다리 없이도 근처 입력 2/8이라 앞으로 민다)",
+  "duration": 5,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 0.3,
+      "type": "trigger",
+      "behavior": "InjuredLeg",
+      "params": {
+        "leg": "LeftUpLeg"
+      }
+    },
+    {
+      "t": 1.5,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          0,
+          0,
+          1
+        ],
+        "magnitude": 0.4
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "steps": [
+      1,
+      4
+    ],
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      },
+      "firstStepHealthy": {
+        "min": 1
+      },
+      "injuredLegStrengthMax": {
+        "max": 0.65
+      }
+    }
+  }
+}

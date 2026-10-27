@@ -1,0 +1,63 @@
+{
+  "name": "ground_writhe",
+  "milestone": "0.5c",
+  "description": "SPEC 9.2 v0.5c: 1초에 가슴 앞에서 큰 밀기(large, push_back_large와 같음) → 뒤로 넘어져 누움 → 누운 채 1초가 지나면 몸부림(Writhe): 무릎을 끌어올리고 배를 감싸고 머리를 천천히 움직임. 몸부림 시작부터 5초: 폭발 없음, COM 속도 최대 < 0.3 m/s, 관절 평균 각속도가 behaviors.json Writhe.jointSpeedRange 안(※). 레퍼런스: Kimodo lie_writhe_pain_v2.",
+  "duration": 10,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": "assets/kimodo/lie_writhe_pain_v2/rp12_s8/clip.json",
+  "events": [
+    {
+      "t": 1,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          0,
+          0,
+          -1
+        ],
+        "magnitude": "large",
+        "duration": 0.15
+      }
+    }
+  ],
+  "expect": {
+    "exploded": false,
+    "fell": true,
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      },
+      "writheWindowS": {
+        "min": 4.99
+      },
+      "writheComSpeedMax": {
+        "max": 0.3
+      },
+      "writheSpeedInRange": {
+        "min": 1
+      }
+    }
+  }
+}

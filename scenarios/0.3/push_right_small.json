@@ -1,0 +1,58 @@
+{
+  "name": "push_right_small",
+  "milestone": "0.3",
+  "description": "보조 없이 서 있다가 1초에 Spine2를 오른쪽(−X)으로 작은 충격(small, Δv 0.3). 스텝 없이 제자리에서 버티고 충격 뒤 2초 안에 회복 (SPEC 9.2 v0.3). footDisplacementMax ≤ 0.05m는 '스텝 없음'의 수치 근사(※)",
+  "duration": 4.0,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "stepping": false,
+  "events": [
+    {
+      "t": 1.0,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          -1,
+          0,
+          0
+        ],
+        "magnitude": "small"
+      }
+    }
+  ],
+  "cameras": [
+    "front",
+    "side"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "recoveredWithin": 2.0,
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      },
+      "footDisplacementMax": {
+        "max": 0.05
+      }
+    }
+  }
+}

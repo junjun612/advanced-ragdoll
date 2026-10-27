@@ -1,0 +1,44 @@
+{
+  "name": "hold_pose_pinned",
+  "milestone": "0.2",
+  "description": "Hips 고정(시험 장치), stand 포즈로 스폰해 근육(모터 + 중력 보상)만으로 10초 유지. 발은 지면 0.3m 위",
+  "duration": 10.0,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0.3,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand",
+    "pin": [
+      "Hips"
+    ]
+  },
+  "clip": "stand",
+  "stepping": false,
+  "events": [],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "metrics": {
+      "jointErrorMaxDeg": {
+        "max": 5
+      },
+      "jitter": {
+        "max": 1
+      },
+      "assistUsage": {
+        "max": 0
+      }
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "prop_hit_walking",
+  "milestone": "0.8c",
+  "description": "걷다가 떨어진 상자에 맞음: Kimodo 걷기 클립 추종 중 2.5kg 상자가 머리 왼쪽 위로 떨어져 머리를 스치고 왼쪽 어깨(Spine2)에 맞는다(약 2.0초). melee hit(Δv 약 0.06·0.10)으로 움찔·비틀거림 행동이 켜지고, 맞은 어깨를 손으로 누르며(HoldWound) 계속 걷는다. 바닥에 떨어진 상자를 발로 차는 접촉은 날아온 충격이 아니므로 hit이 아니다(프롭 속력·접근 속도 기준). 반응 중 핀 0.",
+  "duration": 8,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": { "position": [0, 0, -2.2], "yaw": 0, "state": "Animated", "pose": "kimodo_walk_forward" },
+  "clip": null,
+  "events": [
+    { "t": 0.3, "type": "setState", "state": "Active" },
+    { "t": 1.45, "type": "spawnProp", "prop": { "id": "box", "shape": { "type": "box", "halfExtents": [0.14, 0.11, 0.14] }, "mass": 2.5, "position": [0.17, 3.0, 0.55], "rotation": [0.05, 0.2, 0, 0.978], "angVel": [0.5, 0.3, -0.4] } }
+  ],
+  "cameras": ["follow", "side"],
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": { "propHits": { "min": 1 }, "hitReactedEvents": { "min": 1 }, "walkDistance": { "min": 8 }, "pinDuringReaction": { "max": 0 } }
+  }
+}

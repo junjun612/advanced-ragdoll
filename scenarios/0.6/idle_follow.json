@@ -1,0 +1,24 @@
+{
+  "name": "idle_follow",
+  "milestone": "0.6",
+  "description": "Kimodo Idle 클립(체중 좌우 이동·호흡, 3.5초 루프) 추종 20초: Active로 서서 전신 QP가 클립 COM·자세를 따른다(핀 0). 넘어지지 않고, 루프 이음매에서 튐이 없다 — 이음매 근처 클립 기준 각속도가 전체 중앙값의 2배 이하(※), 관절 jitter ≤ 1/s.",
+  "duration": 20,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": { "position": [0, 0, 0], "yaw": 0, "state": "Active", "pose": "kimodo_idle_relaxed" },
+  "clip": null,
+  "events": [],
+  "cameras": ["front", "side"],
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "animSeamSpeedRatio": { "max": 2.0 },
+      "jitter": { "max": 1.0 },
+      "walkEngagedFrac": { "min": 0.99 },
+      "clipComErrCm": { "max": 3.0 },
+      "assistUsage.pin": { "max": 0 }
+    }
+  }
+}

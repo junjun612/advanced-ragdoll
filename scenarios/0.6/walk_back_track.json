@@ -1,0 +1,51 @@
+{
+  "name": "walk_back_track",
+  "milestone": "0.6",
+  "description": "Kimodo 뒤로 걷기 클립(1.0 m/s) 추종 10초: 키네마틱 재생으로 시작해 0.3초에 Active로 넘김 → 전신 QP가 클립을 따라 뒤로 걷는다. 핀 보조 사용량이 상한 이하. 핀 상한(※ 첫 구현 기준, 사람 검토): 뒤로 걷기는 클립별 추종 핀 0.1(full)을 쓴다(결정 v0.6) — 추종 적분 ≤ 800 N·s(지금 624, 10초 평균 약 65 N ≈ 체중의 9%), 전환 블렌드 ≤ 200 N·s. 품질 상한(※): 클립 COM 오차 ≤ 6cm, 지지발 미끄러짐 ≤ 7cm/걸음.",
+  "duration": 10,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [0, 0, 0],
+    "yaw": 0,
+    "state": "Animated",
+    "pose": "kimodo_walk_backward"
+  },
+  "clip": null,
+  "events": [
+    {
+      "t": 0.3,
+      "type": "setState",
+      "state": "Active"
+    }
+  ],
+  "cameras": ["side", "front"],
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "walkEngagedFrac": {
+        "min": 0.99
+      },
+      "walkDistance": {
+        "min": 7
+      },
+      "pinUsageTracking": {
+        "max": 800
+      },
+      "pinUsageBlend": {
+        "max": 200
+      },
+      "pinDuringReaction": {
+        "max": 0
+      },
+      "clipComErrCm": {
+        "max": 6
+      },
+      "walkFootSlidePerStep": {
+        "max": 0.07
+      }
+    }
+  }
+}

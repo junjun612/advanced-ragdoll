@@ -1,0 +1,35 @@
+{
+  "name": "two_characters_collide",
+  "milestone": "0.8c",
+  "description": "두 사람 충돌 (SPEC 9.2 '서로 밀리고 각자 반응'): 서 있는 A(파랑)를 등 뒤에서 앞(+Z)으로 Δv 0.8(medium) 밀고, 1m 앞에 옆으로 서 있는 B(주황)에게 비틀거리며 부딪힌다. 접촉 충격량은 Rapier가 물리로 넣고, 각자 감지 창(0.05초) 동안 모은 충격량을 Δv로 바꿔 push hit을 받는다(충격 재적용 없음). A: 비틀거리며 B에게 막혀 4걸음 만에 멈춤, B: 옆에서 밀려 버티고(A가 손으로 짚어 충격을 팔로 받으면 걸음 없이 버틴다 — README 결정 174) 부딪힌 A를 돌아본다. A는 비틀거리며 두 손을 뻗어 B를 먼저 손으로 짚는다(머리가 먼저 닿지 않음, 결정 174). 둘 다 넘어지지 않음. 관통 깊이 최대 ≤ 2cm(※ README 결정). 알려진 한계: 밀어낸 뒤에도 발이 서로 겹쳐 한 걸음 물러나지 않고 붙어 선다(README 결정 174).",
+  "duration": 6,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "primaryName": "A",
+  "spawn": { "position": [0, 0, 0], "yaw": 0, "state": "Active", "pose": "stand" },
+  "clip": "stand",
+  "characters": [
+    {
+      "name": "B",
+      "spawn": { "position": [0.25, 0, 1.0], "yaw": 1.5708, "state": "Active", "pose": "stand" },
+      "clip": "stand",
+      "expect": {
+        "exploded": false,
+        "fell": false,
+        "steps": [0, 8],
+        "metrics": { "interPenetrationMax": { "max": 0.02 }, "contactHits": { "min": 1 }, "lookAtOtherTime": { "min": 0.5 } }
+      }
+    }
+  ],
+  "events": [
+    { "t": 1, "type": "hit", "hit": { "type": "push", "body": "Spine2", "direction": [0, 0, 1], "magnitude": 0.8, "duration": 0.15 } }
+  ],
+  "cameras": ["side", "top"],
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "steps": [1, 8],
+    "metrics": { "interPenetrationMax": { "max": 0.02 }, "contactHits": { "min": 1 }, "assistUsage": { "max": 0 } }
+  }
+}

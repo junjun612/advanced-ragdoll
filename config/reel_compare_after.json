@@ -1,0 +1,52 @@
+{
+ "$comment": "이전·이후 비교 영상 (2026-10-27 반응 클립 작업). npx tsx tools/reel.ts --config config/reel_compare_after.json --out out/reel_after 뒤 --hstack",
+ "width": 560,
+ "height": 400,
+ "$fps": "로그가 30Hz로 남으므로 30이면 로그 프레임을 하나도 빼지 않고 전부 그린다",
+ "fps": 30,
+ "$titleSec": "장면 시작 제목 카드 시간. 0이면 끔 (캐릭터를 가려서 끔, 위 띠에 설명이 있음)",
+ "titleSec": 0,
+ "smoothCamera": 0.15,
+ "scenes": [
+  {
+   "scenario": "push_back_medium",
+   "from": 0.7,
+   "to": 3.7,
+   "camera": "side",
+   "tag": "이후 (반응 클립)",
+   "caption": "뒤로 밀림 (Δv 0.8)"
+  },
+  {
+   "scenario": "push_left_medium",
+   "from": 0.7,
+   "to": 3.7,
+   "camera": "front",
+   "tag": "이후 (반응 클립)",
+   "caption": "옆으로 밀림 (Δv 0.8)"
+  },
+  {
+   "scenario": "push_front_medium",
+   "from": 0.7,
+   "to": 3.7,
+   "camera": "side",
+   "tag": "이후 (반응 클립)",
+   "caption": "앞으로 밀림 (Δv 0.8)"
+  },
+  {
+   "scenario": "push_diag_medium",
+   "from": 0.7,
+   "to": 3.7,
+   "camera": "side",
+   "tag": "이후 (반응 클립)",
+   "caption": "대각으로 밀림 (Δv 0.8)"
+  },
+  {
+   "scenario": "shot_chest_stagger_clutch",
+   "from": 0.7,
+   "to": 3.7,
+   "camera": "follow",
+   "tag": "이후 (반응 클립)",
+   "caption": "가슴 총탄 → 움켜쥐기"
+  }
+ ]
+}

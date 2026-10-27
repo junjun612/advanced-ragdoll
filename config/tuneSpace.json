@@ -1,0 +1,120 @@
+{
+  "$comment": "v0.9 자동 튜닝 탐색 공간·목적 함수·평가 세트 (tools/tune.ts, SPEC 12장 v0.9, README 결정 9t-1~). 경로 첫 마디 = 설정 파일(behaviors·stepping·reaction·balance·muscles). CMA-ES는 [lo, hi]를 [0, 1]로 정규화해 탐색한다(log = 로그 축, int = 정수). 결과는 config/tuned/<run>.json으로만 저장하고 기본 설정에는 반영하지 않는다(리드가 필름스트립을 보고 정함).",
+
+  "$tier": "사람 결정(2026-10-27): 1.0 이후 학습형 추종기(D안)로 바꾼다. primary = D 뒤에도 살아남는 값(행동 계층 타이밍·문턱, 스텝 전략 문턱, 반응 클립 선택·블렌드, 팔 묶음 조건) — 기본 튜닝 대상. later = 추종기(QP·근육)에 묶인 값 — D안에서 학습 추종기가 대신하므로 지금 맞추면 버려진다. --tier later|all로만 켠다 (README 결정 9t-2).",
+  "params": [
+    { "path": "behaviors.reactionDelay", "lo": 0.06, "hi": 0.16, "tier": "primary", "why": "행동 계층 감지 지연(사람 반응 0.08~0.2초, SPEC 10 reactionLatency)" },
+    { "path": "behaviors.HitReaction.flinchDeg", "lo": 6, "hi": 24, "tier": "primary", "why": "피격 움찔 크기(행동 계층 반응 모양)" },
+    { "path": "behaviors.HitReaction.flinchHold", "lo": 0.2, "hi": 1.0, "tier": "primary", "why": "움찔 유지 시간" },
+    { "path": "behaviors.HitReaction.duration", "lo": 0.8, "hi": 2.2, "tier": "primary", "why": "피격 반응 길이" },
+    { "path": "behaviors.fall.threshold", "lo": 0.45, "hi": 0.8, "tier": "primary", "why": "넘어짐 판단 문턱(넘어짐 대비 행동으로 넘어가는 시점)" },
+
+    { "path": "stepping.stepTriggerMargin", "lo": -0.06, "hi": 0.02, "tier": "primary", "why": "스텝 시작 문턱(DCM이 지지 다각형 밖으로 나간 거리, README 결정 54)" },
+    { "path": "stepping.retriggerMargin", "lo": 0.0, "hi": 0.08, "tier": "primary", "why": "착지 뒤 다음 스텝 문턱" },
+    { "path": "stepping.nearEdgeTime", "lo": 0.2, "hi": 0.6, "tier": "primary", "why": "가장자리 버팀 → 스텝 시간 문턱" },
+    { "path": "stepping.stepOvershoot", "lo": 0.0, "hi": 0.14, "tier": "primary", "why": "착지 목표를 넘어지는 쪽으로 더 딛는 양(걸음 수·보폭)" },
+    { "path": "stepping.landingMargin", "lo": 0.0, "hi": 0.06, "tier": "primary", "why": "착지 뒤 DCM 여유(발 옆 간격 선택)" },
+    { "path": "stepping.duration.min", "lo": 0.15, "hi": 0.3, "tier": "primary", "why": "짧은 반응 스텝 시간(사람 0.2~0.3초)" },
+    { "path": "stepping.duration.max", "lo": 0.35, "hi": 0.6, "tier": "primary", "why": "긴 스텝 시간 상한" },
+    { "path": "stepping.settle.standTime", "lo": 0.2, "hi": 0.8, "tier": "primary", "why": "정착 → 서기 전환 시간" },
+
+    { "path": "reaction.delay", "lo": 0.05, "hi": 0.15, "tier": "primary", "why": "반응 클립 시작 지연" },
+    { "path": "reaction.minDv", "lo": 0.15, "hi": 0.4, "tier": "primary", "why": "반응 클립을 쓰는 최소 충격(아래는 제자리 균형)" },
+    { "path": "reaction.maxCost", "lo": 1.5, "hi": 6.0, "tier": "primary", "log": true, "why": "클립 매칭 비용 상한(클립 선택)" },
+    { "path": "reaction.style.cost.dir", "lo": 1.0, "hi": 10.0, "tier": "primary", "log": true, "why": "클립 선택: 방향 차 비용" },
+    { "path": "reaction.style.cost.dv", "lo": 0.5, "hi": 6.0, "tier": "primary", "log": true, "why": "클립 선택: 세기 차 비용" },
+    { "path": "reaction.style.blendIn", "lo": 0.05, "hi": 0.35, "tier": "primary", "why": "스타일 블렌드 들어가기" },
+    { "path": "reaction.style.blendOut", "lo": 0.3, "hi": 1.2, "tier": "primary", "why": "스타일 블렌드 나오기" },
+    { "path": "reaction.style.holdAfterStand", "lo": 0.1, "hi": 1.0, "tier": "primary", "why": "선 뒤 클립 유지 시간" },
+    { "path": "reaction.style.rate.max", "lo": 1.5, "hi": 3.5, "tier": "primary", "why": "클립 재생 속도 상한(우리 걸음에 맞추기)" },
+    { "path": "reaction.style.danger.d0", "lo": 0.0, "hi": 0.12, "tier": "primary", "why": "팔 묶음 조건: 풀기 시작 위험도(README 결정 162)" },
+    { "path": "reaction.style.danger.d1", "lo": 0.14, "hi": 0.4, "tier": "primary", "why": "팔 묶음 조건: 다 푸는 위험도" },
+    { "path": "reaction.style.danger.tau", "lo": 0.05, "hi": 0.4, "tier": "primary", "why": "팔 묶음 조건: 위험도 내림 시정수" },
+    { "path": "reaction.style.stepGate.inStep", "lo": 0.0, "hi": 0.6, "tier": "primary", "why": "팔 묶음 조건: 걸음 중 묶음 배율" },
+    { "path": "reaction.style.stepGate.up", "lo": 0.05, "hi": 0.5, "tier": "primary", "why": "팔 묶음 조건: 걸음 뒤 다시 묶는 시간" },
+
+    { "path": "reaction.style.armWeight", "lo": 5, "hi": 40, "tier": "later", "log": true, "why": "QP 팔 추종 가중치 — 추종기에 묶임" },
+    { "path": "reaction.style.foreArmWeight", "lo": 5, "hi": 50, "tier": "later", "log": true, "why": "QP 전완 추종 가중치 — 추종기에 묶임" },
+    { "path": "stepping.trunk.torso.kp", "lo": 20, "hi": 80, "tier": "later", "log": true, "why": "스텝 중 몸통 과제 이득 — QP" },
+    { "path": "stepping.trunk.torso.weight", "lo": 15, "hi": 100, "tier": "later", "log": true, "why": "스텝 중 몸통 과제 가중치 — QP" },
+    { "path": "stepping.trunk.wAng", "lo": 0.01, "hi": 0.3, "tier": "later", "log": true, "why": "스텝 중 각운동량 가중치 — QP" },
+    { "path": "stepping.swing.kp", "lo": 120, "hi": 500, "tier": "later", "log": true, "why": "스윙발 PD — QP" },
+    { "path": "balance.wb.armReflex.degPerMs", "lo": 100, "hi": 500, "tier": "later", "why": "팔 반사 — 균형 제어기" },
+    { "path": "balance.wb.armMomentum.weight", "lo": 0.2, "hi": 5, "tier": "later", "log": true, "why": "팔 각운동량 가중치 — QP" },
+    { "path": "balance.wb.torso.kp", "lo": 15, "hi": 60, "tier": "later", "log": true, "why": "서기 몸통 이득 — QP" },
+    { "path": "muscles.kpScale", "lo": 500, "hi": 1300, "tier": "later", "log": true, "why": "근육 강성 — 추종기" }
+  ],
+
+  "$constraints": "a < b − gap (실제 값). 어기면 시뮬을 돌리지 않고 penalty × 위반량 + 큰 값",
+  "constraints": [
+    { "lt": ["reaction.style.danger.d0", "reaction.style.danger.d1"], "gap": 0.06 },
+    { "lt": ["stepping.duration.min", "stepping.duration.max"], "gap": 0.1 },
+    { "lt": ["reaction.style.blendIn", "reaction.style.blendOut"], "gap": 0.0 }
+  ],
+
+  "$objective": "실행 하나 비용 = fail·(기대값 실패) + fall·(넘어지면 안 되는 시나리오에서 넘어짐) + explode·폭발 + 품질 가중합. 품질 항은 그 시나리오의 사람 레퍼런스 값(h, config/qualityTargets.json의 refs에서 계산)에 대한 비: armElev·max(0, ln(팔 들림 p90 / h)) + armLate·max(0, 늦은 팔 들림 비율 − h) + armUsage·|ln(팔 사용 / h)| + trunk·|ln(몸통 최대 / h)| (사람보다 적어도 로봇 같으므로 양쪽) + landing·(착지 오차 / landingNorm) + ref·(관절 RMS / refNorm). 후보 비용 = 실행 평균. boundPenalty·(경계 밖 거리²)",
+  "objective": {
+    "fail": 4.0,
+    "fall": 4.0,
+    "explode": 20.0,
+    "armElev": 1.0,
+    "armLate": 1.0,
+    "armUsage": 1.0,
+    "trunk": 1.0,
+    "landing": 0.5,
+    "landingNorm": 0.05,
+    "ref": 1.0,
+    "refNorm": 30.0,
+    "window": 2.5,
+    "boundPenalty": 20.0,
+    "constraintPenalty": 200.0,
+    "infeasible": 50.0
+  },
+
+  "$sets": "학습 세트 = 서서 받는 몸통 반응 시나리오 × 시드(근처 입력: 세기 ±5%·방향 ±5°, simCommon.jitterScenario)를 세대마다 바꿔 씀(같은 세대 후보는 같은 시드 = 공통 난수). 검증 세트 = ① 같은 시나리오, 다른 시드(seedBase가 다름), 다른 충격 크기(magScale) ② 학습에 안 쓴 시나리오(holdout). 최종값은 검증 비용으로 고른다 (README 결정 165: 시드 1은 혼돈적 추첨이라 시드 묶음 통계로 판정).",
+  "train": {
+    "scenarios": ["push_back_medium", "push_front_medium", "push_left_medium", "push_right_medium", "push_diag_medium", "push_back_small", "push_front_small", "push_twice", "shot_chest_stagger_clutch", "hit_melee_back", "hit_melee_side"],
+    "seedsPerGen": 6,
+    "seedBase": 1001
+  },
+  "validation": {
+    "seeds": 6,
+    "seedBase": 5001,
+    "magScale": [0.85, 1.15],
+    "holdout": ["push_left_small", "push_right_small", "push_front_light", "push_back_light", "push_while_stepping", "push_left_crossstep", "injured_leg_push", "hit_bullet_chest", "shot_shoulder_spin", "rail_grab", "two_characters_collide", "walk_push_side"],
+    "holdoutSeeds": 6
+  },
+
+  "$refs": "시나리오별 사람 레퍼런스(관절 RMS·팔·몸통 기대값). 반응 클립 = Kimodo 반응 클립 라이브러리(assets/poses/reaction, 이름의 방향 = 밀려 가는 쪽, s05/s08/s11 = Δv 0.5/0.8/1.1)에서 같은 방향·가까운 세기 칸의 클립들. 시나리오의 reference(밀림 조사 등)가 있으면 그것도 더한다. 관절 RMS는 레퍼런스들 중 최솟값, 팔·몸통 기대값은 중앙값",
+  "refs": {
+    "push_back_medium": ["react_back_s08_*"],
+    "push_front_medium": ["react_front_s08_*"],
+    "push_left_medium": ["react_left_s08_*"],
+    "push_right_medium": ["react_right_s08_*"],
+    "push_diag_medium": ["react_backright_s08_*"],
+    "push_back_small": ["react_back_s05_*"],
+    "push_front_small": ["react_front_s05_*"],
+    "push_twice": ["react_back_s05_*"],
+    "shot_chest_stagger_clutch": [],
+    "hit_melee_back": ["react_front_s05_*"],
+    "hit_melee_side": ["react_right_s05_*"],
+    "push_left_small": ["react_left_s05_*"],
+    "push_right_small": ["react_right_s05_*"],
+    "push_front_light": [],
+    "push_back_light": [],
+    "push_while_stepping": ["react_front_s08_*"],
+    "push_left_crossstep": [],
+    "injured_leg_push": ["react_front_s05_*"],
+    "hit_bullet_chest": [],
+    "shot_shoulder_spin": [],
+    "rail_grab": [],
+    "two_characters_collide": ["react_front_s08_*"],
+    "walk_push_side": []
+  },
+
+  "$cma": "sigma0 = 정규화 좌표 [0,1]의 표준편차. 기본값이 손으로 맞춘 국소 최적 근처라 지역 탐색(0.15): 0.2 시험(smoke)에서 표본 중앙 비용이 기본의 1.7배(넘어짐 0 → 27%)였다",
+  "cma": { "sigma0": 0.15, "seed": 9 },
+  "$workers": "기본 워커 수 = 논리 코어 수 / 2 (다른 에이전트도 sim을 돌린다)",
+  "workersFraction": 0.5,
+  "validateTop": 5
+}

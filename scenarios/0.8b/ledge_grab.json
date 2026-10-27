@@ -1,0 +1,66 @@
+{
+  "name": "ledge_grab",
+  "milestone": "0.8b",
+  "description": "SPEC 9.2 v0.8b: 3m 받침 끝에 받침 안쪽(−Z)을 보고 뒤꿈치가 모서리 가까이 서 있다가 1초에 앞에서 Spine2를 뒤(+Z, 낭떠러지 쪽)로 Δv 0.5 밀림 → 뒤로 헛디디며 주저앉고 두 손을 모서리로 뻗음(잡기) → 기대: 모서리를 잡고 매달림(발로 벽 짚기). 지금은 손이 모서리에 닿지 못하고 떨어진다(알려진 문제).",
+  "duration": 6,
+  "seed": 1,
+  "terrain": "ledge",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      3,
+      -0.18
+    ],
+    "yaw": 3.141592653589793,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          0,
+          0,
+          1
+        ],
+        "magnitude": 0.5,
+        "duration": 0.15
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "metrics": {
+      "assistUsage.root": {
+        "max": 0
+      },
+      "assistUsage.pin": {
+        "max": 0
+      },
+      "grabbed": {
+        "min": 1
+      },
+      "hangTime": {
+        "min": 1
+      },
+      "grabSlipMax": {
+        "max": 0.03
+      }
+    }
+  },
+  "knownIssue": "README 결정 176(173 이어서): 등 뒤 모서리 장면은 ledge_fall_back으로 분리(떨어지는 것이 사람다운 결과). 사람이 실제로 매달리는 장면으로 다시 정하려고 (a) 옆·비스듬히 서서 밀려 헛디딤 (b) 낭떠러지를 보고 밀려 앞으로 (c) 경사 지붕 미끄러짐 (d) 쪼그려 손 짚은 채 밀림을 물리로 시험했으나 아직 사람답게 매달리는 장면이 나오지 않았다 — 손이 모서리에 닿으려면 어깨가 0.6m 안으로 내려와야 하는데, 선 자세에서는 그만큼 떨어지는 동안 4.5 m/s(손아귀로 못 버팀)이거나 몸이 손 둘레로 바깥으로 돈다. 쪼그림·엎드림으로 시작하는 장면은 지금 균형 계층이 그 자세를 버티지 못해 막힘"
+}

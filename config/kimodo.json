@@ -1,0 +1,71 @@
+{
+  "$comment": "Kimodo 파이프라인 설정 (SPEC 11.3, docs/KIMODO.md). tools/kimodo/*가 읽는다. sim은 읽지 않는다.",
+  "servers": {
+    "rp12": { "url": "http://127.0.0.1:5310", "model": "Kimodo-SOMA-RP-v1.2", "label": "RP-v1.2" },
+    "seed11": { "url": "http://127.0.0.1:5311", "model": "Kimodo-SOMA-SEED-v1.1", "label": "SEED-v1.1" }
+  },
+  "request": {
+    "$comment": "요청 기본값. timeoutS는 텍스트 인코더 첫 로드(최대 수 분)를 덮는다. 실패 시 retries번 다시 보낸다(간격 retryDelayS × 시도 횟수).",
+    "fps": 30,
+    "diffusion_steps": 100,
+    "postprocess": true,
+    "bvh_standard_tpose": true,
+    "timeoutS": 900,
+    "retries": 3,
+    "retryDelayS": 10
+  },
+  "retarget": {
+    "$sourceAnkleHeight": "SOMA 발목(LeftFoot 관절)이 발바닥을 평평히 디뎠을 때의 높이(m). 2026-10-26 RP-v1.2·SEED-v1.1 서기 생성에서 실측 0.0706 (두 모델 같음)",
+    "sourceAnkleHeight": 0.0706,
+    "$dirBodies": "rest 분절 방향을 SOMA rest 분절 방향에 맞추는 바디 (팔·다리). 나머지는 rest 회전 그대로 (평평한 Kimodo 발 = 평평한 우리 발)",
+    "dirBodies": ["LeftArm", "LeftForeArm", "RightArm", "RightForeArm", "LeftUpLeg", "LeftLeg", "RightUpLeg", "RightLeg"],
+    "$hingeProject": "경첩 관절(무릎·팔꿈치)은 flex 축 회전만 남긴다 (우리 랙돌은 다른 축이 잠겨 있다)",
+    "hingeProject": true,
+    "$clampJoints": "축별 제한 안으로 자르는 관절. 손목 twist(±10°)는 Kimodo 전완 회내·회외를 받을 곳이 없어 자주 넘는다 (넘은 양은 점수 handClampDeg로 남긴다)",
+    "clampJoints": ["LeftHand", "RightHand"]
+  },
+  "contacts": {
+    "$comment": "Kimodo foot_contacts 깜빡임 정리: 이 길이(프레임)보다 짧은 접촉·비접촉 구간을 이웃 값으로 메운다",
+    "minRunFrames": 3,
+    "$geom": "라벨이 없어도 발바닥 높이 < geomHeightM 이고 발목 수평 속도 < geomSpeed(m/s)면 접촉으로 더한다 (걷기 양발 지지 구간 보충)",
+    "geomHeightM": 0.02,
+    "geomSpeed": 0.4
+  },
+  "footLock": {
+    "$comment": "접촉 구간마다 발목을 구간 평균 위치에 고정(다리 2링크 IK). 구간 앞뒤 blendFrames 프레임은 섞는다. 발바닥이 snapMaxM 안으로 떠 있거나 묻혀 있으면 y=0에 붙인다",
+    "enabled": true,
+    "blendFrames": 4,
+    "snapMaxM": 0.04
+  },
+  "loop": {
+    "$comment": "루프 구간 탐색 비용 = 자세 차이(m) + velWeight × 속도 차이(m/s). 이음매는 crossfadeFrames 프레임 크로스페이드",
+    "velWeight": 0.15,
+    "crossfadeFrames": 8
+  },
+  "fromPose": {
+    "$comment": "우리 포즈 → Kimodo 키프레임 검증 기준 (SPEC 11.3): 생성 0프레임 world_joint_positions 오차",
+    "maxFrame0ErrorM": 0.02
+  },
+  "score": {
+    "$comment": "종합 점수 = Σ weight × (지표 / scale). 낮을수록 좋다. scale은 '이만큼이면 1점'인 기준값",
+    "terms": {
+      "footSlideRawCmPerS": { "weight": 1.0, "scale": 2.0 },
+      "footLockCorrectionCm": { "weight": 0.5, "scale": 3.0 },
+      "penetrationCm": { "weight": 1.0, "scale": 2.0 },
+      "floatCm": { "weight": 0.5, "scale": 2.0 },
+      "jerkP95": { "weight": 1.0, "scale": 400.0 },
+      "limitViolationDegMean": { "weight": 1.0, "scale": 2.0 },
+      "retargetErrCm": { "weight": 0.5, "scale": 5.0 },
+      "seamPosCm": { "weight": 1.0, "scale": 3.0 },
+      "seamVelCmS": { "weight": 0.5, "scale": 30.0 },
+      "seamAccelCm": { "weight": 0, "scale": 1.0 },
+      "startPoseDeg": { "weight": 0.5, "scale": 10.0 },
+      "endPoseDeg": { "weight": 0.5, "scale": 10.0 },
+      "expectPenalty": { "weight": 3.0, "scale": 1.0 }
+    }
+  },
+  "film": {
+    "$comment": "film:clip 렌더 표시. compareScale = 비교 이미지에서 필름스트립 축소 비율",
+    "compareScale": 0.75
+  }
+}

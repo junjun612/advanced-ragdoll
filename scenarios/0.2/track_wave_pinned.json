@@ -1,0 +1,47 @@
+{
+  "name": "track_wave_pinned",
+  "milestone": "0.2",
+  "description": "Hips 고정, stand에서 0.5초에 wave 클립(오른팔 1 Hz 흔들기) 목표 추종. 추종 지표는 1초 이후(워밍업) 구간",
+  "duration": 6.0,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0.3,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand",
+    "pin": [
+      "Hips"
+    ]
+  },
+  "clip": "stand",
+  "stepping": false,
+  "events": [
+    {
+      "t": 0.5,
+      "type": "playClip",
+      "clip": "wave"
+    }
+  ],
+  "cameras": [
+    "front",
+    "side"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "metrics": {
+      "trackErrorMeanDeg": {
+        "max": 8
+      },
+      "trackLag": {
+        "max": 0.1
+      }
+    }
+  }
+}

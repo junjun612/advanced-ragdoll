@@ -1,0 +1,58 @@
+{
+  "name": "slope20_push_downhill",
+  "milestone": "0.8a",
+  "$added": "추가 시나리오 (v0.8a 품질 확인용, SPEC 9.2 목록에는 없음): 내리막 쪽으로 밀림",
+  "description": "20° 내리막(정면 −Z가 아래쪽)에 아래를 보고 서 있다가(발목을 굽혀 발바닥을 경사면에 맞춘 자세) 1초에 등 뒤에서 Spine2를 앞(내리막 쪽)으로 중간 충격(medium) → 경사에 맞춰 발을 디디며 내리막으로 달려 내려가다가 넘어질 수 있다(내리막에서는 COM이 지면을 따라 내려가며 계속 가속된다). 폭발 없음.",
+  "duration": 5,
+  "seed": 1,
+  "terrain": "slope20",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      -0.04,
+      0
+    ],
+    "yaw": 3.141592653589793,
+    "state": "Active",
+    "pose": "stand_slope20_down",
+    "levelFeet": false
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          0,
+          0,
+          -1
+        ],
+        "magnitude": "medium",
+        "duration": 0.15
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "metrics": {
+      "assistUsage.root": {
+        "max": 0
+      },
+      "assistUsage.pin": {
+        "max": 0
+      }
+    }
+  }
+}

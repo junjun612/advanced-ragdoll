@@ -1,0 +1,24 @@
+{
+  "name": "shot_belly_clutch_kneel",
+  "milestone": "0.5b",
+  "description": "SPEC 9.2 v0.5b 대표 장면: 배(Spine 앞, 오른쪽)에 0.5초 간격 총탄 3발 → 맞을 때마다 피해 누적으로 하체 힘 상한이 떨어짐 → 상처를 움켜쥔 채 무릎을 꿇음. SPEC 기대값은 'kneeled true 또는 넘어짐'(kneeledOrFell) — 시드 1은 무릎을 꿇고(kneeled, fell 아님) 유지, 근처 입력 일부는 다리가 풀려 주저앉으며 넘어진다.",
+  "duration": 6,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": { "position": [0, 0, 0], "yaw": 0, "state": "Active", "pose": "stand" },
+  "clip": "stand",
+  "assist": { "root": false },
+  "events": [
+    { "t": 1.0, "type": "hit", "hit": { "type": "bullet", "body": "Spine", "point": [-0.06, 1.18, 0.4], "direction": [0, 0, -1], "magnitude": 0.3 } },
+    { "t": 1.5, "type": "hit", "hit": { "type": "bullet", "body": "Spine", "point": [-0.03, 1.16, 0.4], "direction": [0, 0, -1], "magnitude": 0.3 } },
+    { "t": 2.0, "type": "hit", "hit": { "type": "bullet", "body": "Spine", "point": [-0.08, 1.2, 0.4], "direction": [0, 0, -1], "magnitude": 0.3 } }
+  ],
+  "cameras": ["side", "front"],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "kneeledOrFell": true,
+    "metrics": { "assistUsage": { "max": 0 }, "clutchHoldTime": { "min": 1.5 } }
+  }
+}

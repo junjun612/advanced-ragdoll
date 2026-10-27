@@ -1,0 +1,71 @@
+{
+  "name": "getup_side",
+  "milestone": "0.7",
+  "description": "SPEC 9.2 v0.7: 1.09초에 오른쪽 1.35m 지면 폭발(Δv 7.9, 라이브러리 수집 시드 24와 같은 사건) → 왼쪽으로 날아가 구른 뒤 옆으로 누움(옆 분류) — 밀기로는 옆으로 누운 채 멈추는 경우가 드물어(쓰러진 뒤 등·배로 구름) 폭발로 만든다 → 누워 안정된 뒤 지연 → 포즈 매칭 → 겟업 → 균형·스텝 → Idle.",
+  "duration": 15,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1.0876,
+      "type": "hit",
+      "hit": {
+        "type": "explosion",
+        "point": [
+          1.3371,
+          0.1,
+          -0.2298
+        ],
+        "direction": [
+          0,
+          0,
+          0
+        ],
+        "magnitude": 7.9
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "expect": {
+    "exploded": false,
+    "fell": true,
+    "metrics": {
+      "getupSuccess": {
+        "min": 1
+      },
+      "getupPostureSide": {
+        "min": 1
+      },
+      "getupGiveUp": {
+        "max": 0
+      },
+      "assistUsage.getup": {
+        "max": 900
+      },
+      "assistUsage.pin": {
+        "max": 0
+      },
+      "assistUsage.root": {
+        "max": 0
+      }
+    }
+  }
+}

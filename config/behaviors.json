@@ -1,0 +1,246 @@
+{
+  "$comment": "행동 계층 (SPEC v0.5 '행동 프레임워크'). 정의: docs/ALGORITHMS.md v0.5a. 행동은 관절별 (목표 회전 또는 더하는 회전, 가중치, 강도 배율), 균형 모드, 스텝 허용, 손 IK 목표, 시선 목표를 낸다. 관절마다 레이어 낮은 것부터 차례로 가중치만큼 덮어쓴다(같은 레이어는 이름 순). trigger(name, params)의 params가 아래 기본값을 덮는다.",
+  "$reactionDelay": "감지 지연(초, SPEC 0.08~0.15): 피격 → 의도적 반응(움찔·손 뻗기) 시작. 근육 PD의 수동 반응과 힘 빠짐은 즉시.",
+  "reactionDelay": 0.08,
+  "$transitionTime": "행동 켜짐·꺼짐 블렌드 시간(초, SPEC 0.1~0.2). 가중치는 smoothstep으로 0↔1.",
+  "transitionTime": 0.15,
+  "$layers": "우선순위 레이어 (클수록 위). Balance(클립·서기 포즈)는 0.",
+  "layers": { "Balance": 0, "LookAt": 1, "InjuredLeg": 2, "Stagger": 3, "HitReaction": 4, "HoldWound": 5, "BlastStun": 5.2, "Kneel": 5.5, "BraceForFall": 6, "Flail": 6.2, "PrepareLanding": 6.6, "ProtectHead": 7, "Roll": 7.5, "CatchFall": 8, "Writhe": 8.5, "Limp": 9, "StairStep": 1.5, "Trip": 4.5, "Misstep": 6.1, "Tumble": 7.6, "BraceAgainstWall": 7.05, "HangOnLedge": 7.1, "Grab": 7.3 },
+  "$koreanNames": "필름스트립·앱 표시용 한글 이름",
+  "koreanNames": { "Balance": "균형", "LookAt": "바라보기", "InjuredLeg": "다리 부상", "Stagger": "비틀거림", "HitReaction": "피격 반응", "HoldWound": "상처 움켜쥐기", "BraceForFall": "넘어짐 대비", "ProtectHead": "머리 보호", "CatchFall": "손 짚기", "Kneel": "무릎 꿇기", "Limp": "늘어짐", "Flail": "공중 허우적", "PrepareLanding": "착지 준비", "Roll": "구르기", "Writhe": "몸부림", "BlastStun": "폭풍 충격", "StairStep": "계단 디딤", "Tumble": "굴러 내려감", "Trip": "걸림", "Misstep": "헛디딤", "Grab": "잡기", "HangOnLedge": "매달리기", "BraceAgainstWall": "벽 짚기" },
+
+  "$HitReaction": "맞은 바디의 관절(자식 바디 이름 = 관절 이름)과 인접 관절(부모 관절·자식 관절)의 strength를 weakOnset초 뒤 weakScale·neighborScale배로 낮추고 weakHold초 유지한 뒤 recoverTime초(강도에 따라 [약, 강] 사이)에 걸쳐 회복. 반응 강도 k = min(1, Δv/intensityRefDv). 의도 반응(reactionDelay 뒤): 몸통을 맞은 쪽으로 굽힘(맞은 점이 오목한 쪽이 되게, 척추 둘에 나눠 flinchDeg·k), 머리 숙임, 맞은 점이 몸 옆이면 충격 비틀림 방향으로 몸통 비틀기 twistDeg·k, 무릎이 꺾이며 COM을 comDrop·k m 낮췄다가(rise·hold·fall초) 돌아옴, 다리 strength를 legScale배로 잠깐(legDip초). duration초 뒤 꺼짐.",
+  "HitReaction": {
+    "weakScale": 0.3,
+    "neighborScale": 0.75,
+    "weakOnset": 0.03,
+    "weakHold": 0.08,
+    "recoverTime": [0.3, 0.45],
+    "legScale": 0.8,
+    "legDip": 0.25,
+    "flinchDeg": 14,
+    "headFlinchDeg": 12,
+    "twistDeg": 25,
+    "flinchRise": 0.12,
+    "flinchHold": 0.6,
+    "flinchFall": 0.5,
+    "comDrop": 0.03,
+    "comDropRise": 0.12,
+    "comDropHold": 0.15,
+    "comDropFall": 0.5,
+    "duration": 1.4,
+    "tiltAllowDeg": 20,
+    "trunkBrace": 2.5
+  },
+
+  "$Stagger": "비틀거림: 피격(근접 타격, 또는 staggerMinDv 이상 총탄) 뒤 window초 안에 반응 스텝이 시작되거나, 스텝 계층이 maxSteps(3) 뒤에도 못 따라잡으면(stagger 이벤트) 켠다. 켜진 동안 스텝마다 시간 ×(1 ± irregular.duration), 넘침 ± irregular.overshoot m, 옆 ± irregular.lateral m (시드 PRNG 'stagger'), 몸통 과제 이득 ×trunkGainScale(상체 강성 낮춤), 최대 maxSteps 걸음. 스텝 계층이 서기로 돌아오면 꺼짐(실패 시 BraceForFall은 v0.5b — 지금은 Balance 유지).",
+  "Stagger": {
+    "window": 1.0,
+    "maxSteps": 6,
+    "trunkGainScale": 0.85,
+    "irregular": { "duration": 0.2, "overshoot": 0.04, "lateral": 0.03 }
+  },
+
+  "$HoldWound": "상처 움켜쥐기: 손 고르기(SPEC 세부 규칙) → 손바닥 점(손 바디 원점 + palmLocal)을 상처 점 + 표면 법선 × (palmClear) 위치로, 손바닥(-Y)이 상처를 향하고 손가락은 팔 방향을 이어가게. 목표는 맞은 바디 로컬에 고정이라 몸을 따라간다. 시작 손바닥 위치에서 목표까지 reachTime초 최소 저크 궤적. 팔은 2관절 IK 자세 목표 + 전신 QP 손 과제(위치·방향, task), 몸통은 상처 쪽으로 웅크림(regions). 시선은 상처로(gazeWeight). duration초 뒤 놓음. intensity가 웅크림·과제 가중치에 곱해진다. reach: 어깨에서 상처까지 거리가 팔 길이 × maxReach를 넘으면 그 손은 못 씀(몸통을 굽히는 부위 thigh는 굽힌 뒤 기준으로 legReach).",
+  "HoldWound": {
+    "duration": 4.0,
+    "intensity": 1.0,
+    "reachTime": 0.22,
+    "reachSpeed": 2.8,
+    "$relaxPer40Deg": "부위 웅크림(척추+고관절 굽힘) 40°마다 서 있을 때 스텝 문턱을 이만큼(m) 늦춘다 — 허벅지를 쥐려고 숙이면 COM이 앞으로 가서 스텝이 계속 나왔다",
+    "relaxPer40Deg": 0.04,
+    "$guardArm": "(지금 끔: null — 감싼 팔과 건너오는 반대 팔이 부딪혀 둘 다 엉켰다, 결정 75) 맞은 팔을 몸에 붙여 감싸는 자세: 그 손바닥을 Spine 바디 로컬 점(x는 그 팔 쪽 +)으로 IK (그 팔 쪽 배 앞 — 가운데로 보내면 배에 막혀 옆구리에 끼었다). 위팔이 앞으로 나와야 반대 손이 위팔 앞을 쥘 수 있다 팔을 맞으면 그 팔은 쥘 수 없고(반대 손이 쥔다), 맞은 팔이 뒤로 젖혀진 채면 반대 손이 상처에 닿지 않았다",
+    "guardArm": null,
+    "$crossBulge": "손 궤적 가운데를 몸 앞으로 내미는 양 = 옆 이동 거리 × crossBulge (반대편 어깨·팔로 건너가는 손이 배에 막혀 멈췄다)",
+    "crossBulge": 0.5,
+    "$maxWrapDeg": "팔다리 상처는 손바닥으로 감싸 쥔다: 상처 법선이 쥐는 손 어깨 쪽 방향에서 이 각(도)보다 더 돌아가 있으면 그만큼만 어깨 쪽으로 돌린 같은 높이의 표면 점을 쥔다",
+    "maxWrapDeg": 70,
+    "maxReachTime": 0.6,
+    "palmLocal": [0, -0.028, 0],
+    "palmClear": 0.012,
+    "maxReach": 1.05,
+    "costSameSide": 0,
+    "costOtherSide": 0.6,
+    "costMidline": 0.05,
+    "costBusy": 2.0,
+    "midlineHalfWidth": 0.05,
+    "preferRight": 0.01,
+    "elbowPole": [0.7, -1.0, -0.4],
+    "task": { "kp": 250, "kd": 32, "weight": 30, "rotKp": 60, "rotKd": 12, "rotWeight": 1.5, "handReg": 0 },
+    "gazeWeight": 0.5,
+    "$freeArm": "쥐지 않는 팔: 균형 팔 반사(앞뒤 휘두름)를 reflexScale배로 줄이고 옆으로 abductDeg 벌린다(손을 뻗기 시작한 뒤 hold초 유지, release초에 걸쳐 내림) (SPEC 대표 장면 '다른 팔은 균형을 잡으려 벌어짐'). 반사를 그대로 두면 뒤로 밀릴 때 팔이 앞으로 수평으로 뻗은 채 0.5초 남아 어색했다. (v0.5b) loose(0~1): 쥐지 않는 팔을 전신 QP 토크에서 빼고 근육 모터(kp × looseMotorScale) + 중력 보상만으로 둔다 — 비틀거리는 동안 팔이 수동으로 흔들렸다가 rest로 돌아온다(QP가 팔을 각운동량 플라이휠로 쓰면 팔꿈치가 펴진 채 옆으로 뻣뻣하게 들렸다). looseReg: QP가 그 팔 가속도를 계획하지 않게 하는 정규화.",
+    "freeArm": { "reflexScale": 0.4, "abductDeg": 14, "hold": 0.0, "release": 0.35, "loose": 0.7, "looseMotorScale": 0.5, "looseReg": 30, "parts": ["ForeArm", "Hand"] },
+    "$regions": "부위별 웅크림(도): 척추 Spine·Spine2 굽힘(앞+), 상처 쪽 옆 굽힘·비틀기, 고관절·무릎 굽힘(허벅지 — v0.0 스파이크: 같은 쪽 허벅지는 몸통 37.5° 이상 숙여야 닿음). reach = 그 부위에 손이 닿는지 볼 때 몸통을 굽힌 뒤로 볼지",
+    "regions": {
+      "chest": { "spineFlex": 4, "spine2Flex": 12, "sideDeg": 4, "twistDeg": 6, "hipFlex": 0, "kneeFlex": 0, "headFlex": 14 },
+      "belly": { "spineFlex": 12, "spine2Flex": 12, "sideDeg": 4, "twistDeg": 4, "hipFlex": 8, "kneeFlex": 8, "headFlex": 14 },
+      "shoulder": { "spineFlex": 3, "spine2Flex": 6, "sideDeg": 6, "twistDeg": 8, "hipFlex": 0, "kneeFlex": 4, "headFlex": 8 },
+      "arm": { "spineFlex": 3, "spine2Flex": 6, "sideDeg": 4, "twistDeg": 6, "hipFlex": 0, "kneeFlex": 4, "headFlex": 10 },
+      "head": { "spineFlex": 4, "spine2Flex": 6, "sideDeg": 0, "twistDeg": 0, "hipFlex": 0, "kneeFlex": 6, "headFlex": 18 },
+      "thigh": { "spineFlex": 12, "spine2Flex": 12, "sideDeg": 4, "twistDeg": 4, "hipFlex": 20, "kneeFlex": 14, "headFlex": 16 }
+    },
+    "$bodyRegion": "맞은 바디 → 부위. Spine2는 어깨 높이(상처 y가 Spine2 원점 + shoulderY 위)이고 옆이면 shoulder",
+    "bodyRegion": { "Spine2": "chest", "Spine": "belly", "Hips": "belly", "Head": "head", "LeftArm": "shoulder", "RightArm": "shoulder", "LeftForeArm": "arm", "RightForeArm": "arm", "LeftHand": "arm", "RightHand": "arm", "LeftUpLeg": "thigh", "RightUpLeg": "thigh" },
+    "shoulderY": 0.06,
+    "shoulderX": 0.12
+  },
+
+  "$InjuredLeg": "다리 부상: 그 다리(고관절·무릎·발목) 힘 상한 strengthCap(최대 토크·모터 최대 힘 배율 — 명령 토크를 통째로 줄이면 전신 QP가 모르는 약화라 디딘 다리가 꺾여 넘어졌다; 로그 strength = s × 상한), 서 있을 때 COM 목표를 성한 발 쪽으로 loadShift(두 발 사이 비율), 다친 무릎 kneeFlexDeg 더 굽힘. 스텝: 다친 발을 스윙발로 고르면 비용 +swingPenalty, 다친 발 스텝은 보폭 ×stepScale(짧게 디딤).",
+  "InjuredLeg": {
+    "strengthCap": 0.6,
+    "loadShift": 0.25,
+    "kneeFlexDeg": 8,
+    "swingPenalty": 3.0,
+    "stepScale": 0.6
+  },
+
+  "$LookAt": "바라보기: 머리 앞(+Z)이 대상으로 향하는 yaw·pitch를 목(Head)과 상체(Spine·Spine2 비틀기)에 headShare·spineShare로 나눈다. 목 제한(비틀기 ±60, 굽힘 −40~50) 안으로 자르고 넘치는 yaw는 상체로. 목표는 시정수 tau로 따라간다. 가중치 weight (낮음, 다른 행동이 위 레이어).",
+  "LookAt": {
+    "weight": 0.85,
+    "headShare": 0.8,
+    "spineShare": 0.2,
+    "maxYawDeg": 75,
+    "maxPitchDeg": 35,
+    "tau": 0.12
+  },
+
+  "$fall": "넘어짐 확실도 (v0.5b, docs/ALGORITHMS.md v0.5b): 세 항목의 최대 — DCM이 두 발 바닥(발 박스 바닥 꼭짓점 볼록 껍질) 밖으로 나간 거리 dcmStart→dcmFull m(한 걸음으로 못 닿는 거리; 스텝 최대 보폭 0.8~0.95m), 의도 숙임(tiltAllow)을 뺀 몸통 기울기 tiltStart→tiltFull 도(DCM이 바닥 가장자리 밖 tiltGate m일 때만), 하강 속도 ≥ dropVel m/s인 동안 COM 하강 dropStart→dropFull m. attack/release초 저역 통과, threshold 넘으면 BraceForFall. 방향 분류 kindDeg. 손 착지 예측: 넘어지는 쪽 바닥 끝 둘레 역진자를 어깨 높이가 handReach m가 될 때까지 적분(최대 maxPredict초), 착지점 = 그때 어깨 투영 + handForward m.",
+  "fall": { "dcmStart": 0.4, "dcmFull": 0.65, "tiltStart": 40, "tiltFull": 60, "tiltGate": [-0.02, 0.08], "dropStart": 0.2, "dropFull": 0.35, "dropVel": 0.5, "attack": 0.03, "release": 0.3, "threshold": 0.6, "kindDeg": 50, "handReach": 0.6, "handForward": 0.08, "maxPredict": 1.5, "descendProbe": 0.5, "descendMin": 0.1, "descendDcmRelax": 0.35 },
+
+  "$BraceForFall": "넘어짐 대비 (v0.5b): 균형·스텝 끔. 넘어지는 방향별 자세 poses(무릎·고관절 굽힘으로 낙하 높이를 줄임, 척추·머리 굽힘, 발목; 방향별 다리 강도 — 옆은 0.3으로 무릎이 꺾여 옆구리·엉덩이로 떨어지게)를 더하고 강도 legStrength(무릎이 꺾이게)·trunkStrength. 앞이면 두 손, 옆이면 넘어지는 쪽 손을 예측 착지점 쪽으로 팔 길이 × reach만큼 IK로 뻗음(손바닥 아래·손가락은 넘어지는 방향, 팔꿈치 힌트 elbowPole, 착지점 저역 통과 landTau초, 뻗는 방향 최대 각속도 aimSpeed rad/s). keepClutch면 상처를 쥔 손은 그대로. 착지(발 아닌 바디가 닿음) 뒤 restDelay초가 지나거나 COM 속도 < restSpeed가 restHold초 이어지면 대비 자세를 풀고(기본 자세 목표) restTime초에 restStrength까지 힘을 뺌(누움 — ProtectHead·CatchFall도 끝; 대비 자세를 붙든 채 누우면 다리를 허공에 든 채 굳어 있었다).",
+  "BraceForFall": {
+    "poses": {
+      "forward": { "kneeFlex": 25, "hipFlex": 20, "spineFlex": -6, "headFlex": -18, "ankleFlex": -10 },
+      "backward": { "kneeFlex": 75, "hipFlex": 65, "spineFlex": 24, "headFlex": 0, "ankleFlex": 0 },
+      "left": { "kneeFlex": 60, "hipFlex": 40, "spineFlex": 10, "headFlex": 0, "ankleFlex": 0, "legStrength": 0.3 },
+      "right": { "kneeFlex": 60, "hipFlex": 40, "spineFlex": 10, "headFlex": 0, "ankleFlex": 0, "legStrength": 0.3 }
+    },
+    "legStrength": 0.55,
+    "armStrength": 1.0,
+    "trunkStrength": 0.8,
+    "reach": 0.92,
+    "elbowPole": [0.6, -0.5, -0.8],
+    "landTau": 0.08,
+    "aimSpeed": 6,
+    "maxTargetRate": 12,
+    "keepClutch": true,
+    "restSpeed": 0.25,
+    "restHold": 0.3,
+    "restDelay": 0.5,
+    "legRelax": 0.25,
+    "restStrength": 0.2,
+    "restTime": 0.8,
+    "palmLocal": [0, -0.028, 0]
+  },
+
+  "$ProtectHead": "머리 보호 (v0.5b, 뒤·옆 넘어짐): 턱 당기기 chinTuckDeg(목 굽힘), 옆이면 머리를 위쪽으로 headSideDeg, 척추 굽힘 spineFlexDeg(등을 둥글게). hands(뒤: 두 손, 옆: 넘어지는 반대쪽 손)의 손바닥을 머리 옆·앞(Head 로컬 guardLocal, x는 그 손 쪽)으로 IK — 팔꿈치는 앞(elbowPole).",
+  "ProtectHead": {
+    "chinTuckDeg": 38,
+    "headSideDeg": 18,
+    "spineFlexDeg": 16,
+    "guardLocal": [0.1, 0.02, 0.09],
+    "elbowPole": [0.3, -0.4, 1.0],
+    "armStrength": 1.0,
+    "maxTargetRate": 12,
+    "palmLocal": [0, -0.028, 0]
+  },
+
+  "$CatchFall": "손 짚기 (v0.5b): BraceForFall 중 손이 지면에 닿으면 그 팔의 팔꿈치를 absorbTime초에 elbowFlexDeg 더 굽혀 충격을 흡수하고, 팔 강도를 fadeDelay초 뒤 fadeTime초에 걸쳐 minStrength까지 낮춘다(버티다 서서히 내려놓음).",
+  "CatchFall": { "elbowFlexDeg": 55, "absorbTime": 0.25, "fadeDelay": 0.15, "fadeTime": 0.6, "minStrength": 0.3, "wristDeg": 0 },
+
+  "$Kneel": "무릎 꿇기 (v0.5b, SPEC 8.2 kneeling, README 결정): 피해 누적(damage.kneelBelow) 또는 trigger. 단계 stages(관절 좌표계 도, 단계마다 time초에 앞 자세 → 이 자세 smoothstep): ① 몸 숙임(균형 계층 켬 — COM 목표를 다각형 중심에서 발끝 쪽으로 comToToe, COM 높이 목표 comDrop m 낮춤, 스텝 끔) ② 무릎 내림(균형 끔: 무릎·발목 힘을 빼 kneeStrength·ankleStrength 무릎이 앞으로 꺾여 바닥에 닿음) ③ 무릎 닿음 ④ 몸 세움 — 무릎 120°·고관절 10°로 엉덩이를 뒤로 앉혀(허벅지가 뒤로 약 25°) COM을 무릎과 발끝 사이에 둔다(허벅지를 수직으로 세우면 내려앉을 때 남은 앞 운동량으로 앞으로 고꾸라졌고, 고관절 20° 이상이면 뒤로 넘어갔다). 첫 단계는 무릎이 닿거나 maxDescend초가 지나면 끝(그 뒤 단계는 그때부터). kneelBalance = 균형 계층이 꺼진 단계의 꿇은 자세 되먹임(무릎이 닿은 뒤): COM이 무릎→발끝 frac 지점보다 앞이면 무릎을 더 굽히고 고관절을 펴서 엉덩이를 뒤로.",
+  "Kneel": {
+    "stages": [
+      { "time": 0.4, "knee": 40, "hip": 30, "ankle": 25, "spine": 12, "legStrength": 1.0, "balance": true, "comToToe": 0.25 },
+      { "time": 0.2, "knee": 120, "hip": 30, "ankle": 0, "spine": 15, "legStrength": 1.0, "kneeStrength": 0.15, "ankleStrength": 0.1, "balance": false },
+      { "time": 0.25, "knee": 120, "hip": 10, "ankle": -10, "spine": 8, "legStrength": 0.8, "balance": false },
+      { "time": 0.35, "knee": 120, "hip": 10, "ankle": -10, "spine": 0, "legStrength": 1.0, "balance": false }
+    ],
+    "comDrop": 0.4,
+    "minComHeight": 0.3,
+    "maxDescend": 0.4,
+    "hipSide": 6,
+    "headDeg": 6,
+    "kneelBalance": { "frac": 0.35, "kp": 100, "kd": 20, "maxDeg": 20 }
+  },
+
+  "$Limp": "늘어짐 (v0.5b, 사망·기절): 균형·스텝 끔. 다리 strength → floor를 legTime초에, 몸통·팔·목은 upperDelay초 뒤 upperTime초에(무릎부터 무너지게), 무릎 목표 kneeFlexDeg 더 굽힘, 고개·척추·고관절을 slump만큼 앞으로 처지게(무릎이 꺾이며 엉덩이가 뒤로 빠질 때 상체가 뒤로 넘어가 머리부터 닿던 것). 다른 행동은 모두 끔.",
+  "Limp": { "floor": 0.05, "legTime": 0.15, "upperDelay": 0.12, "upperTime": 0.4, "kneeFlexDeg": 40, "slump": { "headDeg": 30, "spineDeg": 25, "hipDeg": 35 } },
+
+  "$damage": "피해 누적 (v0.5b): 총탄마다 하체 힘 상한 −= Δv × lowerPerDv[부위](HoldWound.bodyRegion), 회복 없음, 최저 floor. 다리 관절 힘 상한(capacity)으로 건다. kneelBelow 아래면 Kneel(비틀거림이 잦아든 뒤: 스텝 계층이 쉬고 COM 수평 속도 < kneelMaxSpeed m/s, 아니면 kneelWait초 뒤), limpBelow 아래면 Limp. 상한은 '서 있을 힘'이라 무릎을 꿇는 동안은 kneelCap까지만 깎는다(꿇은 자세는 다리 부하가 작다; 상한 0.5로는 꿇은 무릎이 140°까지 접혀 주저앉았다).",
+  "damage": { "lowerPerDv": { "belly": 0.55, "chest": 0.3, "shoulder": 0.1, "arm": 0.05, "head": 0.3, "thigh": 0.4 }, "floor": 0.1, "kneelBelow": 0.55, "limpBelow": 0.2, "kneelMaxSpeed": 0.25, "kneelWait": 1.0, "kneelCap": 0.85 },
+
+  "$air": "공중 감지·착지 예측 (v0.5c, docs/ALGORITHMS.md v0.5c): 지면 접촉이 minAirTime초 넘게 없고 COM 수직 가속도(accTau초 저역 통과)가 −freeFallAccel m/s² 아래(자유 낙하 — 고정 장치에 매달린 몸은 0이라 공중이 아니다)면 공중. 착지 예측: 몸을 강체로 보고 COM 탄도를 predictStep초 간격으로 maxPredict초까지 따라가며 지금 가장 낮은 바디 최저점 아래 지면을 레이캐스트, 처음 닿는 시각(선형 보간). 공중이고 착지 예측 ≥ flailMinTime초면 Flail(짧은 낙하는 허우적대지 않고 착지 준비만), ≤ prepareLead초면 PrepareLanding(감지 지연 0.08 + 전환을 빼도 착지 0.3초 전에 활성), ≤ rollLead초이고 예측 착지 수평 속도 ≥ rollSpeed m/s면 Roll. 착지 순간 수평 속도 ≥ rollSpeed, 또는 경사 rollSlopeDeg° 이상에서 rollSlopeSpeed m/s 이상이어도 Roll. minFlight초 이상 공중이었다가 닿은 것만 착지로 기록. 공중 행동은 공중 시간 + 착지 예측 ≥ minFlightTotal초인 비행에서만(큰 밀기로 넘어지며 발이 0.3초쯤 뜨는 것은 넘어짐 대비가 맡는다 — 이것까지 착지 준비·구르기로 넘기면 v0.5b의 주저앉으며 머리 감싸기가 뒤구르기로 바뀌었다; 1m 낙하는 0.45초). uprightDeg: 골반 위 방향이 이 각 안이면 발로 착지 준비.",
+  "air": { "minAirTime": 0.04, "freeFallAccel": 6.0, "accTau": 0.02, "predictStep": 0.0333, "maxPredict": 2.0, "uprightDeg": 50, "flailMinTime": 0.45, "prepareLead": 0.5, "rollLead": 0.25, "rollSpeed": 2.0, "rollSlopeDeg": 15, "rollSlopeSpeed": 1.0, "minFlight": 0.15, "minFlightTotal": 0.4 },
+
+  "$BlastStun": "폭풍 충격 (v0.5c, hitModel explosion.behaviors): 폭발을 맞은 순간(즉시, 수동 반응) 전 관절 강도를 scale배로 hold초 유지, recover초에 회복. 목표는 내지 않고 강도만 곱한다(위 레이어 Flail 강도에도 곱해짐). 이것이 없으면 서기 자세를 근육이 붙든 채 막대처럼 곧게 떠올랐다.",
+  "BlastStun": { "scale": 0.3, "hold": 0.12, "recover": 0.4 },
+
+  "$Flail": "공중 허우적 (v0.5c): 처음 startleTime초 놀람 반사(팔을 옆 abduct°·앞 flex°로 크게 벌림 — 떨어지거나 날아갈 때 사람이 팔을 뻗는 반사), 그 위에 채널(관절·좌우)마다 band Hz 안에서 다른 주파수의 시드 노이즈(noise.ts)를 noiseRise초에 키워 더함. 좌우 주파수가 달라 박자가 맞지 않는다(맞으면 춤처럼 보임). 균형·스텝 끔, 지면에 닿으면 끝. 진폭 단위 도.",
+  "Flail": {
+    "band": [0.6, 1.3],
+    "startleTime": 0.25,
+    "noiseRise": 0.3,
+    "arm": { "flex": 15, "flexAmp": 50, "abduct": 75, "abductAmp": 30, "twistAmp": 25, "elbow": 55, "elbowAmp": 35, "wristAmp": 20, "strength": 0.7 },
+    "leg": { "hip": 25, "hipAmp": 30, "side": 8, "sideAmp": 8, "knee": 40, "kneeAmp": 30, "ankle": 0, "ankleAmp": 10, "strength": 0.5 },
+    "trunk": { "spine": 5, "spineAmp": 12, "sideAmp": 10, "head": 10, "headAmp": 12, "headTwistAmp": 15, "strength": 0.6 }
+  },
+
+  "$PrepareLanding": "착지 준비 (v0.5c): 공중에서 착지 예측 ≤ air.prepareLead초. 골반이 서 있으면 다리를 지면 쪽으로 편다(legs: 고관절·무릎·발목·벌림, 나는 방향으로 고관절을 velGain°/(m/s)(≤ velMax°) 더 돌려 발이 COM을 받치게, 강도 strength). 몸이 기울어 있으면 body: 턱 당김·척추·고관절·무릎 굽힘. 팔은 벌림(arms, 가중치 weight — 아래 Flail이 조금 비침). 발(정강이)만 닿으면 absorb: 무릎 강도가 strength로 떨어졌다가 time초에 회복(착지 순간 무릎 강성을 낮춰 흡수), bendTime초에 무릎·고관절·발목·척추를 흡수 자세로 굽힘, time초 뒤 release초에 풀며 균형·스텝 계층에 넘김(흡수 중 균형 켬). 몸이 먼저 닿으면 land: hold초 버틴 뒤 restTime초에 누운 자세(lie)로 힘을 빼고 누움(몸부림 전까지 유지).",
+  "PrepareLanding": {
+    "legs": { "hip": 15, "knee": 20, "ankle": 5, "side": 6, "velGain": 8, "velMax": 20, "strength": 1.0 },
+    "body": { "chin": 30, "spine": 20, "hip": 50, "knee": 70 },
+    "arms": { "flex": 30, "abduct": 55, "elbow": 30, "weight": 0.75, "strength": 0.8 },
+    "absorb": { "strength": 0.35, "time": 0.35, "knee": 65, "hip": 50, "ankle": 25, "spine": 12, "bendTime": 0.15, "release": 0.3 },
+    "land": { "hold": 0.25, "restTime": 0.8 }
+  },
+
+  "$Roll": "구르기 (v0.5c): 착지 수평 속도가 크거나 경사면(air.rollSpeed·rollSlope*). 웅크림 tuck(척추 굽힘을 둘에 나눔, 턱 당김, 고관절·무릎 굽힘, 강도)과 두 손으로 머리 감싸기(Head 로컬 guardLocal, 팔꿈치 힌트 elbowPole, ProtectHead와 같은 IK). 닿은 뒤 minTime초 이상, COM 수평 속도 < endSpeed m/s이고 골반 수평 각속도 < endAngVel rad/s면(최대 maxTime초) releaseTime초에 웅크림을 풀며 누운 자세(lie)로 힘을 뺌.",
+  "Roll": {
+    "tuck": { "spine": 50, "chin": 45, "hip": 100, "knee": 120, "strength": 0.8, "armStrength": 0.9 },
+    "guardLocal": [0.1, 0.02, 0.09],
+    "elbowPole": [0.3, -0.4, 1.0],
+    "maxTargetRate": 12,
+    "palmLocal": [0, -0.028, 0],
+    "minTime": 0.4,
+    "maxTime": 2.5,
+    "endSpeed": 0.6,
+    "endAngVel": 1.5,
+    "releaseTime": 1.0
+  },
+
+  "$lie": "누운 자세 (v0.5c 공통): 착지(몸)·구르기 뒤 '누움'과 몸부림의 출발점. 관절 목표(도: 고관절·무릎·발목·척추·머리·어깨 앞·어깨 벌림(−면 몸에 붙임)·팔꿈치)와 강도(몸·팔). 팔은 거의 힘을 빼 바닥에 떨어지게. 서기 포즈를 약한 힘으로 붙든 채 누우면 엎드린 몸이 다리를 펴며 엉덩이를 들어 올렸고(머리·발로 버팀) 가벼운 팔은 허공에 떠 있었다.",
+  "lie": { "hip": 20, "knee": 30, "ankle": 0, "spine": 5, "head": 5, "armFlex": 10, "armSide": -15, "elbow": 25, "strength": 0.15, "armStrength": 0.06 },
+
+  "$writheStart": "몸부림 시작 (v0.5c): 누운 채(발·손·정강이가 아닌 바디가 지면에 닿고 COM 높이 < maxComHeight m) delay초가 지나고 COM 속도 < maxSpeed m/s면 Writhe(사망 Limp 제외).",
+  "writheStart": { "delay": 1.0, "maxComHeight": 0.5, "maxSpeed": 0.3 },
+
+  "$Writhe": "바닥 몸부림 (v0.5c): 아주 느린 시드 노이즈(band Hz)로 아파서 몸부림: 무릎을 끌어올림(leg: 고관절·무릎 굽힘과 진폭 — Kimodo lie_writhe_pain 고관절 약 60°·무릎 약 100°), 척추 웅크림·비틀기, 머리를 천천히 돌림(trunk), 손바닥은 상처(가까운 손; 다른 손은 상처 옆 7cm) 또는 상처가 없으면 배(Spine 앞 표면, 손마다 옆 bellyX m)를, 엎드려 있으면(가슴이 아래) 두 손으로 머리 옆(팔꿈치 힌트 headElbowPole)을 palmClear m 띄워 누르고 wander m만큼 느리게 움직임(hand, 팔 IK, 목표 변화 ≤ maxTargetRate rad/s). rise초에 자세로 들어감. 강도는 아주 낮음(strength). jointSpeedRange: SPEC 9.2 ground_writhe 판정(※) — Writhe 시작부터 5초 동안 관절 평균 각속도(°/s) 범위. Kimodo lie_writhe_pain 8개 시드의 누운 마지막 3초 관절 평균 각속도 중앙값 8.0, 범위 3.7~21.7 °/s(고른 s8 18.8)에서 정함(README 결정).",
+  "Writhe": {
+    "band": [0.1, 0.3],
+    "rise": 2.5,
+    "leg": { "hip": 55, "hipAmp": 15, "side": 8, "sideAmp": 6, "knee": 95, "kneeAmp": 15, "ankle": 10, "strength": 0.3 },
+    "trunk": { "spine": 15, "spineAmp": 8, "sideAmp": 6, "twistAmp": 6, "head": 10, "headAmp": 10, "headTwistAmp": 20, "headSideAmp": 8, "strength": 0.3 },
+    "hand": { "headElbowPole": [0.3, -0.4, 1.0], "bellyX": 0.07, "bellyY": 0.0, "palmClear": 0.015, "wander": 0.02, "strength": 0.4, "maxTargetRate": 3, "palmLocal": [0, -0.028, 0], "elbowPole": [0.8, -0.4, -0.2] },
+    "jointSpeedRange": [4, 25]
+  },
+  "$StairStep": "(v0.8a) 계단·경사 디딤: 평지가 아니면 바로 켜짐(지형은 늘 보인다). 스텝 계층 지형 디딤(stepping.json terrain)을 켜고, 다음 디딤 자리(스텝 목표)를 내딛는 동안 가중치 gazeWeight로 내려다본다 (서 있는 동안은 보지 않음 — 고개를 숙이면 경사에서 균형이 나빠졌다)",
+  "StairStep": { "gazeWeight": 0.35, "lookAhead": 0.8 },
+  "$Tumble": "(v0.8a) 굴러 내려감: 내리막(속도 방향 probe m 앞 지면이 min m 넘게 낮음)에서 발 아닌 바디가 닿은 채 COM 속도 ≥ startSpeed m/s, COM이 그 아래 지면에서 maxComHeight m 안 → 감지 지연 뒤 켜짐. 웅크림(tuck, 도)·턱 당김, 위쪽 손은 머리 감싸기(guardLocal Head 로컬), 어깨가 지면에 가까운 손은 내려가는 쪽 지면으로 뻗어 짚음(brace: 어깨에서 앞 forward·아래 down·옆 side 방향으로 팔 길이 × reach), 손 역할은 switchHold초 안에 다시 안 바꿈. COM 속도 < endSpeed가 endHold초(또는 maxTime) → releaseTime초에 누운 자세",
+  "Tumble": { "startSpeed": 1.0, "probe": 0.6, "min": 0.12, "maxComHeight": 0.8, "tuck": { "spine": 30, "chin": 35, "hip": 60, "knee": 80, "strength": 0.7 }, "guardLocal": [0.1, 0.02, 0.09], "guardPole": [0.3, -0.4, 1.0], "guardStrength": 0.8, "brace": { "forward": 0.6, "down": 1.0, "side": 0.4, "reach": 0.9, "strength": 0.6, "contactStrength": 0.25, "clear": 0.03, "pole": [0.6, -0.5, -0.8] }, "switchHold": 0.4, "braceMaxAngVel": 3.0, "maxTargetRate": 8, "wristStrength": 0.12, "palmLocal": [0, -0.028, 0], "endSpeed": 0.35, "endHold": 0.4, "maxTime": 6.0, "releaseTime": 1.0 },
+  "$Trip": "(v0.8a) 걸림: 걷는 중 스윙발이 장애물에 걸리면(api.ts 판정) 켜짐. 감지 지연 뒤 걸린 다리 고관절 liftHip·무릎 liftKnee(도)를 liftTime초 사다리꼴로 굽혀 들어 올림, 두 팔 앞 올림 armFlex·벌림 armAbduct·팔꿈치 elbow, 척추 spineExtend 젖힘, duration초 뒤 끝. 내딛기는 스텝 계층(비틀거림), 못 버티면 넘어짐 대비·손 짚기",
+  "Trip": { "liftHip": 45, "liftKnee": 60, "liftTime": 0.35, "armFlex": 70, "armAbduct": 25, "elbow": 30, "armStrength": 1.0, "spineExtend": 10, "duration": 1.2 },
+  "$Misstep": "(v0.8a) 헛디딤: 걷기 추종이 낭떠러지('void')로 넘기면 바로 켜짐. 균형·스텝 끔, 내딛던 다리 고관절 swingHip·무릎 swingKnee, 지지 다리 무릎 stanceKnee·발목 stanceAnkle·강도 stanceStrength(꺾임 — 곧은 지지 다리로 버티면 몸이 모서리 위에 남아 머리부터 돌아 떨어졌다), 팔 놀람(0.08초 뒤 0.2초에 앞 올림 armFlex·벌림 armAbduct·팔꿈치 elbow). 공중이 되거나 duration초면 끝",
+  "Misstep": { "swingHip": 30, "swingKnee": 15, "stanceKnee": 35, "stanceAnkle": -10, "stanceStrength": 0.35, "armFlex": 40, "armAbduct": 65, "elbow": 30, "duration": 0.8 },
+
+  "$grabSense": "(v0.8b) 잡을 곳·벽 인지 (perception.ts senseGrab·senseWall): 손마다 'grabbable' 잡을 곳(난간대 축·받침 윗모서리)에서 어깨에 가장 가까운 점이 팔 길이(어깨~손바닥) × maxReach 안이고 몸통 앞 성분(내적) ≥ minFront면 후보. 벽은 넘어지는 방향(넘어짐 확실도 ≥ wallDirCertainty면 그 방향, 아니면 COM 수평 속도 ≥ wallDirSpeed m/s의 방향)으로 wallFrom 바디에서 수평 레이 wallProbe m. 결과는 delay초 감지 지연선을 거쳐 행동 시작 판단에 쓴다 (사람 손 뻗어 잡기 반응 시작 100~140ms, Maki & McIlroy 1997) (v0.8c, README 결정 174) person: 다른 사람 몸통(bodies)도 벽 탐지 대상 — 레이를 wallFrom에 더해 person.from(어깨·머리)에서도 쏜다(사람은 좁아 가운데 레이 하나로는 비껴감), 맞은 바디 로컬 점·법선을 기억해 짚는 동안 따라간다. 다른 사람이 없으면 아무것도 바뀌지 않는다.",
+  "grabSense": { "person": { "bodies": ["Hips", "Spine", "Spine2"], "from": ["LeftArm", "RightArm", "Head"] }, "maxReach": 1.0, "crouchReach": 0.9, "edgeFacing": 0.3, "minFront": -0.35, "delay": 0.08, "wallProbe": 1.3, "wallFrom": ["Spine2"], "wallDirCertainty": 0.05, "wallDirSpeed": 0.25 },
+  "$grabStart": "(v0.8b) 잡기·벽 짚기 시작 (blender.autoStartGrab): 균형이 흔들림 = 피격 뒤 감지 지연(reactionDelay)~window초 안 + (스텝 계층이 내딛는 중, 넘어짐 확실도 ≥ certainty, 또는 COM 수평 속도 ≥ speed m/s) / 확실도 ≥ certaintyAny / 공중·헛디딤. 첫 손 = 가장 가까운 후보, 다른 손은 어깨 거리 ≤ 팔 길이 × secondHand일 때만(몸을 가로질러 뻗지 않음). 놓거나 못 잡은 손은 regrabDelay초 뒤 다시. 벽 레이 거리 ≤ wallMaxDist m면 벽 짚기, 끝난 뒤 wallCooldown초",
+  "grabStart": { "window": 1.5, "speed": 0.3, "certainty": 0.1, "certaintyAny": 0.3, "secondHand": 0.7, "edgeSecond": 0.15, "regrabDelay": 0.3, "wallMaxDist": 1.1, "wallCooldown": 1.0 },
+  "$Grab": "(v0.8b) 잡기: 손바닥 점(palmLocal)을 잡을 곳 목표(난간대: 축에서 반지름 + palmClear, 위쪽 railTopBias로 기울인 쪽에서 감아쥠 / 모서리: 윗면 안쪽 edgeInset, palmClear 위)로 최소 저크 궤적(Spine2 기준 시작점, 시간 = 거리/reachSpeed ∈ [reachTimeMin, reachTimeMax]) IK. 손바닥-목표 < gripDist(잡을 곳에 닿았으면 × touchScale)이고 손바닥 속도 < gripSpeed면 잡기 관절(joint: 직선 3축 힘 모터 kp·kd·축별 maxForce N, 회전 자유). giveUp초 안에 못 잡으면 포기. 잡은 뒤 팔 목표 = 어깨-손 거리 팔 길이 × holdReach(팔꿈치를 굽혀 몸을 끎 — 팔 근육으로만). 놓기: 추정 힘 > releaseForce N이 releaseForceHold초 / 미끄러짐 > releaseSlip m / 그 팔 강도 배율 < releaseStrength. 난간은 버텨 내면(스텝 없음·확실도 < recoverCertainty·COM 수평 속도 < recoverSpeed가 recoverHold초, 잡은 지 minHold초 뒤) 스스로 놓음",
+  "Grab": { "reachSpeed": 1.6, "reachTimeMin": 0.22, "reachTimeMax": 0.45, "giveUp": 0.9, "approach": 0.06, "approachIn": 0.03, "edgeBand": 0.12, "preTol": 0.08, "preWait": 0.0, "placeTime": 0.12, "palmPress": 0.02, "fingerForward": 1.0, "maxWristDeg": 60, "leadTime": 0.3, "relatch": 1.1, "crouch": { "start": 0.9, "range": 0.4, "hip": 95, "knee": 115, "ankle": 20, "spine": 35, "strength": 0.8 }, "palmClear": 0.004, "railTopBias": 1.2, "edgeInset": 0.05, "gripDist": 0.025, "touchScale": 2.4, "gripSpeed": 1.8, "joint": { "kp": 30000, "kd": 600, "maxForce": 900 }, "reachStrength": 1.0, "holdStrength": 1.0, "wristStrength": 0.6, "holdReach": { "rail": 0.8, "edge": 0.97 }, "releaseForce": 1050, "releaseForceHold": 0.12, "releaseSlip": 0.08, "releaseStrength": 0.35, "recoverCertainty": 0.1, "recoverSpeed": 0.2, "recoverHold": 0.6, "minHold": 1.2, "elbowPole": [0.6, -0.6, -0.5], "maxTargetRate": 14, "palmLocal": [0, -0.028, 0], "gazeWeight": 0.5, "task": { "kp": 400, "kd": 40, "weight": 40, "rotKp": 60, "rotKd": 12, "rotWeight": 1.5, "handReg": 0 } },
+  "$HangOnLedge": "(v0.8b) 매달리기: 모서리를 잡은 손이 있고 발이 떠 있으면 켜짐. 균형·스텝 끔. 엉덩이에서 잡은 점 쪽 수평 레이 wallProbe m 안에 받침 옆면(벽)이 있으면 다리 brace(고관절·무릎·발목 도, 강도) — 발로 벽 짚기, 없으면 dangle(힘 뺀 늘어뜨림). legBlend초로 바꿈. 척추 spineFlex, 머리 headFlex(−: 위로), 몸통 강도 trunkStrength, 잡은 점을 봄(gazeWeight)",
+  "HangOnLedge": { "wallProbe": 0.9, "brace": { "hip": 40, "knee": 70, "ankle": 10, "strength": 0.55 }, "dangle": { "hip": 10, "knee": 20, "ankle": 15, "strength": 0.25 }, "spineFlex": 6, "headFlex": -20, "trunkStrength": 0.6, "legBlend": 0.25, "gazeWeight": 0.5 },
+  "$BraceAgainstWall": "(v0.8b) 벽 짚기: 넘어지는 방향 벽이 앞이면 두 손, 옆(벽 법선·골반 옆 |내적| ≥ sideDot)이면 벽 쪽 손. 그 어깨가 벽에서 shoulderDist m 안이면 어깨로 받음(그 팔을 가슴 앞 tuckLocal로 접고 몸통 leanSide도 옆 굽힘). 손바닥 목표 = 어깨를 벽에 수직으로 내린 점 + 아래 palmDown + 바깥 palmSpread, 벽에서 palmClear 앞, 손바닥은 벽·손가락 위. 최소 저크(거리/reachSpeed ∈ [reachTimeMin, reachTimeMax]). 닿으면 absorbTime초 동안 팔꿈치 absorbFlex도 더 굽히며 absorbStrength(흡수) → holdStrength(버팀). COM 속도 < pushSpeed가 pushDelay초면 pushTime초에 어깨-손 거리를 팔 길이 × pushReach로(밀어내기). 밀어낸 뒤 스텝 없음·확실도 < endCertainty가 endHold초, 또는 maxTime초면 끝 (v0.8c, 결정 174) 사람을 짚을 때: person 값으로 덮음(손바닥 높이 palmDown, 몸 표면 2cm 안쪽 palmClear — 상대도 밀려 물러나므로 4cm 앞에 멈추면 닿지 않았다, 뻗기 최대 0.25초), 두 손은 넘어지는 방향 기준으로 고름, 닿기 전까지 전신 QP 손 과제 task(Grab과 같은 예외 — 비틀거리는 동안 QP가 팔을 각운동량·반사에 써서 관절 목표만으로는 머리가 먼저 닿았다), 닿음 = 손과 상대 콜라이더 Rapier 접촉 1cm 안, 버팀점은 상대 바디에 붙여 따라감. (결정 178) 사람을 밀어낸 뒤 엉덩이~짚은 점이 personalSpace m보다 가까우면 COM 목표를 상대에게서 stepBack m 떼어 한 걸음 물러난다(스텝 계층 걸음 수를 새로 셈).",
+  "BraceAgainstWall": { "person": { "palmDown": 0.1, "palmClear": -0.02, "reachTimeMax": 0.25 }, "personHalfWidth": 0.18, "stepBack": 0.2, "personalSpace": 0.6, "task": { "kp": 400, "kd": 40, "weight": 60, "rotKp": 60, "rotKd": 12, "rotWeight": 1.5, "handReg": 0 }, "reachSpeed": 2.0, "reachTimeMin": 0.16, "reachTimeMax": 0.35, "palmDown": 0.1, "palmSpread": 0.06, "palmClear": 0.04, "sideDot": 0.6, "shoulderDist": 0.22, "tuckLocal": [0.05, 0.05, 0.16], "tuckPole": [0.5, -1, 0], "leanSide": 10, "reachStrength": 1.0, "absorbFlex": 40, "absorbTime": 0.2, "absorbStrength": 0.45, "holdStrength": 0.85, "wristStrength": 0.3, "pushSpeed": 0.25, "pushDelay": 0.35, "pushTime": 0.6, "pushReach": 0.92, "endCertainty": 0.1, "endHold": 0.5, "maxTime": 3.5, "elbowPole": [0.7, -0.7, -0.2], "maxTargetRate": 14, "maxWristDeg": 60, "palmLocal": [0, -0.028, 0], "gazeWeight": 0.4 }
+}

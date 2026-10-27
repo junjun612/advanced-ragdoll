@@ -1,0 +1,42 @@
+{
+  "name": "stand_still",
+  "milestone": "0.3",
+  "description": "보조 없이 stand 포즈로 20초 서기 (SPEC 9.2 v0.3). 근육 + 균형 계층만",
+  "duration": 20.0,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "stepping": false,
+  "events": [],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      },
+      "jitter": {
+        "max": 1
+      }
+    }
+  }
+}

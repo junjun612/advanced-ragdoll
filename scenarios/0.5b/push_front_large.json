@@ -1,0 +1,24 @@
+{
+  "name": "push_front_large",
+  "milestone": "0.5b",
+  "description": "SPEC 9.2 v0.5b: 서 있다가 1초에 등 뒤에서 Spine2를 앞(+Z)으로 큰 충격(large, Δv 1.5) → 비틀거리며 내딛다가 넘어짐 확실 → 두 손을 뻗어 짚음(firstGroundContact = 손), 무릎을 굽혀 낙하 높이를 줄임. 레퍼런스: Kimodo fall_forward_hands.",
+  "duration": 5,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": { "position": [0, 0, 0], "yaw": 0, "state": "Active", "pose": "stand" },
+  "clip": "stand",
+  "assist": { "root": false },
+  "events": [
+    { "t": 1, "type": "hit", "hit": { "type": "push", "body": "Spine2", "direction": [0, 0, 1], "magnitude": "large", "duration": 0.15 } }
+  ],
+  "cameras": ["side", "front"],
+  "reference": "assets/kimodo/fall_forward_hands/rp12_s6/clip.json",
+  "expect": {
+    "exploded": false,
+    "fell": true,
+    "firstGroundContactIn": ["LeftHand", "RightHand"],
+    "fallDirection": { "dir": [0, 0, 1], "maxAngleDeg": 30 },
+    "metrics": { "assistUsage": { "max": 0 }, "braceLeadTime": { "min": 0.15 } }
+  }
+}

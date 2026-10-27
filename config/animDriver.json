@@ -1,0 +1,66 @@
+{
+  "$comment": "애니메이션 통합 (SPEC v0.6): 클립 재생(animDriver), 파워드 랙돌 상태 머신(states), 핀 보조(pin, 원칙 6의 명시적 보조), 애니 추종 걷기(walk). 정의: docs/ALGORITHMS.md v0.6. 길이 m, 시간 초, 각 도.",
+
+  "$driver": "클립 재생. blendTime: 관성화(전환 차이를 임계 감쇠 스프링으로 0까지, 크로스페이드 아님) 시간. soleDownHeight: 클립 FK 발바닥 꼭짓점이 이 높이 안이면 뒤꿈치·발끝이 닿은 것으로. diffDt: 기준 속도·가속도 중앙 차분 간격. phaseMatch: 위상 맞추기 비용 가중치(접촉 불일치 수, 두 발 상대 위치 m², 다리 관절 각 rad², 앞 속도 (m/s)²).",
+  "driver": { "blendTime": 0.3, "soleDownHeight": 0.02, "diffDt": 0.016666666666666666, "phaseMatch": { "contact": 1.0, "feet": 20, "joints": 2, "vel": 1 } },
+
+  "$states": "상태 전환 블렌드. toActive: Animated → Active 때 핀 강도 1 → 0(pinTime), 표시 가중치(물리) 0 → 1(renderTime). hitRenderTime: 피격으로 바뀔 때 표시 블렌드(핀 없음 — 반응 중 핀 0). toAnimated: Active → Animated 때 핀 0 → 1로 끌어당긴 뒤 키네마틱.",
+  "states": { "toActive": { "pinTime": 0.5, "renderTime": 0.3 }, "hitRenderTime": 0.1, "toAnimated": { "pinTime": 0.4, "renderTime": 0.4 } },
+
+  "$pin": "핀 보조 (SPEC v0.6, assist.pin): 바디를 애니 목표(질량 중심 위치·회전) 쪽으로 끄는 외력·토크, 가속도 수준 이득(F = s·w·m·(kp·Δx + kd·Δv), τ = s·w·I·(kpRot·Δθ + kdRot·Δω)). 허용 범위: Animated ↔ Active 전환 블렌드, 애니 추종(걷기·Idle) 중만. 피격·외란이면 decayTime 안에 0, 반응 중 0, 클립 위상으로 돌아오면 returnTime에 걸쳐 다시. trackingStrength: 추종 중 강도(0 = 전환 블렌드에서만). mode 'shape' = COM 기준 상대 위치·속도만 끈다(Σm·Δ = 0, 전신 COM에 알짜 힘 없음 — 균형은 걷기 제어가 맡음), 'full' = 월드 위치. 바디당 상한(허용 범위) |F| ≤ w·m·maxAccel, |τ| ≤ w·I·maxAngAccel. 사용량 = Σ|F| + Σ|τ|/usageLeverArm (N).",
+  "pin": {
+    "enabled": true,
+    "mode": "shape",
+    "kp": 100, "kd": 20, "kpRot": 100, "kdRot": 20,
+    "defaultWeight": 1.0,
+    "weights": {},
+    "maxAccel": 20, "maxAngAccel": 200,
+    "usageLeverArm": 1.0,
+    "decayTime": 0.1,
+    "returnTime": 0.5,
+    "trackingStrength": 0,
+    "$trackingByClip": "클립별 추종 중 핀 (README 결정): 뒤로 걷기는 전신 QP만으로는 10초를 못 버텨(근처 입력 4개 중 1~2) 약한 full 핀으로 메운다",
+    "trackingByClip": { "kimodo_walk_backward": { "strength": 0.1, "mode": "full" } }
+  },
+
+  "$animOverride": "애니 강제 비율 (사람 요청 시연 도구, README 결정 app-2): Character.setAnimOverride(w)로 켜는 PuppetMaster식 핀 오버라이드. 핀 보조(pin)와 같은 힘 식·이득·상한(가속도 수준)을 mode(full = 월드 위치)로 쓰고 강도 = w. 피격 반응·비틀거림·넘어짐 중에도 건다(기본 동작의 '피격 중 핀 0' 규칙 밖, 사람이 일부러 켜는 실험용). 레퍼런스 = 애니 클립 기준 자세, 클립이 없으면 fallbackPose 포즈를 지금 엉덩이 수평 위치·방향에 세운 자세(발바닥 = 지금 가장 낮은 발). default 0(꺼짐, 로그·결과 그대로). 시나리오 이벤트로는 쓸 수 없다. 사용량 assist.animOverride (N)",
+  "animOverride": { "default": 0, "mode": "full", "fallbackPose": "stand" },
+
+  "$walk": "애니 추종 걷기 (전신 QP, src/sim/character/walk.ts). com: DCM 추종 이득 kXi(1/s), 수직 PD(kpV 1/s², kdV 1/s), 원하는 CMP를 지지 다각형 밖 cmpOutside까지로 자름. angMom.damping: 클립 각운동량 쪽 감쇠(1/s, 가중치 wAng). 과제 이득: torso(Spine2)·pelvis(Hips) 방향 PD, posture 관절 PD(관절군별 가중치), swing 발 위치·방향 PD(clearance = 스윙 가운데 발 추가 높이), stanceFoot 발끝·뒤꿈치 지지 중 발 방향 PD(heelUpH: 클립 뒤꿈치가 이만큼 뜨면 발끝 지지로). footPlacement: 착지 때 DCM 오차 예측 × gain을 착지점에 더함(앞 maxFwd, 뒤 maxBack, 옆 maxLat, 지지발과 옆 간격 ≥ minWidth, 스윙 진행 freezeS 뒤 고정, 남은 시간 expCapT초까지만 예측, 디딘 발로 앵커를 맞출 때 일부러 옮긴 Δ의 [옆, 앞] pathKeep 몫은 앵커에서 빼서 경로를 지킨다). phase: 착지 시각 차이를 corrTime초에 재생 속도로 갚음(minRate~maxRate), 클립은 착지했는데 발이 떠 있으면 waitRate(maxWait초까지). phase.boost*: 옆 또는 앞(클립 진행 방향) DCM 오차가 boostE0를 넘고 스윙 앞쪽이면 다음 걸음을 서두름(재생 속도 ≤ boostMax, 루프 클립만). phase.lag*: 뒤처짐(진행 방향 오차 < −lagE0)이면 클립을 늦춤(1 − lagGain·(−e − lagE0), ≥ minRate). handover: DCM 오차(dcmError)·기울기·COM 높이가 넘으면 걷기 추종을 놓고 균형·스텝 계층(비틀거림)으로. 단 스윙발이 스윙 뒤쪽(s ≥ deferSwingS)이면 그 발이 디딜 때까지(dcmErrorHard 전까지) 기다린다. react.wLinHScale: DCM 오차가 e0~e1일 때 수평 운동량 추종 가중치 배율(작을수록 디딤·CMP에 맡김).",
+  "walk": {
+    "enabled": true,
+    "predictMeasured": true,
+    "$legNoCollide": "걷기 추종 중에만 끄는 충돌 쌍: 클립 걸음이 좁아(발 중심 간격 0.11~0.17m) 발 상자(폭 11cm)가 반대 정강이 캡슐(반지름 5.5cm)을 스쳐 스윙발이 멈췄다(뒤로 걷기 2.3 → 0.3 m/s). 사람 발·발목은 그보다 가늘다. 넘김(비틀거림)·서기에서는 다시 켠다. 옆 밀림 교차 디딤(crossMax)에서 무릎·허벅지가 엇갈리므로 정강이·허벅지 쌍(legNoCollideReact)도 끄되, 피격·밀기 뒤 legNoCollideReactHold초만 — 평소 걷기에서 끄면 다리가 안으로 모여 걸음이 무너졌다(앞으로 걷기 위상 변형 4개 중 2개 넘어짐)",
+    "legNoCollide": [["LeftFoot", "RightLeg"], ["RightFoot", "LeftLeg"], ["LeftFoot", "RightFoot"]],
+    "legNoCollideReactHold": 2.0,
+    "legNoCollideReact": [["LeftLeg", "RightLeg"], ["LeftUpLeg", "RightUpLeg"], ["LeftLeg", "RightUpLeg"], ["RightLeg", "LeftUpLeg"], ["LeftFoot", "RightUpLeg"], ["RightFoot", "LeftUpLeg"]],
+    "com": { "kXi": 2.0, "kpV": 100, "kdV": 20, "cmpOutside": 0.03, "maxHorizontalForce": 700, "dcmPlan": true, "dcmPlanLateralOnly": true, "cmpOffset": 0.0 },
+    "angMom": { "damping": 2.0 },
+    "wLin": 10.0,
+    "wLinH": 1.0,
+    "react": { "e0": 0.1, "e1": 0.25, "wLinHScale": 1.0 },
+    "wAng": 1.0,
+    "regularization": 0.001,
+    "footKv": 10,
+    "mu": 0.8,
+    "minNormal": 10,
+    "copMargin": 0.015,
+    "regRho": 0.0001,
+    "smoothRho": 0.001,
+    "torso": { "kp": 100, "kd": 20, "weight": 40 },
+    "pelvis": { "kp": 150, "kd": 25, "weight": 40 },
+    "posture": { "kp": 100, "kd": 20, "stanceLeg": 0.5, "swingLeg": 1.0, "spine": 2.0, "arms": 3.0, "head": 3.0 },
+    "armAccelReg": 3.0,
+    "handAccelReg": 5,
+    "swing": { "kp": 250, "kd": 32, "weight": 1000, "rotKp": 300, "rotKd": 35, "rotWeight": 8, "clearance": 0.04, "landDescentSpeed": 0.25, "earlyLandS": 0.75, "earlyLandDist": 0.06, "earlyLiftoff": 0.12, "liftoffLift": 0.03, "liftoffSpeed": 0.4, "landBlendStart": 0.75, "landSlope": 0.0, "landSlopeMax": 0.06 },
+    "stanceFoot": { "rotKp": 200, "rotKd": 28, "rotWeight": 8, "settleGain": 50, "settleKp": 2, "heelUpH": 0.02, "soleContactDist": 0.012 },
+    "footPlacement": { "gain": 0.7, "gainLat": 1.2, "maxFwd": 0.25, "maxBack": 0.25, "maxLat": 0.5, "minWidth": 0.07, "freezeS": 0.7, "lateUntil": 0.92, "lateJump": 0.06, "crossFwd": 0.3, "crossMax": 0.35, "expCapT": 0.35, "pathKeep": [0.0, 0.0] },
+    "phase": { "mode": "touchdown", "kState": 2.0, "corrTime": 0.3, "minRate": 0.6, "maxRate": 1.4, "waitRate": 0.5, "maxWait": 0.15, "syncWindow": 0.25, "rateTau": 0.08, "reachS": 0.8, "reachDist": 0.08, "reachRate": 0.5, "boostS": 0.5, "boostE0": 0.15, "boostGain": 4.0, "boostMax": 1.4, "lagE0": 0.15, "lagGain": 1.0 },
+    "limitAvoid": { "marginDeg": 6, "kp": 200, "kd": 25, "weight": 200 },
+    "handover": { "dcmError": 0.6, "dcmErrorHard": 1.0, "deferSwingS": 0.5, "maxTiltDeg": 50, "minComHeight": 0.6, "noContactTime": 0.15, "voidDrop": 0.3, "tripNormalY": 0.5 },
+    "motorScale": 0.3
+  },
+
+  "$resume": "반응·복귀: 피격·밀기 뒤 reactHold초는 반응 중(핀 0). 걷기 추종을 넘긴 뒤(handover) 스텝 계층이 서기로 돌아오고 minHold초 지났고 blockers 행동이 없으면, policy 'resume'이면 위상 맞추기(발 접촉 패턴)로 클립의 가장 가까운 위상에 다시 붙이고(관성화 blendTime), 'stop'이면 서 있는다. 맞춘 위상의 클립 COM 속도와 지금 속도 차이 / ω가 maxDcmError m를 넘으면 붙이지 않는다(멈춘 몸을 걷는 클립에 붙이면 바로 다시 넘어간다). 대신 수평 속도 < startMaxSpeed이고 startClips에 시작 클립이 있으면 그 클립을 startTau초부터 재생해 다시 걷기 시작하고, 끝 chainBefore초 전에 루프 클립의 가장 가까운 위상으로 잇는다.",
+  "resume": { "reactHold": 0.6, "minHold": 0.2, "policy": "resume", "blendTime": 0.3, "maxDcmError": 0.15, "startClips": { "kimodo_walk_forward": "kimodo_walk_start" }, "startMaxSpeed": 0.25, "startTau": 0.2, "chainBefore": 0.6, "blockers": ["Stagger", "BraceForFall", "ProtectHead", "CatchFall", "Kneel", "Limp", "Flail", "PrepareLanding", "Roll", "Writhe", "HoldWound"] }
+}

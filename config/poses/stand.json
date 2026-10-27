@@ -1,0 +1,51 @@
+{
+  "$comment": "서기 목표 포즈 (SPEC v0.2). rest(팔 수평 아래 60° A포즈)에서 팔을 18° 더 내리고(전완-골반 여유 약 5cm), 팔꿈치·무릎을 살짝 굽힌다. 값은 관절 좌표계 회전 벡터(도), rest = 0. 발목 flex = 무릎 − 고관절이면 발바닥이 수평. 형식: docs/ALGORITHMS.md '목표 포즈'. v0.3: 발 간격을 어깨너비 근처로 — 고관절 side ±4°(바깥으로), 발목 side ∓3.9°·twist ±0.8°(순기구학으로 발바닥 수평 0.03° 안). 발 중심 간격 약 0.18m → 약 0.30m (README 결정 41). v0.3: 다리를 4° 앞으로 기울인 서기(고관절 flex 8→4, 발목 7→11). 발을 평평하게 놓으면 몸통은 직립, COM이 발 중심(지지 다각형 중심) 위에 온다 → 균형 목표와 근육 포즈가 같아 서자마자 COM이 쏠리지 않는다 (README 결정 45).",
+  "name": "stand",
+  "joints": {
+    "Spine": {
+      "flex": 0
+    },
+    "Spine2": {
+      "flex": 0
+    },
+    "Head": {
+      "flex": 0
+    },
+    "LeftArm": {
+      "side": -18
+    },
+    "RightArm": {
+      "side": 18
+    },
+    "LeftForeArm": {
+      "flex": 20
+    },
+    "RightForeArm": {
+      "flex": 20
+    },
+    "LeftUpLeg": {
+      "flex": 4,
+      "side": 4
+    },
+    "RightUpLeg": {
+      "flex": 4,
+      "side": -4
+    },
+    "LeftLeg": {
+      "flex": 15
+    },
+    "RightLeg": {
+      "flex": 15
+    },
+    "LeftFoot": {
+      "flex": 11,
+      "side": -3.9,
+      "twist": 0.8
+    },
+    "RightFoot": {
+      "flex": 11,
+      "side": 3.9,
+      "twist": -0.8
+    }
+  }
+}

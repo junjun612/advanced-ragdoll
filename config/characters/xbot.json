@@ -1,0 +1,1497 @@
+{
+  "id": "xbot",
+  "totalMass": 75,
+  "height": 1.82,
+  "skeleton": "mixamo",
+  "restPose": {
+    "armDownDeg": 60
+  },
+  "generator": {
+    "tool": "tools/genRagdoll.ts",
+    "source": "assets/fbx/X Bot.fbx",
+    "overrides": "config/characters/xbot.overrides.json"
+  },
+  "bodies": [
+    {
+      "name": "Hips",
+      "parent": null,
+      "sourceBones": [
+        "Hips"
+      ],
+      "representativeBone": "Hips",
+      "jointBone": null,
+      "shape": {
+        "type": "capsule",
+        "radius": 0.1303,
+        "halfHeight": 0.0097,
+        "rotation": [
+          0,
+          0,
+          -0.707107,
+          0.707107
+        ]
+      },
+      "massRatio": 0.112,
+      "inertiaScale": 1,
+      "restPosition": [
+        0,
+        1.04275,
+        -0.01177
+      ],
+      "restRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "joint": null,
+      "friction": 0.6
+    },
+    {
+      "name": "Spine",
+      "parent": "Hips",
+      "sourceBones": [
+        "Spine",
+        "Spine1"
+      ],
+      "representativeBone": "Spine1",
+      "jointBone": "Spine",
+      "shape": {
+        "type": "capsule",
+        "radius": 0.1261,
+        "halfHeight": 0.0001,
+        "rotation": [
+          0,
+          0,
+          -0.707107,
+          0.707107
+        ]
+      },
+      "massRatio": 0.163,
+      "inertiaScale": 1,
+      "restPosition": [
+        0,
+        1.2435,
+        0.01223
+      ],
+      "restRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "joint": {
+        "type": "spherical",
+        "anchorInParent": [
+          0,
+          0.10182,
+          0.02863
+        ],
+        "anchorInChild": [
+          0,
+          -0.09894,
+          0.00463
+        ],
+        "frameInParent": [
+          -0.073716,
+          0,
+          0,
+          0.997279
+        ],
+        "frameInChild": [
+          -0.073716,
+          0,
+          0,
+          0.997279
+        ],
+        "axis": [
+          1,
+          0,
+          0
+        ],
+        "axesWorld": {
+          "flex": [
+            1,
+            0,
+            0
+          ],
+          "twist": [
+            0,
+            0.989132,
+            -0.147031
+          ],
+          "side": [
+            0,
+            0.147031,
+            0.989132
+          ]
+        },
+        "limitsDeg": {
+          "flex": [
+            -20,
+            35
+          ],
+          "side": [
+            -25,
+            25
+          ],
+          "twist": [
+            -25,
+            25
+          ]
+        }
+      },
+      "friction": 0.6
+    },
+    {
+      "name": "Spine2",
+      "parent": "Spine",
+      "sourceBones": [
+        "Spine2",
+        "LeftShoulder",
+        "RightShoulder"
+      ],
+      "representativeBone": "Spine2",
+      "jointBone": "Spine2",
+      "shape": {
+        "type": "capsule",
+        "radius": 0.105,
+        "halfHeight": 0.0831,
+        "rotation": [
+          0,
+          0,
+          -0.707107,
+          0.707107
+        ]
+      },
+      "massRatio": 0.16,
+      "inertiaScale": 1,
+      "restPosition": [
+        0,
+        1.41941,
+        -0.03293
+      ],
+      "restRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "joint": {
+        "type": "spherical",
+        "anchorInParent": [
+          0,
+          0.09221,
+          -0.02379
+        ],
+        "anchorInChild": [
+          0,
+          -0.0837,
+          0.02137
+        ],
+        "frameInParent": [
+          -0.06086,
+          0,
+          0,
+          0.998146
+        ],
+        "frameInChild": [
+          -0.06086,
+          0,
+          0,
+          0.998146
+        ],
+        "axis": [
+          1,
+          -0.000001,
+          0
+        ],
+        "axesWorld": {
+          "flex": [
+            1,
+            -0.000001,
+            0
+          ],
+          "twist": [
+            0.000001,
+            0.992592,
+            -0.121494
+          ],
+          "side": [
+            0,
+            0.121494,
+            0.992592
+          ]
+        },
+        "limitsDeg": {
+          "flex": [
+            -20,
+            35
+          ],
+          "side": [
+            -25,
+            25
+          ],
+          "twist": [
+            -25,
+            25
+          ]
+        }
+      },
+      "friction": 0.6
+    },
+    {
+      "name": "Head",
+      "parent": "Spine2",
+      "sourceBones": [
+        "Head",
+        "Neck",
+        "HeadTop_End"
+      ],
+      "representativeBone": "Head",
+      "jointBone": "Neck",
+      "shape": {
+        "type": "sphere",
+        "radius": 0.113
+      },
+      "extraShapes": [
+        {
+          "label": "neck",
+          "shape": {
+            "type": "capsule",
+            "radius": 0.0399,
+            "halfHeight": 0.054,
+            "rotation": [
+              0.260532,
+              0,
+              -0.000001,
+              0.965465
+            ]
+          },
+          "position": [
+            0,
+            -0.15968,
+            -0.02718
+          ]
+        }
+      ],
+      "massRatio": 0.069,
+      "inertiaScale": 1,
+      "restPosition": [
+        0,
+        1.70948,
+        0.02231
+      ],
+      "restRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "joint": {
+        "type": "spherical",
+        "anchorInParent": [
+          0,
+          0.0837,
+          0.00088
+        ],
+        "anchorInChild": [
+          0,
+          -0.20637,
+          -0.05436
+        ],
+        "frameInParent": [
+          0.140749,
+          0,
+          0,
+          0.990045
+        ],
+        "frameInChild": [
+          0.140749,
+          0,
+          0,
+          0.990045
+        ],
+        "axis": [
+          1,
+          -0.000001,
+          0
+        ],
+        "axesWorld": {
+          "flex": [
+            1,
+            -0.000001,
+            0
+          ],
+          "twist": [
+            0.000001,
+            0.96038,
+            0.278695
+          ],
+          "side": [
+            0,
+            -0.278695,
+            0.96038
+          ]
+        },
+        "limitsDeg": {
+          "flex": [
+            -40,
+            50
+          ],
+          "side": [
+            -35,
+            35
+          ],
+          "twist": [
+            -60,
+            60
+          ]
+        }
+      },
+      "friction": 0.6
+    },
+    {
+      "name": "LeftArm",
+      "parent": "Spine2",
+      "sourceBones": [
+        "LeftArm"
+      ],
+      "representativeBone": "LeftArm",
+      "jointBone": "LeftArm",
+      "shape": {
+        "type": "capsule",
+        "radius": 0.0482,
+        "halfHeight": 0.1392,
+        "rotation": [
+          -0.000001,
+          0,
+          0.707106,
+          0.707107
+        ]
+      },
+      "massRatio": 0.027,
+      "inertiaScale": 1,
+      "restPosition": [
+        0.22123,
+        1.32006,
+        -0.05548
+      ],
+      "restRotation": [
+        0,
+        0,
+        -0.5,
+        0.866025
+      ],
+      "joint": {
+        "type": "spherical",
+        "anchorInParent": [
+          0.15163,
+          0.0212,
+          -0.02256
+        ],
+        "anchorInChild": [
+          -0.13921,
+          0,
+          0
+        ],
+        "frameInParent": [
+          0,
+          0,
+          -0.965926,
+          0.258818
+        ],
+        "frameInChild": [
+          0,
+          0,
+          -0.707107,
+          0.707106
+        ],
+        "axis": [
+          -0.866026,
+          -0.499999,
+          -0.000001
+        ],
+        "axesWorld": {
+          "flex": [
+            -0.866026,
+            -0.499999,
+            -0.000001
+          ],
+          "twist": [
+            0.499999,
+            -0.866026,
+            0
+          ],
+          "side": [
+            -0.000001,
+            0,
+            1
+          ]
+        },
+        "limitsDeg": {
+          "swingCone": 100,
+          "twist": [
+            -70,
+            70
+          ]
+        },
+        "coneAxisInParent": [
+          1,
+          -0.000002,
+          0.000001
+        ]
+      },
+      "friction": 0.6
+    },
+    {
+      "name": "RightArm",
+      "parent": "Spine2",
+      "sourceBones": [
+        "RightArm"
+      ],
+      "representativeBone": "RightArm",
+      "jointBone": "RightArm",
+      "shape": {
+        "type": "capsule",
+        "radius": 0.0482,
+        "halfHeight": 0.1392,
+        "rotation": [
+          0,
+          0,
+          0.707107,
+          0.707107
+        ]
+      },
+      "massRatio": 0.027,
+      "inertiaScale": 1,
+      "restPosition": [
+        -0.22123,
+        1.32006,
+        -0.05548
+      ],
+      "restRotation": [
+        0,
+        0,
+        0.5,
+        0.866025
+      ],
+      "joint": {
+        "type": "spherical",
+        "anchorInParent": [
+          -0.15163,
+          0.0212,
+          -0.02256
+        ],
+        "anchorInChild": [
+          0.13921,
+          0,
+          0
+        ],
+        "frameInParent": [
+          0,
+          0,
+          0.965926,
+          0.258819
+        ],
+        "frameInChild": [
+          0,
+          0,
+          0.707107,
+          0.707107
+        ],
+        "axis": [
+          -0.866025,
+          0.500001,
+          0
+        ],
+        "axesWorld": {
+          "flex": [
+            -0.866025,
+            0.500001,
+            0
+          ],
+          "twist": [
+            -0.500001,
+            -0.866025,
+            0
+          ],
+          "side": [
+            0,
+            0,
+            1
+          ]
+        },
+        "limitsDeg": {
+          "swingCone": 100,
+          "twist": [
+            -70,
+            70
+          ]
+        },
+        "coneAxisInParent": [
+          -1,
+          0.000001,
+          0
+        ]
+      },
+      "friction": 0.6
+    },
+    {
+      "name": "LeftForeArm",
+      "parent": "LeftArm",
+      "sourceBones": [
+        "LeftForeArm"
+      ],
+      "representativeBone": "LeftForeArm",
+      "jointBone": "LeftForeArm",
+      "shape": {
+        "type": "capsule",
+        "radius": 0.04,
+        "halfHeight": 0.1416,
+        "rotation": [
+          0,
+          0,
+          0.707106,
+          0.707107
+        ]
+      },
+      "massRatio": 0.016,
+      "inertiaScale": 1,
+      "restPosition": [
+        0.36166,
+        1.07683,
+        -0.05548
+      ],
+      "restRotation": [
+        0,
+        0,
+        -0.5,
+        0.866025
+      ],
+      "joint": {
+        "type": "hinge",
+        "anchorInParent": [
+          0.13921,
+          0,
+          0
+        ],
+        "anchorInChild": [
+          -0.14164,
+          0,
+          0
+        ],
+        "frameInParent": [
+          0,
+          0,
+          -0.707107,
+          0.707106
+        ],
+        "frameInChild": [
+          0,
+          0,
+          -0.707107,
+          0.707106
+        ],
+        "axis": [
+          -0.000002,
+          -1,
+          0
+        ],
+        "axesWorld": {
+          "flex": [
+            -0.866026,
+            -0.499999,
+            -0.000001
+          ],
+          "twist": [
+            0.499999,
+            -0.866026,
+            0
+          ],
+          "side": [
+            -0.000001,
+            0,
+            1
+          ]
+        },
+        "limitsDeg": {
+          "flex": [
+            0,
+            145
+          ]
+        }
+      },
+      "friction": 0.6
+    },
+    {
+      "name": "RightForeArm",
+      "parent": "RightArm",
+      "sourceBones": [
+        "RightForeArm"
+      ],
+      "representativeBone": "RightForeArm",
+      "jointBone": "RightForeArm",
+      "shape": {
+        "type": "capsule",
+        "radius": 0.04,
+        "halfHeight": 0.1416,
+        "rotation": [
+          0,
+          0,
+          0.707107,
+          0.707107
+        ]
+      },
+      "massRatio": 0.016,
+      "inertiaScale": 1,
+      "restPosition": [
+        -0.36166,
+        1.07683,
+        -0.05548
+      ],
+      "restRotation": [
+        0,
+        0,
+        0.5,
+        0.866025
+      ],
+      "joint": {
+        "type": "hinge",
+        "anchorInParent": [
+          -0.13921,
+          0,
+          0
+        ],
+        "anchorInChild": [
+          0.14164,
+          0,
+          0
+        ],
+        "frameInParent": [
+          0,
+          0,
+          0.707107,
+          0.707107
+        ],
+        "frameInChild": [
+          0,
+          0,
+          0.707107,
+          0.707107
+        ],
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "axesWorld": {
+          "flex": [
+            -0.866025,
+            0.5,
+            0
+          ],
+          "twist": [
+            -0.5,
+            -0.866025,
+            0.000001
+          ],
+          "side": [
+            0,
+            0.000001,
+            1
+          ]
+        },
+        "limitsDeg": {
+          "flex": [
+            0,
+            145
+          ]
+        }
+      },
+      "friction": 0.6
+    },
+    {
+      "name": "LeftHand",
+      "parent": "LeftForeArm",
+      "sourceBones": [
+        "LeftHand",
+        "LeftHandThumb1",
+        "LeftHandThumb2",
+        "LeftHandThumb3",
+        "LeftHandThumb4",
+        "LeftHandIndex1",
+        "LeftHandIndex2",
+        "LeftHandIndex3",
+        "LeftHandIndex4",
+        "LeftHandMiddle1",
+        "LeftHandMiddle2",
+        "LeftHandMiddle3",
+        "LeftHandMiddle4",
+        "LeftHandRing1",
+        "LeftHandRing2",
+        "LeftHandRing3",
+        "LeftHandRing4",
+        "LeftHandPinky1",
+        "LeftHandPinky2",
+        "LeftHandPinky3",
+        "LeftHandPinky4"
+      ],
+      "representativeBone": "LeftHand",
+      "jointBone": "LeftHand",
+      "shape": {
+        "type": "capsule",
+        "radius": 0.0279,
+        "halfHeight": 0.0817,
+        "rotation": [
+          0.000007,
+          0,
+          0.707107,
+          0.707107
+        ]
+      },
+      "massRatio": 0.006,
+      "inertiaScale": 1,
+      "restPosition": [
+        0.47334,
+        0.88339,
+        -0.05549
+      ],
+      "restRotation": [
+        0,
+        0,
+        -0.5,
+        0.866025
+      ],
+      "joint": {
+        "type": "spherical",
+        "anchorInParent": [
+          0.14164,
+          0,
+          0
+        ],
+        "anchorInChild": [
+          -0.08172,
+          0,
+          0
+        ],
+        "frameInParent": [
+          0.499998,
+          0.500002,
+          -0.500002,
+          0.499998
+        ],
+        "frameInChild": [
+          0.499998,
+          0.500002,
+          -0.500002,
+          0.499998
+        ],
+        "axis": [
+          -0.00001,
+          0,
+          -1
+        ],
+        "axesWorld": {
+          "flex": [
+            -0.000004,
+            0.000009,
+            -1
+          ],
+          "twist": [
+            0.5,
+            -0.866025,
+            -0.00001
+          ],
+          "side": [
+            -0.866025,
+            -0.5,
+            -0.000001
+          ]
+        },
+        "limitsDeg": {
+          "flex": [
+            -60,
+            60
+          ],
+          "side": [
+            -30,
+            30
+          ],
+          "twist": [
+            -90,
+            90
+          ]
+        }
+      },
+      "friction": 0.9
+    },
+    {
+      "name": "RightHand",
+      "parent": "RightForeArm",
+      "sourceBones": [
+        "RightHand",
+        "RightHandThumb1",
+        "RightHandThumb2",
+        "RightHandThumb3",
+        "RightHandThumb4",
+        "RightHandIndex1",
+        "RightHandIndex2",
+        "RightHandIndex3",
+        "RightHandIndex4",
+        "RightHandMiddle1",
+        "RightHandMiddle2",
+        "RightHandMiddle3",
+        "RightHandMiddle4",
+        "RightHandRing1",
+        "RightHandRing2",
+        "RightHandRing3",
+        "RightHandRing4",
+        "RightHandPinky1",
+        "RightHandPinky2",
+        "RightHandPinky3",
+        "RightHandPinky4"
+      ],
+      "representativeBone": "RightHand",
+      "jointBone": "RightHand",
+      "shape": {
+        "type": "capsule",
+        "radius": 0.0274,
+        "halfHeight": 0.082,
+        "rotation": [
+          -0.000055,
+          0,
+          -0.707107,
+          0.707107
+        ]
+      },
+      "massRatio": 0.006,
+      "inertiaScale": 1,
+      "restPosition": [
+        -0.47346,
+        0.88318,
+        -0.05548
+      ],
+      "restRotation": [
+        0,
+        0,
+        0.5,
+        0.866025
+      ],
+      "joint": {
+        "type": "spherical",
+        "anchorInParent": [
+          -0.14164,
+          0,
+          0
+        ],
+        "anchorInChild": [
+          0.08197,
+          0,
+          -0.00001
+        ],
+        "frameInParent": [
+          0.500019,
+          -0.499981,
+          0.499981,
+          0.500019
+        ],
+        "frameInChild": [
+          0.500019,
+          -0.499981,
+          0.499981,
+          0.500019
+        ],
+        "axis": [
+          0.000077,
+          0,
+          1
+        ],
+        "axesWorld": {
+          "flex": [
+            0.000039,
+            0.000067,
+            1
+          ],
+          "twist": [
+            -0.5,
+            -0.866026,
+            0.000077
+          ],
+          "side": [
+            0.866026,
+            -0.5,
+            0
+          ]
+        },
+        "limitsDeg": {
+          "flex": [
+            -60,
+            60
+          ],
+          "side": [
+            -30,
+            30
+          ],
+          "twist": [
+            -90,
+            90
+          ]
+        }
+      },
+      "friction": 0.9
+    },
+    {
+      "name": "LeftUpLeg",
+      "parent": "Hips",
+      "sourceBones": [
+        "LeftUpLeg"
+      ],
+      "representativeBone": "LeftUpLeg",
+      "jointBone": "LeftUpLeg",
+      "shape": {
+        "type": "capsule",
+        "radius": 0.0717,
+        "halfHeight": 0.2219,
+        "rotation": [
+          -0.00391,
+          0,
+          0,
+          0.999992
+        ]
+      },
+      "massRatio": 0.142,
+      "inertiaScale": 1,
+      "restPosition": [
+        0.08208,
+        0.75338,
+        0.00128
+      ],
+      "restRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "joint": {
+        "type": "spherical",
+        "anchorInParent": [
+          0.08208,
+          -0.06752,
+          0.01132
+        ],
+        "anchorInChild": [
+          0,
+          0.22185,
+          -0.00173
+        ],
+        "frameInParent": [
+          0,
+          0.00391,
+          0.999992,
+          0
+        ],
+        "frameInChild": [
+          0,
+          0.00391,
+          0.999992,
+          0
+        ],
+        "axis": [
+          -1,
+          0.000001,
+          0
+        ],
+        "axesWorld": {
+          "flex": [
+            -1,
+            0.000001,
+            0
+          ],
+          "twist": [
+            -0.000001,
+            -0.999969,
+            0.007819
+          ],
+          "side": [
+            0,
+            0.007819,
+            0.999969
+          ]
+        },
+        "limitsDeg": {
+          "flex": [
+            -20,
+            110
+          ],
+          "side": [
+            -40,
+            40
+          ],
+          "twist": [
+            -35,
+            35
+          ]
+        }
+      },
+      "friction": 0.6
+    },
+    {
+      "name": "RightUpLeg",
+      "parent": "Hips",
+      "sourceBones": [
+        "RightUpLeg"
+      ],
+      "representativeBone": "RightUpLeg",
+      "jointBone": "RightUpLeg",
+      "shape": {
+        "type": "capsule",
+        "radius": 0.0718,
+        "halfHeight": 0.2219,
+        "rotation": [
+          -0.003898,
+          0,
+          0,
+          0.999992
+        ]
+      },
+      "massRatio": 0.142,
+      "inertiaScale": 1,
+      "restPosition": [
+        -0.08208,
+        0.75338,
+        0.00128
+      ],
+      "restRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "joint": {
+        "type": "spherical",
+        "anchorInParent": [
+          -0.08208,
+          -0.06752,
+          0.01132
+        ],
+        "anchorInChild": [
+          0,
+          0.22185,
+          -0.00173
+        ],
+        "frameInParent": [
+          0,
+          0.003898,
+          0.999992,
+          0
+        ],
+        "frameInChild": [
+          0,
+          0.003898,
+          0.999992,
+          0
+        ],
+        "axis": [
+          -1,
+          0.000001,
+          0
+        ],
+        "axesWorld": {
+          "flex": [
+            -1,
+            0.000001,
+            0
+          ],
+          "twist": [
+            -0.000001,
+            -0.99997,
+            0.007796
+          ],
+          "side": [
+            0,
+            0.007796,
+            0.99997
+          ]
+        },
+        "limitsDeg": {
+          "flex": [
+            -20,
+            110
+          ],
+          "side": [
+            -40,
+            40
+          ],
+          "twist": [
+            -35,
+            35
+          ]
+        }
+      },
+      "friction": 0.6
+    },
+    {
+      "name": "LeftLeg",
+      "parent": "LeftUpLeg",
+      "sourceBones": [
+        "LeftLeg"
+      ],
+      "representativeBone": "LeftLeg",
+      "jointBone": "LeftLeg",
+      "shape": {
+        "type": "capsule",
+        "radius": 0.055,
+        "halfHeight": 0.2226,
+        "rotation": [
+          0.034205,
+          0,
+          0,
+          0.999415
+        ]
+      },
+      "massRatio": 0.043,
+      "inertiaScale": 1,
+      "restPosition": [
+        0.08208,
+        0.30941,
+        -0.01221
+      ],
+      "restRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "joint": {
+        "type": "hinge",
+        "anchorInParent": [
+          0,
+          -0.22185,
+          0.00173
+        ],
+        "anchorInChild": [
+          0,
+          0.22212,
+          0.01522
+        ],
+        "frameInParent": [
+          -0.999415,
+          0,
+          0,
+          0.034205
+        ],
+        "frameInChild": [
+          -0.999415,
+          0,
+          0,
+          0.034205
+        ],
+        "axis": [
+          1,
+          -0.000001,
+          0
+        ],
+        "axesWorld": {
+          "flex": [
+            1,
+            -0.000001,
+            0
+          ],
+          "twist": [
+            -0.000001,
+            -0.99766,
+            -0.068371
+          ],
+          "side": [
+            0,
+            0.068371,
+            -0.99766
+          ]
+        },
+        "limitsDeg": {
+          "flex": [
+            0,
+            140
+          ]
+        }
+      },
+      "friction": 0.6
+    },
+    {
+      "name": "RightLeg",
+      "parent": "RightUpLeg",
+      "sourceBones": [
+        "RightLeg"
+      ],
+      "representativeBone": "RightLeg",
+      "jointBone": "RightLeg",
+      "shape": {
+        "type": "capsule",
+        "radius": 0.055,
+        "halfHeight": 0.2226,
+        "rotation": [
+          0.034196,
+          0,
+          0,
+          0.999415
+        ]
+      },
+      "massRatio": 0.043,
+      "inertiaScale": 1,
+      "restPosition": [
+        -0.08208,
+        0.30941,
+        -0.01221
+      ],
+      "restRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "joint": {
+        "type": "hinge",
+        "anchorInParent": [
+          0,
+          -0.22185,
+          0.00173
+        ],
+        "anchorInChild": [
+          0,
+          0.22212,
+          0.01522
+        ],
+        "frameInParent": [
+          -0.999415,
+          0,
+          0,
+          0.034196
+        ],
+        "frameInChild": [
+          -0.999415,
+          0,
+          0,
+          0.034196
+        ],
+        "axis": [
+          1,
+          0,
+          0
+        ],
+        "axesWorld": {
+          "flex": [
+            1,
+            0,
+            0
+          ],
+          "twist": [
+            0,
+            -0.997661,
+            -0.068352
+          ],
+          "side": [
+            0,
+            0.068352,
+            -0.997661
+          ]
+        },
+        "limitsDeg": {
+          "flex": [
+            0,
+            140
+          ]
+        }
+      },
+      "friction": 0.6
+    },
+    {
+      "name": "LeftFoot",
+      "parent": "LeftLeg",
+      "sourceBones": [
+        "LeftFoot",
+        "LeftToeBase",
+        "LeftToe_End"
+      ],
+      "representativeBone": "LeftFoot",
+      "jointBone": "LeftFoot",
+      "shape": {
+        "type": "box",
+        "halfExtents": [
+          0.056,
+          0.062,
+          0.1249
+        ]
+      },
+      "massRatio": 0.014,
+      "inertiaScale": 1,
+      "restPosition": [
+        0.08896,
+        0.06165,
+        0.04686
+      ],
+      "restRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "joint": {
+        "type": "spherical",
+        "anchorInParent": [
+          0,
+          -0.22212,
+          -0.01522
+        ],
+        "anchorInChild": [
+          -0.00688,
+          0.02565,
+          -0.07429
+        ],
+        "frameInParent": [
+          0,
+          -0.034205,
+          0.999415,
+          0
+        ],
+        "frameInChild": [
+          0,
+          -0.034205,
+          0.999415,
+          0
+        ],
+        "axis": [
+          -1,
+          0.000001,
+          0
+        ],
+        "axesWorld": {
+          "flex": [
+            -1,
+            0.000001,
+            0
+          ],
+          "twist": [
+            -0.000001,
+            -0.99766,
+            -0.068371
+          ],
+          "side": [
+            0,
+            -0.068371,
+            0.99766
+          ]
+        },
+        "limitsDeg": {
+          "flex": [
+            -40,
+            25
+          ],
+          "side": [
+            -20,
+            20
+          ],
+          "twist": [
+            -15,
+            15
+          ]
+        }
+      },
+      "friction": 1
+    },
+    {
+      "name": "RightFoot",
+      "parent": "RightLeg",
+      "sourceBones": [
+        "RightFoot",
+        "RightToeBase",
+        "RightToe_End"
+      ],
+      "representativeBone": "RightFoot",
+      "jointBone": "RightFoot",
+      "shape": {
+        "type": "box",
+        "halfExtents": [
+          0.056,
+          0.062,
+          0.1249
+        ]
+      },
+      "massRatio": 0.014,
+      "inertiaScale": 1,
+      "restPosition": [
+        -0.08896,
+        0.06165,
+        0.04686
+      ],
+      "restRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "joint": {
+        "type": "spherical",
+        "anchorInParent": [
+          0,
+          -0.22212,
+          -0.01522
+        ],
+        "anchorInChild": [
+          0.00688,
+          0.02565,
+          -0.07429
+        ],
+        "frameInParent": [
+          0,
+          -0.034196,
+          0.999415,
+          0
+        ],
+        "frameInChild": [
+          0,
+          -0.034196,
+          0.999415,
+          0
+        ],
+        "axis": [
+          -1,
+          0.000001,
+          0
+        ],
+        "axesWorld": {
+          "flex": [
+            -1,
+            0.000001,
+            0
+          ],
+          "twist": [
+            0,
+            -0.997661,
+            -0.068352
+          ],
+          "side": [
+            0,
+            -0.068352,
+            0.997661
+          ]
+        },
+        "limitsDeg": {
+          "flex": [
+            -40,
+            25
+          ],
+          "side": [
+            -20,
+            20
+          ],
+          "twist": [
+            -15,
+            15
+          ]
+        }
+      },
+      "friction": 1
+    }
+  ]
+}

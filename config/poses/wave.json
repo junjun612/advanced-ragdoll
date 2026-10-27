@@ -1,0 +1,339 @@
+{
+ "$comment": "팔 흔들기 목표 클립 (track_wave_pinned). stand 위에 오른팔만: 어깨 side = −85 + 15·sin(2π·t) (팔을 수평 위 약 25°까지 들고 위아래 ±15°), flex 20, 팔꿈치 flex = 60 + 30·sin(2π·t − π/2). 1 Hz, 30fps 키프레임, 루프. 생성식이 이 주석이고 값은 소수 2자리.",
+ "name": "wave",
+ "base": "stand",
+ "fps": 30,
+ "loop": true,
+ "frames": [
+  {
+   "joints": {
+    "RightArm": {
+     "side": -85,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 30
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -81.88,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 30.66
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -78.9,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 32.59
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -76.18,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 35.73
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -73.85,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 39.93
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -72.01,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 45
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -70.73,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 50.73
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -70.08,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 56.86
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -70.08,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 63.14
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -70.73,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 69.27
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -72.01,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 75
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -73.85,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 80.07
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -76.18,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 84.27
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -78.9,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 87.41
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -81.88,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 89.34
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -85,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 90
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -88.12,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 89.34
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -91.1,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 87.41
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -93.82,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 84.27
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -96.15,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 80.07
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -97.99,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 75
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -99.27,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 69.27
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -99.92,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 63.14
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -99.92,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 56.86
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -99.27,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 50.73
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -97.99,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 45
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -96.15,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 39.93
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -93.82,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 35.73
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -91.1,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 32.59
+    }
+   }
+  },
+  {
+   "joints": {
+    "RightArm": {
+     "side": -88.12,
+     "flex": 20
+    },
+    "RightForeArm": {
+     "flex": 30.66
+    }
+   }
+  }
+ ]
+}

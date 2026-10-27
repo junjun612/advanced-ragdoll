@@ -1,0 +1,83 @@
+{
+  "name": "ground_writhe_wounded",
+  "milestone": "0.5c",
+  "$added": "추가 시나리오 (v0.5c 품질 확인용, SPEC 9.2 목록에는 없음)",
+  "description": "배에 총탄(Δv 0.4)을 맞아 움켜쥔 뒤 1.6초에 큰 밀기로 뒤로 넘어짐 → 누워서 상처를 손으로 누른 채 몸부림. 몸부림 판정은 ground_writhe와 같음.",
+  "duration": 11,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "events": [
+    {
+      "t": 1.0,
+      "type": "hit",
+      "hit": {
+        "type": "bullet",
+        "body": "Spine",
+        "point": [
+          -0.06,
+          1.18,
+          0.4
+        ],
+        "direction": [
+          0,
+          0,
+          -1
+        ],
+        "magnitude": 0.4
+      }
+    },
+    {
+      "t": 1.6,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          0,
+          0,
+          -1
+        ],
+        "magnitude": "large",
+        "duration": 0.15
+      }
+    }
+  ],
+  "expect": {
+    "exploded": false,
+    "fell": true,
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      },
+      "writheWindowS": {
+        "min": 4.99
+      },
+      "writheComSpeedMax": {
+        "max": 0.3
+      },
+      "writheSpeedInRange": {
+        "min": 1
+      }
+    }
+  }
+}

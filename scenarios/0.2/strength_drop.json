@@ -1,0 +1,53 @@
+{
+  "name": "strength_drop",
+  "milestone": "0.2",
+  "description": "루트 보조로 서 있다가 2초에 루트 보조를 끄고 전신 근육 강도를 0으로 (SPEC 9.2, ※ 기대값)",
+  "duration": 5.0,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": true
+  },
+  "stepping": false,
+  "events": [
+    {
+      "t": 2.0,
+      "type": "setAssist",
+      "root": false
+    },
+    {
+      "t": 2.0,
+      "type": "setMuscleScale",
+      "region": "all",
+      "scale": 0
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "firstGroundContactNot": [
+      "Head"
+    ],
+    "metrics": {
+      "collapseKneeLeadTime": {
+        "min": 0
+      }
+    }
+  }
+}

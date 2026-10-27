@@ -1,0 +1,28 @@
+{
+  "$comment": "캐릭터 간 상호작용·떨어지는 물체 (SPEC 12 v0.8c, docs/ALGORITHMS.md v0.8c). 다른 캐릭터·프롭과의 접촉은 Rapier가 물리로 이미 처리한다(접촉 충격량이 몸에 들어감). 여기서는 그 접촉 충격량을 '감지'해 전신 COM Δv(SPEC 7.2: |ΣJ| / 총질량)로 바꾸고 hit 이벤트를 만든다 — 충격을 다시 가하지 않는다(이중 적용 금지). hit 이벤트는 반응(핀 0 구간, 행동, 일어서기 취소)만 일으킨다. 받은 접촉 충격량 합은 매 스텝 균형 계층에 외부 충격으로 알린다(측정 지면력 예측에서 빼서 발바닥 압력처럼 즉시 알지 않게 — 스크립트 밀기와 같은 규칙). 혼자인 캐릭터 월드에서는 아무것도 하지 않는다.",
+  "$sensing": "접촉 감지: 접촉이 시작되면 window초 동안 그 상대(캐릭터·프롭 하나)에게서 받은 법선 충격량을 모아(촉각 감지 지연 = window) 끝에 Δv = |ΣJ| / 총질량을 계산한다. Δv ≥ 종류별 minDv면 hit 이벤트(감지 시각 = 창 끝). 접촉이 이어지면 다음 창을 다시 모은다(밀고 있는 동안 반복 감지). 접촉이 gap초 넘게 끊기면 새 접촉으로 본다. 맞은 바디 = 충격량이 가장 큰 바디, 지점 = 충격량 가중 평균 접촉점, 방향 = ΣJ 방향. 마찰(접선) 충격량은 넣지 않는다.",
+  "sensing": { "window": 0.05, "gap": 0.1 },
+  "$character": "다른 캐릭터와의 접촉 (SPEC '다른 캐릭터와 부딪히면 push 피격'). hitType = push(hitModel push 행동: 없음 — 균형·스텝 계층이 물리로 받은 밀림에 반응). minDv: 이보다 작은 스침은 hit로 세지 않는다. lookAt: Δv ≥ minDv인 접촉 뒤 delay초부터 duration초 동안 부딪힌 상대의 머리를 본다(사람은 부딪히면 상대를 돌아본다; 시선 목표는 매 스텝 상대 머리 위치로 갱신. 2초로 두면 걸으며 뒤를 오래 돌아봐 몸통이 비틀린 채 걸었다). grabbable: 다른 캐릭터 바디를 잡을 곳으로 쓸지 (SPEC '설정으로 정한다' — v0.8b Grab이 World.grabTargets()로 읽는다, 기본 끔). noCollide: 캐릭터끼리 충돌하지 않을 바디 쌍(Rapier 접촉 거르기 훅, 예: [[\"LeftFoot\",\"RightFoot\"]]). 기본 비움: 발끼리를 꺼도 밀려 부딪힘 24개 캐릭터 실행 중 넘어짐이 17 → 16으로 거의 같아, 발이 겹쳐 보이는 비용을 쓸 이유가 없었다(README 결정). lookAt.trunkMinDv: 몸통·머리(trunkBodies)에 닿은 접촉은 이 문턱으로 돌아본다 — 누가 몸통에 기대 오면 약해도 돌아본다(README 결정 169).",
+  "character": {
+    "hitType": "push",
+    "minDv": 0.05,
+    "lookAt": { "minDv": 0.1, "trunkMinDv": 0.05, "trunkBodies": ["Hips", "Spine", "Spine2", "Head"], "delay": 0.15, "duration": 1.2 },
+    "grabbable": false,
+    "noCollide": []
+  },
+  "$prop": "프롭(떨어지거나 던진 물체)과의 접촉 (SPEC '프롭이 캐릭터를 치면 접촉 충격량을 Δv로 환산해 hit 이벤트'). hitType: melee(단단한 물체에 맞음 — hitModel melee 행동: 피격 반응·비틀거림) 또는 push. minDv: 이보다 작으면 hit 아님. minImpactSpeed·minApproach: 접촉 직전 프롭 속력이 minImpactSpeed m/s 이상이고 그 속도의 '몸 쪽으로 다가오는' 성분(접촉 법선)이 minApproach m/s 이상일 때만 날아온 충격으로 hit을 만든다 — 바닥에 떨어진 상자를 발로 차거나 그 위에 누운 접촉은 장애물이다(hit이 아님; 아니면 걸으며 찬 상자마다 움찔·비틀거림이 켜지고, 상자 위에 누운 몸은 일어서기가 매번 취소됐다). holdWound: 맞은 바디가 bodies 중 하나이고 Δv ≥ minDv면 delay초 뒤 맞은 자리에 손을 가져가 duration초 누른다(머리에 상자를 맞은 사람이 머리를 문지름; 손 고르기·도달 판정은 HoldWound 그대로). defaults: 프롭 정의에 없을 때의 마찰·반발·밀도(kg/m³, 질량이 없을 때).",
+  "prop": {
+    "hitType": "melee",
+    "minDv": 0.04,
+    "minImpactSpeed": 1.5,
+    "minApproach": 0.3,
+    "holdWound": { "minDv": 0.08, "delay": 0.12, "duration": 2.2, "bodies": ["Head", "Spine2", "LeftArm", "RightArm"] },
+    "defaults": { "friction": 0.6, "restitution": 0.15, "density": 400 }
+  },
+  "$handover": "애니 추종(v0.6) 중 접촉 피격: 서 있는 클립(클립 COM 수평 속도 < standSpeed m/s, 예: Idle)이면 Δv ≥ standDv일 때 바로 균형·스텝 계층에 넘긴다 — Idle 추종 QP는 DCM 오차 0.6m까지 버티다 넘겨 Δv 0.35 앞 밀기에도 한 걸음 없이 넘어졌다(걷는 A에게 부딪힌 서 있는 B 12개 설정 중 넘어짐 9 → 2). 서기 뒤 tryResume이 Idle로 다시 붙인다. 걷는 클립은 walkDv(null = 넘기지 않음; 넘긴다면 두 발이 디딜 때까지 최대 walkMaxDefer초 기다림): 걷다가 부딪혀 바로 멈추게 하면 스텝 계층이 걷는 속도를 못 받아 오히려 더 넘어졌다(README 결정).",
+  "handover": { "standSpeed": 0.3, "standDv": 0.08, "walkDv": null, "walkMaxDefer": 0.4 },
+  "$armYield": "팔(위팔·전완·손)이 다른 캐릭터·프롭에 부딪히면 그 팔 근육 배율을 scale로 낮췄다가 recover초에 회복한다(setMuscleScale — 이벤트로 남음). 흔들던 팔은 부딪히면 밀려난다: 굳은 팔이 받은 충격을 몸통에 그대로 넘겨 걷기 추종이 무너졌다(걷는 중 손 밀기 22개 위상 중 넘어짐 4 → 1, 스쳐 지나감 32개 캐릭터 실행 중 11 → 8). null이면 끔.",
+  "armYield": { "minDv": 0.05, "scale": 0.3, "recover": 0.5 },
+  "$collisionBits": "여러 캐릭터 월드에서 캐릭터 k의 충돌 그룹 비트 = 1 << (firstBit − k). 몸 안 충돌 제외 쌍 비트(설정 쌍·걷기 다리 쌍, 0~5번)와 겹치지 않게 위쪽부터 쓴다 (ragdoll.ts charBit).",
+  "collisionBits": { "firstBit": 15, "maxCharacters": 8 }
+}

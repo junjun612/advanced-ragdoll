@@ -1,0 +1,53 @@
+{
+  "name": "push_chest_large_active",
+  "milestone": "0.3",
+  "description": "회귀 (README 결정 36): 근육·균형이 켜진 채(루트 보조 없음) 서 있다가 1초에 Spine2 등 쪽 표면(가슴 높이)을 앞·왼쪽 대각선으로 큰 충격(large, Δv 1.5). 가슴 큰 충격 스윕(방향 8 × 지점 5 × 시각 2 × 루트 보조)에서 LeftForeArm 각속도가 가장 컸던 경우(99.8 rad/s; 앱에서는 52.8 rad/s 관찰). 넘어져도 되지만 폭발(50 rad/s)하면 안 된다",
+  "duration": 4.0,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "stepping": false,
+  "events": [
+    {
+      "t": 1.0,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "point": [
+          0,
+          1.42,
+          -0.14
+        ],
+        "direction": [
+          0.631,
+          0,
+          0.776
+        ],
+        "magnitude": "large"
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false
+  }
+}

@@ -1,0 +1,176 @@
+{
+ "$comment": "품질 지표 기준 (SPEC 10 마지막 문단, v0.9). tools/tune.ts targets로 만든다. human = Kimodo 사람 레퍼런스(반응 클립 라이브러리 48개 중앙값, 괄호 밖 밀림 조사 RP medium 24개), current = 기본 설정의 근처 입력 통계(학습 11시나리오 + 검증 holdout 12시나리오 × 시드 6, 넘어진 실행 제외), target = v1.0 목표(사람 값에 여유 — 아래 rule), gate = 회귀 문턱(지금보다 나빠지면 안 되는 선). tune.ts 목적 함수는 시나리오별 사람 값(tuneSpace.json refs)을 먼저 쓰고, 레퍼런스가 없는 시나리오만 target을 쓴다. v1.0 기준값은 튜닝을 마친 뒤 이 파일을 다시 만들어 확정한다(README 결정 9t-5).",
+ "generated": "2026-10-27",
+ "window": 2.5,
+ "metrics": {
+  "armElevP90": {
+   "unit": "deg",
+   "dir": "lower",
+   "def": "충격 뒤 2.5초 창, 프레임마다 두 팔 중 큰 위팔 들림(몸통 아래 축 기준)의 90백분위 (tools/armMetrics.ts)",
+   "human": 33.431,
+   "humanPushStudy": 23.201,
+   "humanP90": 39.619,
+   "current": 56.343,
+   "currentTrain": 58.188,
+   "target": 38.446,
+   "gate": 59.16,
+   "rule": "target = 사람 중앙값 × 1.15, gate = 현재 × 1.05"
+  },
+  "armLateOut": {
+   "unit": "frac",
+   "dir": "lower",
+   "def": "충격 1초 뒤 ~ 창 끝, 팔 들림 > 40° 프레임 비율 (회복 뒤 팔이 들린 채 남음)",
+   "human": 0,
+   "humanPushStudy": 0,
+   "current": 0.277,
+   "currentTrain": 0.17,
+   "target": 0.05,
+   "gate": 0.307,
+   "rule": "target = 사람 + 0.05 (최소 0.05), gate = 현재 + 0.03"
+  },
+  "armUsage": {
+   "unit": "deg/s",
+   "dir": "near-human",
+   "def": "Spine2 기준 팔 바디 상대 각속도 평균 (refSimilarity armUsage와 같음)",
+   "human": 78.363,
+   "humanPushStudy": 39.635,
+   "humanP90": 98.714,
+   "current": 100.623,
+   "currentTrain": 119.588,
+   "target": 101.872,
+   "gate": 105.654,
+   "rule": "사람보다 적어도 뻣뻣해 보이므로 목적 함수는 |ln(sim/사람)|. target = 사람 × 1.3 (상한), gate = 현재 × 1.05"
+  },
+  "trunkPeak": {
+   "unit": "deg",
+   "dir": "near-human",
+   "def": "창 안 Spine2 기울기 최대",
+   "human": 16.018,
+   "humanPushStudy": 12.327,
+   "humanP90": 28.424,
+   "current": 27.691,
+   "currentTrain": 29.878,
+   "target": 20.823,
+   "gate": 29.075,
+   "rule": "target = 사람 × 1.3, gate = 현재 × 1.05 (뒤 밀림 46° vs 사람 18°가 가장 큰 차이 — README 내일_이야기할것)"
+  },
+  "landingError": {
+   "unit": "m",
+   "dir": "lower",
+   "def": "착지 오차 평균 (summary landingErrorMean)",
+   "human": null,
+   "current": 0.049,
+   "currentTrain": 0.044,
+   "target": 0.05,
+   "gate": 0.054,
+   "rule": "v0.4 기대값(≤ 0.05, 결정 63) — 사람 레퍼런스에 착지 목표가 없음"
+  },
+  "fallRate": {
+   "unit": "frac",
+   "dir": "lower",
+   "def": "넘어지면 안 되는(expect.fell=false) 근처 입력 실행 중 넘어진 비율",
+   "human": 0,
+   "current": 0.109,
+   "currentTrain": 0.106,
+   "target": 0.05,
+   "gate": 0.129,
+   "rule": "사람 레퍼런스(밀림 조사 medium)는 넘어지지 않음. target 0.05는 v0.4 근처 입력 1/80·결정 165 12~15%에서 D안까지의 중간 목표, gate = 현재 + 2%p"
+  },
+  "passRate": {
+   "unit": "frac",
+   "dir": "higher",
+   "def": "근처 입력 실행 중 expect 통과 비율",
+   "human": null,
+   "current": 0.696,
+   "currentTrain": 0.682,
+   "target": 0.9,
+   "gate": 0.676,
+   "rule": "gate = 현재 − 2%p"
+  },
+  "refJointRms": {
+   "unit": "deg",
+   "dir": "lower",
+   "def": "사람 레퍼런스(반응 클립 칸·시나리오 reference) 대비 관절 RMS의 최솟값 (refSimilarity jointRms, DTW 정렬)",
+   "human": 14.517,
+   "humanPairs": 24,
+   "current": 21.445,
+   "currentTrain": 20.513,
+   "target": 18.228,
+   "gate": 22.517,
+   "rule": "human = 같은 칸 사람 클립 두 개끼리의 관절 RMS 중앙값(사람끼리도 0이 아님). target = max(사람끼리 × 1.25, 현재 × 0.85), gate = 현재 × 1.05"
+  }
+ },
+ "spec10SimAll": {
+  "$comment": "SPEC 10 지표의 현재값 (npm run sim:all 시드 1, 시나리오별 값의 중앙값·90백분위·최댓값). v1.0 기준값은 튜닝 반영 뒤 이 값에 여유를 더해 정한다",
+  "energy": {
+   "median": 294.889,
+   "p90": 602.494,
+   "max": 889.501,
+   "n": 78
+  },
+  "comJerk": {
+   "median": 112.424,
+   "p90": 322.588,
+   "max": 987.137,
+   "n": 78
+  },
+  "angJerk": {
+   "median": 924.359,
+   "p90": 2039.93,
+   "max": 3621.435,
+   "n": 78
+  },
+  "footSlide": {
+   "median": 0.179,
+   "p90": 1.126,
+   "max": 2.785,
+   "n": 78
+  },
+  "limitHits": {
+   "median": 13.5,
+   "p90": 37,
+   "max": 77,
+   "n": 78
+  },
+  "saturation": {
+   "median": 0.155,
+   "p90": 0.572,
+   "max": 0.804,
+   "n": 78
+  },
+  "selfPenetration": {
+   "median": 0.003,
+   "p90": 0.019,
+   "max": 0.049,
+   "n": 78
+  },
+  "jitter": {
+   "median": 3.083,
+   "p90": 9.167,
+   "max": 85,
+   "n": 78
+  },
+  "reactionLatency": {
+   "median": 0.083,
+   "p90": 0.1,
+   "max": 5.742,
+   "n": 56
+  },
+  "refSimilarity": {
+   "median": 0.596,
+   "p90": 0.777,
+   "max": 2.471,
+   "n": 15
+  },
+  "refJointRmsDeg": {
+   "median": 21.548,
+   "p90": 49.828,
+   "max": 56.722,
+   "n": 15
+  }
+ },
+ "humanClips": {
+  "reactionLibrary": 48,
+  "pushStudyMedium": 24
+ }
+}

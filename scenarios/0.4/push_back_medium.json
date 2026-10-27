@@ -1,0 +1,64 @@
+{
+  "name": "push_back_medium",
+  "milestone": "0.4",
+  "description": "Spine2를 뒤(−Z)로 medium(Δv 0.8). 레퍼런스 Kimodo push_front_medium SEED 시드6(앞에서 밀림 Δv 0.77: 3걸음, COM 63cm, 회복 1.9초).",
+  "duration": 5.0,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1.0,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          0,
+          0,
+          -1
+        ],
+        "magnitude": "medium"
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": "assets/kimodo/push_front_medium/seed11_s6/clip.json",
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "steps": [
+      1,
+      5
+    ],
+    "recoveredWithin": 3.0,
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      },
+      "landingErrorMean": {
+        "max": 0.05
+      },
+      "footSlide": {
+        "max": 0.3
+      }
+    }
+  }
+}

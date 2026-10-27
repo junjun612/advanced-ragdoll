@@ -1,0 +1,14 @@
+{
+  "$comment": "v0.8c 캐릭터·물체 하이라이트 (npx tsx tools/reel.ts --config config/reel_08c.json --out out/reel_08c). 렌더 전용. 장면은 먼저 npm run sim -- <scenario>.",
+  "width": 560,
+  "height": 400,
+  "fps": 30,
+  "titleSec": 0,
+  "smoothCamera": 0.15,
+  "scenes": [
+    { "scenario": "two_characters_collide", "from": 0.6, "to": 4.2, "camera": "follow", "tag": "v0.8c 캐릭터", "caption": "밀린 A가 옆 사람 B와 부딪힘 → 둘 다 버티고 B가 돌아봄" },
+    { "scenario": "shoulder_bump_pass", "from": 0.8, "to": 3.6, "camera": "follow", "tag": "v0.8c 캐릭터", "caption": "걷다가 팔이 스침 → 서로 돌아보며 계속 걷기" },
+    { "scenario": "prop_hit", "from": 0.9, "to": 4.0, "camera": "follow", "tag": "v0.8c 물체", "caption": "떨어진 상자에 머리를 맞음 → 움찔, 물러서며 머리를 문지름" },
+    { "scenario": "prop_hit_walking", "from": 1.3, "to": 4.5, "camera": "follow", "tag": "v0.8c 물체", "caption": "걷다가 상자에 어깨를 맞음 → 움찔하고 어깨를 누르며 계속 걷기" }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "models": [
+    "rp12"
+  ],
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "rootMotion": "kept",
+  "weights": {
+    "startPoseDeg": 0,
+    "endPoseDeg": 1
+  },
+  "top": 3,
+  "clip": "push_diag_medium",
+  "label": "앞-왼쪽 45°에서 살짝 세게 밀림 (15cm/0.4초)",
+  "text": "a person standing still is suddenly pushed on the chest from the front-left, pushing them diagonally backward and to their right, and recovers their balance",
+  "holdStartFrames": [
+    24,
+    30
+  ],
+  "rootPath": {
+    "points": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        -0.10606601717798213,
+        -0.10606601717798213
+      ]
+    ],
+    "frames": [
+      0,
+      30,
+      42
+    ]
+  },
+  "duration_s": 4,
+  "startPose": "stand",
+  "expect": {
+    "dir": [
+      -0.7071067811865476,
+      -0.7071067811865476
+    ],
+    "endStillSpeed": 0.3
+  },
+  "filmCamera": "side"
+}

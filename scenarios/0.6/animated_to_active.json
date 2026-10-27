@@ -1,0 +1,60 @@
+{
+  "name": "animated_to_active",
+  "milestone": "0.6",
+  "description": "키네마틱 재생(Animated, Kimodo 앞으로 걷기) 중 1.0초에 오른쪽 어깨 총탄(Δv 0.3) → 그 스텝에 Active로 바뀌며 애니 중앙 차분 속도를 넘기고(핀 없음 — 반응 중) 충격을 받는다. 전환 때 속도 불연속이 기준 이하, 반응 중 핀 0, 넘어지지 않음. 기준(※): 넘긴 속도와 직전 키네마틱 속도 차이 바디 최대 선속도 ≤ 0.5 m/s·각속도 ≤ 3 rad/s (중앙 차분과 Rapier 후진 차분의 차이 = 가속도 × dt/2 수준; 스윙발 70 m/s²에서 0.3).",
+  "duration": 4,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Animated",
+    "pose": "kimodo_walk_forward"
+  },
+  "clip": null,
+  "events": [
+    {
+      "t": 1.0,
+      "type": "hit",
+      "hit": {
+        "type": "bullet",
+        "body": "Spine2",
+        "point": [
+          -0.17,
+          1.47,
+          0.4
+        ],
+        "direction": [
+          0,
+          0,
+          -1
+        ],
+        "magnitude": 0.3
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "switchVelJumpLin": {
+        "max": 0.5
+      },
+      "switchVelJumpAng": {
+        "max": 3.0
+      },
+      "pinDuringReaction": {
+        "max": 0
+      }
+    }
+  }
+}

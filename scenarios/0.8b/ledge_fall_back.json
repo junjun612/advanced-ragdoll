@@ -1,0 +1,60 @@
+{
+  "name": "ledge_fall_back",
+  "milestone": "0.8b",
+  "description": "(README 결정 176) 3m 받침 끝에 받침 안쪽(−Z)을 보고 뒤꿈치가 모서리 가까이 서 있다가 1초에 앞에서 Spine2를 뒤(+Z, 낭떠러지 쪽)로 Δv 0.5 밀림 → 주저앉으며 두 손을 모서리로 뻗지만 등 뒤 모서리라 잡지 못하고 떨어진다. 사람도 대부분 떨어진다: 등 뒤 모서리를 잡으면 몸이 손 둘레로 뒤로 넘어 돌아 어깨를 사람 한계(폄 60°) 넘게 펴야 매달린다(결정 173). 기대: 떨어지되 손을 뻗어 잡으려 함(잡기 시도, 잡지 못함), 폭발 없음, 보조 0.",
+  "duration": 6,
+  "seed": 1,
+  "terrain": "ledge",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      3,
+      -0.18
+    ],
+    "yaw": 3.141592653589793,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          0,
+          0,
+          1
+        ],
+        "magnitude": 0.5,
+        "duration": 0.15
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "fell": true,
+    "metrics": {
+      "assistUsage.root": {
+        "max": 0
+      },
+      "assistUsage.pin": {
+        "max": 0
+      },
+      "grabbed": {
+        "max": 0
+      }
+    }
+  }
+}

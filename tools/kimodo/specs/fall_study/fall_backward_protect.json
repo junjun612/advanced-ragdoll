@@ -1,0 +1,58 @@
+{
+  "clip": "fall_backward_protect",
+  "label": "가슴을 세게 밀림 → 뒤로 넘어지며 머리 보호",
+  "text": "a person standing still is pushed hard on the chest, stumbles backward, loses their balance and falls backward to the ground, tucking their chin and protecting their head with their arms",
+  "holdStartFrames": [
+    24,
+    30
+  ],
+  "rootPath": {
+    "points": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        -0.5
+      ]
+    ],
+    "frames": [
+      0,
+      30,
+      42
+    ]
+  },
+  "duration_s": 4,
+  "models": [
+    "rp12"
+  ],
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "startPose": "stand",
+  "rootMotion": "kept",
+  "expect": {
+    "dir": [
+      0,
+      -1
+    ]
+  },
+  "weights": {
+    "startPoseDeg": 0,
+    "endPoseDeg": 0
+  },
+  "top": 4,
+  "filmCamera": "side"
+}

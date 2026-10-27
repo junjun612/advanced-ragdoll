@@ -1,0 +1,33 @@
+{
+  "name": "shoulder_bump_pass",
+  "milestone": "0.8c",
+  "description": "걷다가 스쳐 지나감: A(파랑)는 +Z로, B(주황)는 −Z로 Kimodo 걷기 클립을 추종하며 옆 간격 0.42m로 엇갈려 지나간다. 흔드는 손·팔이 상대 허벅지·팔에 걸려 서로 Δv 약 0.2 push hit을 받는다(감지 창 0.05초). 부딪힌 팔은 힘을 잠깐 빼 밀려나고(armYield), 둘 다 상대를 1.2초 돌아보며(LookAt) 걷기를 이어간다. 반응 중 핀 0. 관통 깊이 최대 ≤ 2cm(※). 알려진 한계: 걷기 추종(v0.6)은 손·팔 접촉에 약해 옆 간격·만나는 위상을 조금 바꾸면 약 4번 중 1번 몇 초 뒤 넘어진다(README 결정, tools/interactTry.ts로 확인).",
+  "duration": 8,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "primaryName": "A",
+  "spawn": { "position": [0, 0, -2.2], "yaw": 0, "state": "Animated", "pose": "kimodo_walk_forward" },
+  "clip": null,
+  "characters": [
+    {
+      "name": "B",
+      "spawn": { "position": [0.42, 0, 2.25], "yaw": 3.14159265, "state": "Animated", "pose": "kimodo_walk_forward" },
+      "expect": {
+        "exploded": false,
+        "fell": false,
+        "metrics": { "interPenetrationMax": { "max": 0.02 }, "contactHits": { "min": 1 }, "lookAtOtherTime": { "min": 0.5 }, "walkDistance": { "min": 8 }, "pinDuringReaction": { "max": 0 } }
+      }
+    }
+  ],
+  "events": [
+    { "t": 0.3, "type": "setState", "state": "Active" },
+    { "t": 0.3, "char": "B", "type": "setState", "state": "Active" }
+  ],
+  "cameras": ["follow", "top"],
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": { "interPenetrationMax": { "max": 0.02 }, "contactHits": { "min": 1 }, "lookAtOtherTime": { "min": 0.5 }, "walkDistance": { "min": 8 }, "pinDuringReaction": { "max": 0 } }
+  }
+}

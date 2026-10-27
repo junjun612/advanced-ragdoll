@@ -1,0 +1,68 @@
+{
+  "name": "getup_prone",
+  "milestone": "0.7",
+  "description": "SPEC 9.2 v0.7: 1초에 등 뒤에서 큰 밀기(Δv 2.0, 앞으로) → 손을 짚으며 앞으로 넘어져 엎드림(엎드림 분류) → 누워 안정된 뒤 지연 → 포즈 매칭으로 라이브러리 겟업 클립 선택 → 0.3초 관성화 → 클립 추종 + 겟업 보조 → 두 발로 서면 균형·스텝 계층 → Idle 클립 추종으로 복귀.",
+  "duration": 14,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          0,
+          0,
+          1
+        ],
+        "magnitude": 2.0,
+        "duration": 0.15
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "expect": {
+    "exploded": false,
+    "fell": true,
+    "metrics": {
+      "getupSuccess": {
+        "min": 1
+      },
+      "getupPostureProne": {
+        "min": 1
+      },
+      "getupGiveUp": {
+        "max": 0
+      },
+      "assistUsage.getup": {
+        "max": 900
+      },
+      "assistUsage.pin": {
+        "max": 0
+      },
+      "assistUsage.root": {
+        "max": 0
+      }
+    }
+  }
+}

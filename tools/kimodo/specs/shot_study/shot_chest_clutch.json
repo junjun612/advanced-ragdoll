@@ -1,0 +1,69 @@
+{
+  "clip": "shot_chest_clutch",
+  "label": "가슴 총격 → 뒤로 비틀 → 상처 움켜쥠",
+  "text": "a person standing still gets shot in the chest, staggers backward and clutches the wound",
+  "holdStartFrames": [
+    24,
+    30
+  ],
+  "rootPath": {
+    "points": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        -0.28
+      ]
+    ],
+    "frames": [
+      0,
+      30,
+      42
+    ]
+  },
+  "duration_s": 4,
+  "models": [
+    "rp12"
+  ],
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18
+  ],
+  "startPose": "stand",
+  "rootMotion": "kept",
+  "expect": {
+    "dir": [
+      0,
+      -1
+    ],
+    "endStillSpeed": 0.3
+  },
+  "weights": {
+    "startPoseDeg": 0,
+    "endPoseDeg": 0
+  },
+  "top": 4,
+  "filmCamera": "side"
+}

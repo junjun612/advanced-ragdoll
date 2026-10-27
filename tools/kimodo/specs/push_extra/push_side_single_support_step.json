@@ -1,0 +1,57 @@
+{
+  "models": [
+    "rp12"
+  ],
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "rootMotion": "kept",
+  "weights": {
+    "startPoseDeg": 0,
+    "endPoseDeg": 1
+  },
+  "top": 3,
+  "clip": "push_side_single_support_step",
+  "label": "왼발 외발 서기에서 오른쪽에서 밀림 → 발 디뎌 버팀 (15cm/0.4초)",
+  "text": "a person balancing on their left leg with their right foot raised is suddenly pushed on their right shoulder from the right side, pushing them to their left, quickly puts their right foot down across to catch themselves, and recovers their balance standing on both feet",
+  "holdStartFrames": [
+    24,
+    30
+  ],
+  "rootPath": {
+    "points": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0.15,
+        0
+      ]
+    ],
+    "frames": [
+      0,
+      30,
+      42
+    ]
+  },
+  "duration_s": 4,
+  "startPose": "stand_single_left",
+  "expect": {
+    "dir": [
+      1,
+      0
+    ],
+    "endStillSpeed": 0.3
+  },
+  "filmCamera": "front"
+}

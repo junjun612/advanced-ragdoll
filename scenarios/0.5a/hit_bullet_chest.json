@@ -1,0 +1,71 @@
+{
+  "name": "hit_bullet_chest",
+  "milestone": "0.5a",
+  "description": "왼쪽 가슴에 앞에서 총탄 (Δv 0.35). 맞은 바디(Spine2)·인접 관절 힘 빠짐 → 왼손이 상처를 움켜쥠(같은 쪽), 몸통 웅크림. 스텝은 0~3.",
+  "duration": 5,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1,
+      "type": "hit",
+      "hit": {
+        "type": "bullet",
+        "body": "Spine2",
+        "point": [
+          0.09,
+          1.4,
+          0.4
+        ],
+        "direction": [
+          0,
+          0,
+          -1
+        ],
+        "magnitude": 0.35
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "steps": [
+      0,
+      3
+    ],
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      },
+      "clutchReachTime": {
+        "max": 0.6
+      },
+      "clutchHoldTime": {
+        "min": 1
+      },
+      "hitJointStrengthMin": {
+        "max": 0.45
+      }
+    }
+  }
+}

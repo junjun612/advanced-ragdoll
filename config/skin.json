@@ -1,0 +1,13 @@
+{
+  "$comment": "FBX 스킨 렌더 설정 (SPEC 12장 v0.2 'FBX 스킨 렌더', src/render/skin.ts). 렌더 전용 값이라 sim 결과에 영향이 없다. absorbed: 바디에 흡수된 중간 본의 회전 = slerp(from 바디 Δ회전, to 바디 Δ회전, t). 어깨는 팔 회전을 조금만 따라가게 둔다(쇄골 바디 없음, 팔 본 위치는 LeftArm 바디에서 직접 정한다).",
+  "fbx": "assets/fbx/X Bot.fbx",
+  "absorbed": {
+    "Spine": { "from": "Hips", "to": "Spine", "t": 0.5 },
+    "Neck": { "from": "Spine2", "to": "Head", "t": 0.5 },
+    "LeftShoulder": { "from": "Spine2", "to": "LeftArm", "t": 0.25 },
+    "RightShoulder": { "from": "Spine2", "to": "RightArm", "t": 0.25 }
+  },
+  "$twistShare": "전완 회내·회외: 물리는 손목 관절 twist(±90 = 회내·회외 ±80 + 손목 ±10)로 받고, 피부는 전완 본이 손의 전완 축 비틀림 t만큼을 함께 돌아 전완을 따라 꼬인다 (README 결정 72).",
+  "twistShare": { "LeftForeArm": { "child": "LeftHand", "t": 0.6 }, "RightForeArm": { "child": "RightHand", "t": 0.6 } },
+  "color": { "surface": [0.62, 0.64, 0.68], "joints": [0.22, 0.24, 0.3] }
+}

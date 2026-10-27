@@ -1,0 +1,57 @@
+{
+  "name": "explosion_far",
+  "milestone": "0.5c",
+  "$added": "추가 시나리오 (v0.5c 품질 확인용, SPEC 9.2 목록에는 없음)",
+  "description": "정면 4m 지면에서 폭발(1m 기준 Δv 8 → COM Δv 약 2 m/s): 거리 반비례로 약해져 몸이 거의 뜨지 않음 — 뒤로 휘청이며 내딛거나 넘어짐. 폭발 없음.",
+  "duration": 6,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "events": [
+    {
+      "t": 1,
+      "type": "hit",
+      "hit": {
+        "type": "explosion",
+        "point": [
+          0,
+          0.1,
+          4.0
+        ],
+        "direction": [
+          0,
+          0,
+          0
+        ],
+        "magnitude": 8
+      }
+    }
+  ],
+  "expect": {
+    "exploded": false,
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      }
+    }
+  }
+}

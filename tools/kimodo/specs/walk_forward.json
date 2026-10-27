@@ -1,0 +1,46 @@
+{
+  "clip": "walk_forward",
+  "label": "앞으로 걷기 (루프)",
+  "text": "a person walks forward at a normal relaxed pace",
+  "duration_s": 8.0,
+  "startPose": "stand",
+  "loop": {
+    "minLenS": 0.9,
+    "maxLenS": 2.6,
+    "fromS": 1.5,
+    "phaseAlign": "Left"
+  },
+  "rootMotion": "kept",
+  "expect": {
+    "dir": [
+      0,
+      1
+    ],
+    "minSpeed": 0.9,
+    "maxSpeed": 1.8
+  },
+  "weights": {
+    "startPoseDeg": 0,
+    "endPoseDeg": 0,
+    "footSlideRawCmPerS": 2.0,
+    "footLockCorrectionCm": 1.0,
+    "seamPosCm": 2.0,
+    "seamVelCmS": 1.0,
+    "seamAccelCm": 1.0
+  },
+  "filmCycles": 2,
+  "models": [
+    "rp12",
+    "seed11"
+  ],
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "top": 3,
+  "filmCamera": "side,front"
+}

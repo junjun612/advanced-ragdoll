@@ -1,0 +1,40 @@
+{
+  "name": "slope10_stand",
+  "milestone": "0.3",
+  "description": "10° 오르막(정면 +Z 쪽이 높음)에서 보조 없이 10초 서기 (SPEC 9.2 v0.3). 발바닥을 경사에 맞춘 자세로 스폰(뒤꿈치 바로 위), 목표는 stand + 지지발 지면 맞춤",
+  "duration": 10.0,
+  "seed": 1,
+  "terrain": "slope10",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      -0.012,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand_slope10",
+    "levelFeet": false
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "stepping": false,
+  "events": [],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      }
+    }
+  }
+}

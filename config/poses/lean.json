@@ -1,0 +1,30 @@
+{
+  "$comment": "상체 숙이기 목표 (SPEC 9.2 v0.3 lean_target): stand에서 1초 동안 고관절에서 8°(UpLeg flex 4→12), Spine·Spine2에서 6°씩 앞으로 숙여 Spine2 기울기 합 20°. 사람은 상체를 숙일 때 허리보다 고관절에서 많이 굽힌다 (README 결정 50). 형식: docs/ALGORITHMS.md '목표 포즈'.",
+  "name": "lean",
+  "base": "stand",
+  "fps": 1,
+  "loop": false,
+  "frames": [
+    {
+      "joints": {}
+    },
+    {
+      "joints": {
+        "Spine": {
+          "flex": 6
+        },
+        "Spine2": {
+          "flex": 6
+        },
+        "LeftUpLeg": {
+          "flex": 12,
+          "side": 4
+        },
+        "RightUpLeg": {
+          "flex": 12,
+          "side": -4
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "name": "hold_pose_assist",
+  "milestone": "0.2",
+  "description": "stand 포즈로 지면에 스폰, 루트 보조(Hips 직립 토크 + 높이 스프링) 켜고 10초 서 있기",
+  "duration": 10.0,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": true
+  },
+  "stepping": false,
+  "events": [],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "jitter": {
+        "max": 1
+      }
+    }
+  }
+}

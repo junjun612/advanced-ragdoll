@@ -1,0 +1,42 @@
+{
+  "name": "drop_1m_feet",
+  "milestone": "0.5c",
+  "$added": "추가 시나리오 (v0.5c 품질 확인용, SPEC 9.2 목록에는 없음)",
+  "description": "1m 높이에서 서기 자세로 떨어짐(t=0, 낙하 약 0.45초) → 착지 준비(다리를 지면 쪽으로 펴고 팔 벌림, 허우적대지 않음) → 발이 닿는 순간 무릎 강도를 낮춰 흡수 → 균형·스텝으로 넘김. 넘어지지 않음.",
+  "duration": 4,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      1.0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "events": [],
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      },
+      "prepLandingLead": {
+        "min": 0.3
+      }
+    }
+  }
+}

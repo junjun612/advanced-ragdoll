@@ -1,0 +1,43 @@
+{
+  "$comment": "피격 모델 (SPEC v0.5 '피격 모델', 7.2). 충격 크기는 모두 전신 COM Δv(m/s)다: 실제 충격량 합 J = 총질량 × Δv × 방향. 종류별로 어디에 어떻게 나눠 가하는지와 어떤 행동을 켜는지만 다르다. 정의: docs/ALGORITHMS.md v0.5a.",
+  "$bullet": "총탄: 맞은 바디의 '입사점'(point를 지나 direction으로 들어오는 직선이 그 바디 주 형상 표면과 처음 만나는 점; point가 없으면 바디 중심을 지나는 직선)에 J 전체를 한 스텝에 가한다(작고 날카로운 충격). 상처 = 입사점·표면 법선을 맞은 바디 로컬로 저장. defaultMagnitude: magnitude를 안 주면 쓰는 Δv. behaviors: 켜는 행동. legBodies에 맞으면 InjuredLeg도.",
+  "$bulletShare": "pointShare: J 중 입사점(맞은 바디)에 가하는 몫 — 날카로운 국소 충격. 나머지(1 − pointShare)는 carryBodies(전신)의 질량 중심에 질량 비례로 나눠 가한다(전신 COM을 밀어 비틀거림 걸음을 만든다; 합은 J 그대로라 Δv 정의는 같다). 전부 한 점(12kg Spine2)에 주면 Δv 0.4에서 상체가 50° 넘게 채찍처럼 젖혀져 균형이 꺼졌다 (README 결정 75).",
+  "bullet": {
+    "defaultMagnitude": 0.4,
+    "pointShare": 0.25,
+    "$maxPointDv": "입사점 몫의 상한: 맞은 바디 자체 속도 변화가 이 값(m/s)을 넘지 않게 (가벼운 팔·손에 몫을 다 주면 팔이 65 rad/s로 돌아 폭발 판정). 넘는 만큼은 전신(carryBodies)으로.",
+    "maxPointDv": 0.6,
+    "carryBodies": ["Hips", "Spine", "Spine2", "Head", "LeftArm", "LeftForeArm", "LeftHand", "RightArm", "RightForeArm", "RightHand", "LeftUpLeg", "LeftLeg", "LeftFoot", "RightUpLeg", "RightLeg", "RightFoot"],
+    "behaviors": ["HitReaction", "HoldWound"],
+    "legBodies": ["LeftUpLeg", "LeftLeg", "LeftFoot", "RightUpLeg", "RightLeg", "RightFoot"],
+    "rayBack": 1.0
+  },
+  "$melee": "근접 타격: J의 selfShare를 맞은 바디(point가 있으면 그 점)에, 나머지를 인접 바디(부모·자식)에 질량 비례로 각 바디 중심에 나눠 가한다(분산된 큰 충격). 합은 J 그대로.",
+  "melee": {
+    "defaultMagnitude": 0.7,
+    "selfShare": 0.5,
+    "behaviors": ["HitReaction", "Stagger"]
+  },
+  "$push": "밀기: v0.1~v0.4 그대로 (바디 중심 또는 point에 J). 행동 없음 — Balance가 처리.",
+  "push": {
+    "behaviors": []
+  },
+  "$explosion": "폭발 (v0.5c, SPEC 7.2·v0.5 피격 모델): hit.point = 폭발 중심(월드), magnitude = 중심에서 refDist(1m) 거리의 전신 COM Δv(m/s). 바디마다 Δv_i = (COM 거리의 Δv)^(1−perBodyFalloff) × (바디 거리의 Δv)^perBodyFalloff, 거리의 Δv = magnitude × refDist / max(minDist, 거리), 방향 = 중심 → 바디(방사형; 지면 폭발은 지면을 따라 수평). perBodyFalloff를 1로 두면 1.5m 앞 지면 폭발에서 정강이가 머리보다 1.5배 세게 밀려 몸이 폭발 쪽으로 엎어지며 날아가 손·무릎으로 착지했다(사람이 폭풍에 '발이 들려' 뒤로 넘어가는 모습과 반대). heightGain: 수평 성분에 1 + heightGain × (바디 높이 − COM 높이)(최소 0.2)를 곱한다 — 발은 지면 마찰에 붙잡히고 상체가 폭풍을 더 받아 상체가 뒤로 젖혀지며 발이 들린다. 위 성분만 높이에 따라 다르게 주면 서 있는 몸의 긴 축 방향이라 회전 없이 막대처럼 곧게 떠올랐다(README 결정 98). 중심이 지면에서 groundBlastHeight m 안이면 지면 반사로 위 성분 groundLift × Δv_i × max(0, 1 − 바디 높이/liftFadeHeight)를 더한다(낮은 바디일수록 — 다리가 들려 몸이 뒤로 젖혀지며 날아간다). 전체를 한 배율로 맞춰 전신 COM Δv 크기 = magnitude × refDist / max(minDist, 중심→COM 거리)(7.2 정의). 한 스텝에 가한다(폭풍 압력은 수 ms). behaviors: 켜는 행동(공중이면 행동 계층이 Flail·PrepareLanding·Roll을 스스로 켠다). deathDv: 폭발 종류의 사망 임계값(COM Δv) — 폭발 Δv는 '날아가는 속도'라 밀기·총탄의 2.5 m/s를 쓰면 몸이 뜨는 폭발은 모두 즉사가 된다(README 결정 98).",
+  "explosion": {
+    "refDist": 1.0,
+    "minDist": 0.5,
+    "groundBlastHeight": 0.5,
+    "groundLift": 1.5,
+    "liftFadeHeight": 2.0,
+    "perBodyFalloff": 0.3,
+    "heightGain": 0.8,
+    "behaviors": ["BlastStun"],
+    "deathDv": 8.0
+  },
+  "$staggerMinDv": "이 Δv 이상인 총탄도 Stagger를 켠다(맞은 뒤 스텝이 나오면 고르지 않은 비틀거림 걸음). 근접 타격은 항상.",
+  "staggerMinDv": 0.3,
+  "$intensityRefDv": "반응 강도 = min(1, Δv / intensityRefDv). HitReaction 약화·움찔 크기와 hitReacted 이벤트의 강도에 쓴다.",
+  "intensityRefDv": 0.5,
+  "$deathDv": "사망 임계값 (v0.5b, SPEC 공통 규칙): 종류와 무관하게 Δv가 이 값 이상이면 Limp(충격 분배는 종류대로). large(1.5)보다 커서 밀기로는 죽지 않는다. 결정 기록 참고.",
+  "deathDv": 2.5
+}

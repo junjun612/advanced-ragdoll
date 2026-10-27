@@ -1,0 +1,67 @@
+{
+  "name": "wall_lean_shoulder",
+  "milestone": "0.8b",
+  "$added": "추가 시나리오 (v0.8b 품질 확인용, SPEC 9.2 목록에는 없음)",
+  "description": "벽(오른쪽 0.4m, 어깨가 거의 닿는 거리)과 나란히 정면(+X)을 보고 서 있다가 1초에 왼쪽에서 Spine2를 오른쪽(벽 쪽)으로 중간 충격(medium) → 팔을 가슴 앞으로 접고 어깨로 벽을 받아 버틴 뒤 몸을 뗌.",
+  "duration": 6,
+  "seed": 1,
+  "terrain": "wall",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0.45
+    ],
+    "yaw": 1.5707963267948966,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          0,
+          0,
+          1
+        ],
+        "magnitude": "medium",
+        "duration": 0.15
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "assistUsage.root": {
+        "max": 0
+      },
+      "assistUsage.pin": {
+        "max": 0
+      },
+      "wallBraced": {
+        "min": 1
+      },
+      "wallPushOff": {
+        "min": 1
+      },
+      "wallContactLead": {
+        "max": 0.9
+      }
+    }
+  }
+}

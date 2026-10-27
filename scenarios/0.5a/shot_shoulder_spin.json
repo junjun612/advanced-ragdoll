@@ -1,0 +1,67 @@
+{
+  "name": "shot_shoulder_spin",
+  "milestone": "0.5a",
+  "description": "왼쪽 어깨 앞(Spine2 어깨 쪽 끝, 쇄골 아래)에 앞에서 총탄 (Δv 0.4). 몸통이 맞은 쪽(왼쪽)으로 ≥ 15° 돌아가고 오른손이 왼 어깨를 움켜쥠.",
+  "duration": 5,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1,
+      "type": "hit",
+      "hit": {
+        "type": "bullet",
+        "body": "Spine2",
+        "point": [
+          0.11,
+          1.45,
+          0.4
+        ],
+        "direction": [
+          0,
+          0,
+          -1
+        ],
+        "magnitude": 0.4
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      },
+      "trunkYawTowardHitDeg": {
+        "min": 15
+      },
+      "clutchReachTime": {
+        "max": 0.7
+      },
+      "clutchHoldTime": {
+        "min": 1
+      }
+    }
+  }
+}

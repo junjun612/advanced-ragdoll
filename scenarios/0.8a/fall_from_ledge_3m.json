@@ -1,0 +1,66 @@
+{
+  "name": "fall_from_ledge_3m",
+  "milestone": "0.8a",
+  "description": "SPEC 9.2 v0.8a: 높이 3m 받침 위를 걷다가(Kimodo 걷기 클립 추종) 모서리를 넘어 허공으로 내딛어 떨어짐(3m 낙하 약 0.8초) → 공중 허우적 → 착지 준비 → 착지(무릎 굽힘) 또는 구름. (밀어서 떨어뜨리는 것보다 '걷다가 헛디딤'이 3m 낙하의 대표 장면이고, 몸이 선 채로 떨어진다)",
+  "duration": 6,
+  "seed": 1,
+  "terrain": "ledge",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      3.0,
+      -0.13
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          0,
+          0,
+          1
+        ],
+        "magnitude": "medium",
+        "duration": 0.15
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "fell": true,
+    "metrics": {
+      "assistUsage.root": {
+        "max": 0
+      },
+      "assistUsage.pin": {
+        "max": 0
+      },
+      "airTimeMax": {
+        "min": 0.6
+      },
+      "flailAirCoverage": {
+        "min": 0.5
+      },
+      "prepLandingLead": {
+        "min": 0.2
+      }
+    }
+  }
+}

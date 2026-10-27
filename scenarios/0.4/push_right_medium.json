@@ -1,0 +1,65 @@
+{
+  "name": "push_right_medium",
+  "milestone": "0.4",
+  "description": "Spine2를 오른쪽(−X)으로 medium(Δv 0.8). 레퍼런스 Kimodo push_left_hard RP 시드4(왼쪽에서 밀림 Δv 0.89: 6걸음 옆걸음, 회복 2.7초).",
+  "knownIssue": "결정 74 ②: 착지 오차 평균 0.074 > 0.05 (스윙 중 재계획 걸음이 옆으로 짧게 떨어짐)",
+  "duration": 5.0,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1.0,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          -1,
+          0,
+          0
+        ],
+        "magnitude": "medium"
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": "assets/kimodo/push_left_hard/rp12_s4/clip.json",
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "steps": [
+      1,
+      5
+    ],
+    "recoveredWithin": 3.0,
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      },
+      "landingErrorMean": {
+        "max": 0.05
+      },
+      "footSlide": {
+        "max": 0.3
+      }
+    }
+  }
+}

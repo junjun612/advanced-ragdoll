@@ -1,0 +1,66 @@
+{
+  "name": "hit_melee_back",
+  "milestone": "0.5a",
+  "description": "등을 뒤에서 근접 타격 (Δv 0.6, 앞(+Z)으로). 비틀거림(Stagger) 뒤 회복.",
+  "duration": 5,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1,
+      "type": "hit",
+      "hit": {
+        "type": "melee",
+        "body": "Spine2",
+        "point": [
+          0,
+          1.4,
+          -0.15
+        ],
+        "direction": [
+          0,
+          0,
+          1
+        ],
+        "magnitude": 0.6
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "steps": [
+      1,
+      6
+    ],
+    "recoveredWithin": 4,
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      },
+      "hitJointStrengthMin": {
+        "max": 0.45
+      }
+    }
+  }
+}

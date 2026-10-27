@@ -1,0 +1,309 @@
+{
+ "$comment": "v0.9 자동 튜닝 결과 (tools/tune.ts run t1). 기본 설정에는 반영하지 않았다 — 반영은 리드가 out/tune/t1/report.md 필름스트립을 보고 정한다. 적용: overrides의 경로(첫 마디 = config 파일)에 값을 넣는다.",
+ "run": "t1",
+ "date": "2026-10-27",
+ "tiers": [
+  "primary"
+ ],
+ "generations": 12,
+ "evaluations": 156,
+ "chosen": "base",
+ "chosenIsBase": true,
+ "overrides": {
+  "behaviors.reactionDelay": 0.08,
+  "behaviors.HitReaction.flinchDeg": 14,
+  "behaviors.HitReaction.flinchHold": 0.6,
+  "behaviors.HitReaction.duration": 1.4,
+  "behaviors.fall.threshold": 0.6,
+  "stepping.stepTriggerMargin": -0.02,
+  "stepping.retriggerMargin": 0.04,
+  "stepping.nearEdgeTime": 0.35,
+  "stepping.stepOvershoot": 0.07,
+  "stepping.landingMargin": 0.03,
+  "stepping.duration.min": 0.2,
+  "stepping.duration.max": 0.45,
+  "stepping.settle.standTime": 0.4,
+  "reaction.delay": 0.08,
+  "reaction.minDv": 0.25,
+  "reaction.maxCost": 3,
+  "reaction.style.cost.dir": 4,
+  "reaction.style.cost.dv": 2,
+  "reaction.style.blendIn": 0.15,
+  "reaction.style.blendOut": 0.6,
+  "reaction.style.holdAfterStand": 0.4,
+  "reaction.style.rate.max": 2.5,
+  "reaction.style.danger.d0": 0.04,
+  "reaction.style.danger.d1": 0.24,
+  "reaction.style.danger.tau": 0.15,
+  "reaction.style.stepGate.inStep": 0.2,
+  "reaction.style.stepGate.up": 0.2
+ },
+ "changed": {},
+ "$runnerUp": "고르지 않은 후보 중 검증 비용이 가장 낮은 것 — 탈락 이유(why)와 함께. 필름 비교(check --which runnerUp)용",
+ "runnerUp": {
+  "label": "g4mean",
+  "why": "holdout 비용 4.91 > 기본 4.65",
+  "paired": {
+   "diff": -0.3268484842763244,
+   "se": 0.27101941226450266
+  },
+  "overrides": {
+   "behaviors.reactionDelay": 0.083303,
+   "behaviors.HitReaction.flinchDeg": 14.944,
+   "behaviors.HitReaction.flinchHold": 0.53333,
+   "behaviors.HitReaction.duration": 1.0173,
+   "behaviors.fall.threshold": 0.64505,
+   "stepping.stepTriggerMargin": -0.016995,
+   "stepping.retriggerMargin": 0.048315,
+   "stepping.nearEdgeTime": 0.39391,
+   "stepping.stepOvershoot": 0.046796,
+   "stepping.landingMargin": 0.03577,
+   "stepping.duration.min": 0.20111,
+   "stepping.duration.max": 0.49921,
+   "stepping.settle.standTime": 0.38453,
+   "reaction.delay": 0.066779,
+   "reaction.minDv": 0.24705,
+   "reaction.maxCost": 2.8093,
+   "reaction.style.cost.dir": 2.5935,
+   "reaction.style.cost.dv": 2.1244,
+   "reaction.style.blendIn": 0.1009,
+   "reaction.style.blendOut": 0.594,
+   "reaction.style.holdAfterStand": 0.29435,
+   "reaction.style.rate.max": 2.2418,
+   "reaction.style.danger.d0": 0.055626,
+   "reaction.style.danger.d1": 0.26783,
+   "reaction.style.danger.tau": 0.12968,
+   "reaction.style.stepGate.inStep": 0.15109,
+   "reaction.style.stepGate.up": 0.18192
+  },
+  "changed": {
+   "behaviors.reactionDelay": {
+    "from": 0.08,
+    "to": 0.083303
+   },
+   "behaviors.HitReaction.flinchDeg": {
+    "from": 14,
+    "to": 14.944
+   },
+   "behaviors.HitReaction.flinchHold": {
+    "from": 0.6,
+    "to": 0.53333
+   },
+   "behaviors.HitReaction.duration": {
+    "from": 1.4,
+    "to": 1.0173
+   },
+   "behaviors.fall.threshold": {
+    "from": 0.6,
+    "to": 0.64505
+   },
+   "stepping.stepTriggerMargin": {
+    "from": -0.02,
+    "to": -0.016995
+   },
+   "stepping.retriggerMargin": {
+    "from": 0.04,
+    "to": 0.048315
+   },
+   "stepping.nearEdgeTime": {
+    "from": 0.35,
+    "to": 0.39391
+   },
+   "stepping.stepOvershoot": {
+    "from": 0.07,
+    "to": 0.046796
+   },
+   "stepping.landingMargin": {
+    "from": 0.03,
+    "to": 0.03577
+   },
+   "stepping.duration.min": {
+    "from": 0.2,
+    "to": 0.20111
+   },
+   "stepping.duration.max": {
+    "from": 0.45,
+    "to": 0.49921
+   },
+   "stepping.settle.standTime": {
+    "from": 0.4,
+    "to": 0.38453
+   },
+   "reaction.delay": {
+    "from": 0.08,
+    "to": 0.066779
+   },
+   "reaction.minDv": {
+    "from": 0.25,
+    "to": 0.24705
+   },
+   "reaction.maxCost": {
+    "from": 3,
+    "to": 2.8093
+   },
+   "reaction.style.cost.dir": {
+    "from": 4,
+    "to": 2.5935
+   },
+   "reaction.style.cost.dv": {
+    "from": 2,
+    "to": 2.1244
+   },
+   "reaction.style.blendIn": {
+    "from": 0.15,
+    "to": 0.1009
+   },
+   "reaction.style.blendOut": {
+    "from": 0.6,
+    "to": 0.594
+   },
+   "reaction.style.holdAfterStand": {
+    "from": 0.4,
+    "to": 0.29435
+   },
+   "reaction.style.rate.max": {
+    "from": 2.5,
+    "to": 2.2418
+   },
+   "reaction.style.danger.d0": {
+    "from": 0.04,
+    "to": 0.055626
+   },
+   "reaction.style.danger.d1": {
+    "from": 0.24,
+    "to": 0.26783
+   },
+   "reaction.style.danger.tau": {
+    "from": 0.15,
+    "to": 0.12968
+   },
+   "reaction.style.stepGate.inStep": {
+    "from": 0.2,
+    "to": 0.15109
+   },
+   "reaction.style.stepGate.up": {
+    "from": 0.2,
+    "to": 0.18192
+   }
+  },
+  "validation": {
+   "cost": 6.085,
+   "pass": 0.608,
+   "fall": 0.206,
+   "explode": 2,
+   "armElevP90": 54.198,
+   "armLateOut": 0.245,
+   "armUsage": 109.216,
+   "trunkPeak": 26.394,
+   "landing": 0.052,
+   "refJointRms": 22.486,
+   "n": 204
+  },
+  "validationHoldout": {
+   "cost": 4.912,
+   "pass": 0.722,
+   "fall": 0.125,
+   "explode": 2,
+   "armElevP90": 52.047,
+   "armLateOut": 0.377,
+   "armUsage": 86.241,
+   "trunkPeak": 20.031,
+   "landing": 0.059,
+   "refJointRms": 23.258,
+   "n": 72
+  },
+  "validationTrainMag": {
+   "cost": 6.726,
+   "pass": 0.545,
+   "fall": 0.25,
+   "explode": 0,
+   "armElevP90": 54.829,
+   "armLateOut": 0.162,
+   "armUsage": 119.252,
+   "trunkPeak": 30.792,
+   "landing": 0.049,
+   "refJointRms": 22.276,
+   "n": 132
+  }
+ },
+ "validation": {
+  "base": {
+   "cost": 6.412,
+   "pass": 0.549,
+   "fall": 0.211,
+   "explode": 1,
+   "armElevP90": 56.461,
+   "armLateOut": 0.29,
+   "armUsage": 112.923,
+   "trunkPeak": 26.318,
+   "landing": 0.056,
+   "refJointRms": 23.148,
+   "n": 204
+  },
+  "chosen": {
+   "cost": 6.412,
+   "pass": 0.549,
+   "fall": 0.211,
+   "explode": 1,
+   "armElevP90": 56.461,
+   "armLateOut": 0.29,
+   "armUsage": 112.923,
+   "trunkPeak": 26.318,
+   "landing": 0.056,
+   "refJointRms": 23.148,
+   "n": 204
+  },
+  "baseHoldout": {
+   "cost": 4.652,
+   "pass": 0.708,
+   "fall": 0.111,
+   "explode": 1,
+   "armElevP90": 55.161,
+   "armLateOut": 0.375,
+   "armUsage": 93.887,
+   "trunkPeak": 20.827,
+   "landing": 0.058,
+   "refJointRms": 23.152,
+   "n": 72
+  },
+  "chosenHoldout": {
+   "cost": 4.652,
+   "pass": 0.708,
+   "fall": 0.111,
+   "explode": 1,
+   "armElevP90": 55.161,
+   "armLateOut": 0.375,
+   "armUsage": 93.887,
+   "trunkPeak": 20.827,
+   "landing": 0.058,
+   "refJointRms": 23.152,
+   "n": 72
+  },
+  "baseTrainMag": {
+   "cost": 7.372,
+   "pass": 0.462,
+   "fall": 0.265,
+   "explode": 0,
+   "armElevP90": 56.623,
+   "armLateOut": 0.233,
+   "armUsage": 134.04,
+   "trunkPeak": 31.455,
+   "landing": 0.056,
+   "refJointRms": 23.147,
+   "n": 132
+  },
+  "chosenTrainMag": {
+   "cost": 7.372,
+   "pass": 0.462,
+   "fall": 0.265,
+   "explode": 0,
+   "armElevP90": 56.623,
+   "armLateOut": 0.233,
+   "armUsage": 134.04,
+   "trunkPeak": 31.455,
+   "landing": 0.056,
+   "refJointRms": 23.147,
+   "n": 132
+  }
+ }
+}

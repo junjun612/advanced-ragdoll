@@ -1,0 +1,39 @@
+{
+  "name": "advanced-ragdoll",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "ragdoll:gen": "tsx tools/genRagdoll.ts \"assets/fbx/X Bot.fbx\"",
+    "film": "tsx tools/film.ts",
+    "film:fake": "tsx tools/film/fakeLog.ts",
+    "sim": "tsx tools/sim.ts",
+    "sim:all": "tsx tools/simAll.ts",
+    "sweep:kp": "tsx tools/kpSweep.ts",
+    "app:shots": "tsx tools/appShots.ts",
+    "app:check": "tsx tools/appCheck.ts",
+    "film:clip": "tsx tools/kimodo/clipToLog.ts",
+    "kimodo:candidates": "tsx tools/kimodo/candidates.ts",
+    "ref:compare": "tsx tools/kimodo/refSimilarity.ts",
+    "kimodo:pushStudy": "tsx tools/kimodo/pushStudy.ts",
+    "bench": "tsx tools/bench.ts",
+    "getup:build": "tsx tools/kimodo/buildGetupLibrary.ts"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "0.21.0",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/three": "^0.186.0",
+    "esbuild": "^0.28.2",
+    "playwright": "^1.64.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
+  }
+}

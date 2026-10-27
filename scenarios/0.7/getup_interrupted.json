@@ -1,0 +1,83 @@
+{
+  "name": "getup_interrupted",
+  "milestone": "0.7",
+  "description": "SPEC 9.2 v0.7: getup_supine과 같은 쓰러짐 → 4.34초에 겟업 시작 → 5.6초(앉아 올라오는 중)에 가슴 앞에서 중간 밀기(Δv 0.8, 뒤로) → 겟업 취소(시도로 세지 않음), 행동 계층이 피격 반응 → 다시 눕고 안정되면 다른(또는 같은) 클립으로 재시도 → 서서 Idle 복귀.",
+  "duration": 20,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          0,
+          0,
+          -1
+        ],
+        "magnitude": "large",
+        "duration": 0.15
+      }
+    },
+    {
+      "t": 5.6,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          0,
+          0,
+          -1
+        ],
+        "magnitude": "medium",
+        "duration": 0.15
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "expect": {
+    "exploded": false,
+    "metrics": {
+      "getupCancels": {
+        "min": 1
+      },
+      "getupSuccess": {
+        "min": 1
+      },
+      "getupGiveUp": {
+        "max": 0
+      },
+      "assistUsage.getup": {
+        "max": 1800
+      },
+      "assistUsage.pin": {
+        "max": 0
+      },
+      "assistUsage.root": {
+        "max": 0
+      }
+    },
+    "fell": true
+  }
+}

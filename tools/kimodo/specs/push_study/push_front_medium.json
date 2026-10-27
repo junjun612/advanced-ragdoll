@@ -1,0 +1,58 @@
+{
+  "clip": "push_front_medium",
+  "label": "앞에서 살짝 세게 밀림 (15cm/0.4초)",
+  "text": "a person standing still is suddenly pushed on the chest from the front, pushing them backward, and recovers their balance",
+  "holdStartFrames": [
+    24,
+    30
+  ],
+  "rootPath": {
+    "points": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        -0.15
+      ]
+    ],
+    "frames": [
+      0,
+      30,
+      42
+    ]
+  },
+  "duration_s": 4,
+  "models": [
+    "rp12",
+    "seed11"
+  ],
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "startPose": "stand",
+  "rootMotion": "kept",
+  "expect": {
+    "dir": [
+      0,
+      -1
+    ],
+    "endStillSpeed": 0.3
+  },
+  "weights": {
+    "startPoseDeg": 0,
+    "endPoseDeg": 1
+  },
+  "top": 3,
+  "filmCamera": "side"
+}

@@ -1,0 +1,64 @@
+{
+  "name": "push_back_small",
+  "milestone": "0.4",
+  "description": "(v0.3에서 이동, 결정 51) Spine2를 뒤로 small(Δv 0.3). 레퍼런스 Kimodo push_front_light SEED 시드3(Δv 0.20: 2걸음, 회복 1.0초). 0~2걸음, 넘어지지 않음.",
+  "duration": 5.0,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1.0,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          0,
+          0,
+          -1
+        ],
+        "magnitude": "small"
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": "assets/kimodo/push_front_light/seed11_s3/clip.json",
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "steps": [
+      0,
+      2
+    ],
+    "recoveredWithin": 3.0,
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      },
+      "landingErrorMean": {
+        "max": 0.05
+      },
+      "footSlide": {
+        "max": 0.3
+      }
+    }
+  }
+}

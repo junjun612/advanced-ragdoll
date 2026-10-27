@@ -1,0 +1,13 @@
+{
+  "clip": "lie_writhe_pain_v2",
+  "label": "바닥 몸부림 v2 (좌우로 뒹굶)",
+  "text": "a person lying on their back on the ground rolls from side to side in pain, clutching their stomach with both hands, knees pulled up toward the chest, writhing and squirming",
+  "duration_s": 6,
+  "models": ["rp12"],
+  "seeds": [1, 2, 3, 4, 5, 6, 7, 8],
+  "rootMotion": "kept",
+  "expect": {},
+  "weights": { "startPoseDeg": 0, "endPoseDeg": 0 },
+  "top": 4,
+  "filmCamera": "side"
+}

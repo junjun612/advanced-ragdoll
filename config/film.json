@@ -1,0 +1,38 @@
+{
+  "$comment": "필름스트립·렌더 표시 설정 (SPEC 8.3). 렌더 전용 값이라 sim 결과에 영향이 없다.",
+  "cellSize": 256,
+  "columns": 10,
+  "frameInterval": 0.1,
+  "impactShowSec": 0.3,
+  "headerHeight": 84,
+  "font": "'Malgun Gothic', '맑은 고딕', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif",
+  "camera": {
+    "fovDeg": 30,
+    "targetHeight": 0.85,
+    "elevation": 0.9,
+    "distance": 4.6,
+    "topHeight": 5.5,
+    "followOffset": [3.0, 1.2, 3.4]
+  },
+  "debug": {
+    "comRadius": 0.035,
+    "capturePointRadius": 0.03,
+    "grabTargetRadius": 0.035,
+    "crossHalf": 0.08,
+    "arrowLengthBase": 0.25,
+    "arrowLengthPerDv": 0.35,
+    "$forceLengthPerN": "균형 가상 힘(수평 피드백) 화살표 길이 m/N (v0.3)",
+    "forceLengthPerN": 0.002,
+    "$contactLengthPerN": "QP 접촉력 막대 길이 m/N (v0.3). 꼭짓점 하나 약 90 N ≈ 0.14 m",
+    "contactLengthPerN": 0.0015,
+    "$angMomLengthPer": "COM 둘레 각운동량(수평) 화살표 길이 m per kg·m²/s (v0.3). 화살표는 회전축 방향(오른손)",
+    "angMomLengthPer": 0.05,
+    "$jointError": "앱 관절 오차 표시: 관절점 구, 색은 0°(초록) → jointErrorMaxDeg(빨강), 반지름은 jointErrorRadius × (1 + 오차/최대)",
+    "jointErrorRadius": 0.025,
+    "jointErrorMaxDeg": 20
+  },
+  "bodyColor": {
+    "strong": [0.18, 0.32, 0.62],
+    "weak": [0.78, 0.84, 0.94]
+  }
+}

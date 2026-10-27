@@ -1,0 +1,23 @@
+{
+  "$comment": "랙돌 물리 설정 (SPEC 6.2, v0.0 결론, v0.1 결정). 근육이 아니라 몸의 수동 성질이다. 근거: README 결정 기록 20~22.",
+  "restitution": 0,
+  "defaultLinearDamping": 0,
+  "defaultAngularDamping": 0,
+  "$defaultJointDamping": "모든 관절의 수동 점성 마찰(N·m·s/rad). 모터(stiffness 0, 목표 속도 0)로 솔버 안에서 암시적으로 건다. v0.2 근육 모터가 같은 축을 쓰므로 그때 kd에 더한다.",
+  "defaultJointDamping": 1.0,
+  "$ccd": "softCcdPrediction: 빠른 낙하 착지에서 관통 후 튕김(2m 낙하 시 COM이 +3.3 m/s로 튐) 방지. ccd(shape-cast)는 효과가 없어 끔.",
+  "ccd": false,
+  "softCcdPrediction": 0.1,
+  "$bodies": "손·발: 충격 후 고속 회전 방지 (README 결정 15). angularDamping은 Rapier 바디 각감쇠(1/s), inertiaScale은 형상 관성 배율, jointDamping은 손목·발목 관절 마찰. 전완: 각감쇠 20 /s, 관성 ×2 — 큰 가슴 충격(Δv 1.5)에서 전완이 99.8 rad/s까지 돌던 것을 막는다 (README 결정 36, 회귀 시나리오 push_chest_large_active).",
+  "$noCollidePairs": "서로 충돌하지 않는 바디 쌍 [[A, B], ...] (v0.4, README 결정 66). 교차 스텝용으로 허벅지·정강이 쌍을 시도했으나 효과가 없어 비워 둔다.",
+  "noCollidePairs": [],
+  "$shoulderRom": "어깨 가동 범위 끝 저항 (README 결정 171, 기본 끔 — 키 shoulderRom이 없으면 끔). 사람 ROM 문헌값(AAOS·Norkin & White·Soucie 2011: 굽힘 약 180°, 폄 50~60°, 벌림 180°, 수평 벌림 약 45°, 수평 모음 135°)을 넘는 팔 방향(몸통 관상면 뒤로 behindDownDeg/behindHorizDeg/behindUpDeg, 시상면 넘어 crossDeg)에 위팔↔Spine2 짝 토크(stiffness N·m/rad, damping, maxTorque)를 건다. 후보 값 { behindDownDeg 60, behindHorizDeg 45, behindUpDeg 10, crossDeg 45, stiffness 600, damping 15, maxTorque 600 }: 근처 입력 팔 지표는 같지만(결정 171) 시드 1 sim:all이 설정마다 다른 1~2개로 갈려(혼돈, 결정 165) 기본값으로 넣지 않았다.",
+  "bodies": {
+    "LeftForeArm": { "angularDamping": 20, "inertiaScale": 2 },
+    "RightForeArm": { "angularDamping": 20, "inertiaScale": 2 },
+    "LeftHand": { "angularDamping": 50, "inertiaScale": 4, "jointDamping": 0.1 },
+    "RightHand": { "angularDamping": 50, "inertiaScale": 4, "jointDamping": 0.1 },
+    "LeftFoot": { "angularDamping": 50, "inertiaScale": 4, "jointDamping": 0.1 },
+    "RightFoot": { "angularDamping": 50, "inertiaScale": 4, "jointDamping": 0.1 }
+  }
+}

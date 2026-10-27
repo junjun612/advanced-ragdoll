@@ -1,0 +1,53 @@
+{
+  "name": "upper_body_hit_while_walking",
+  "milestone": "0.6",
+  "description": "앞으로 걷는 중(Kimodo 걷기 추종) 3.0초에 왼쪽 가슴·어깨를 앞에서 근접 타격(Δv 0.3, 걷는 방향 반대) → 상체가 움찔하며 비틀리고(HitReaction, 몸통이 맞은 쪽으로 돌아감) 다리는 걷기 추종을 놓지 않고 계속 걷는다(넘김 0). 반응 중 핀 0.",
+  "duration": 8,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [0, 0, 0],
+    "yaw": 0,
+    "state": "Animated",
+    "pose": "kimodo_walk_forward"
+  },
+  "clip": null,
+  "events": [
+    {
+      "t": 0.3,
+      "type": "setState",
+      "state": "Active"
+    },
+    {
+      "t": 3.0,
+      "type": "hit",
+      "hit": {
+        "type": "melee",
+        "body": "Spine2",
+        "point": [0.15, 1.42, 4.25],
+        "direction": [0, 0, -1],
+        "magnitude": 0.3
+      }
+    }
+  ],
+  "cameras": ["side", "front"],
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "walkHandovers": {
+        "max": 0
+      },
+      "walkEngagedFrac": {
+        "min": 0.99
+      },
+      "pinDuringReaction": {
+        "max": 0
+      },
+      "hitReactedEvents": {
+        "min": 1
+      }
+    }
+  }
+}

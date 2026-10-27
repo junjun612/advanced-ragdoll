@@ -1,0 +1,117 @@
+{
+  "clip": "react_right_s11",
+  "label": "right Δv 1.1 (순간 밀림 → 감속 72cm)",
+  "text": "a person standing still is suddenly pushed on their left shoulder from the left side, pushing them to their right, and recovers their balance",
+  "duration_s": 4,
+  "models": [
+    "rp12"
+  ],
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "startPose": "stand",
+  "rootMotion": "kept",
+  "holdStartFrames": [
+    24,
+    30
+  ],
+  "rootPath": {
+    "points": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        -0.10195619780028453,
+        0
+      ],
+      [
+        -0.1893738413769456,
+        0
+      ],
+      [
+        -0.2643260715833454,
+        0
+      ],
+      [
+        -0.32859040751212815,
+        0
+      ],
+      [
+        -0.3836909009997097,
+        0
+      ],
+      [
+        -0.43093428006363643,
+        0
+      ],
+      [
+        -0.506171506060639,
+        0
+      ],
+      [
+        -0.5614815117756865,
+        0
+      ],
+      [
+        -0.618235272485822,
+        0
+      ],
+      [
+        -0.6540079162503752,
+        0
+      ],
+      [
+        -0.6820378654172327,
+        0
+      ],
+      [
+        -0.69972635648987,
+        0
+      ],
+      [
+        -0.7075502536964906,
+        0
+      ]
+    ],
+    "frames": [
+      0,
+      30,
+      33,
+      36,
+      39,
+      42,
+      45,
+      48,
+      54,
+      60,
+      69,
+      78,
+      90,
+      105,
+      119
+    ]
+  },
+  "expect": {
+    "dir": [
+      -1,
+      0
+    ],
+    "endStillSpeed": 0.3
+  },
+  "weights": {
+    "startPoseDeg": 0,
+    "endPoseDeg": 1
+  },
+  "top": 3,
+  "filmCamera": "front"
+}

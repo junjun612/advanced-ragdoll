@@ -1,0 +1,50 @@
+{
+  "name": "shot_while_walking_clutch",
+  "milestone": "0.6",
+  "description": "앞으로 걷는 중 3.0초에 오른쪽 가슴에 앞에서 총탄(Δv 0.45, shot_chest_stagger_clutch와 같은 세기) → 움찔·힘 빠짐, 오른손이 0.6초 안에(※ 걷는 중 팔 흔들기 운동량 때문에 서 있을 때 기준 0.5초보다 0.1초 늦춤) 상처를 움켜쥐고 유지(HoldWound), 비틀거리며 걷기를 이어 가거나(걷기 추종) 넘겨서 멈춘 뒤 다시 걷는다. 넘어지지 않음, 반응 중 핀 0. 레퍼런스: Kimodo shot_chest_clutch_press rp12 s4(서 있는 몸).",
+  "duration": 12,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [0, 0, 0],
+    "yaw": 0,
+    "state": "Animated",
+    "pose": "kimodo_walk_forward"
+  },
+  "clip": null,
+  "events": [
+    {
+      "t": 0.3,
+      "type": "setState",
+      "state": "Active"
+    },
+    {
+      "t": 3.0,
+      "type": "hit",
+      "hit": {
+        "type": "bullet",
+        "body": "Spine2",
+        "point": [-0.08, 1.4, 4.3],
+        "direction": [0, 0, -1],
+        "magnitude": 0.45
+      }
+    }
+  ],
+  "cameras": ["side", "front"],
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "pinDuringReaction": {
+        "max": 0
+      },
+      "clutchReachTime": {
+        "max": 0.6
+      },
+      "clutchHoldTime": {
+        "min": 1
+      }
+    }
+  }
+}

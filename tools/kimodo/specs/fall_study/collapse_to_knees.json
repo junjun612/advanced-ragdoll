@@ -1,0 +1,32 @@
+{
+  "clip": "collapse_to_knees",
+  "label": "힘이 빠져 무릎을 꿇음",
+  "text": "a person standing still suddenly weakens and collapses down onto both knees, then stays kneeling upright",
+  "holdStartFrames": [
+    24,
+    30
+  ],
+  "duration_s": 4,
+  "models": [
+    "rp12"
+  ],
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "startPose": "stand",
+  "rootMotion": "kept",
+  "expect": {},
+  "weights": {
+    "startPoseDeg": 0,
+    "endPoseDeg": 0
+  },
+  "top": 4,
+  "filmCamera": "side"
+}

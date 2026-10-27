@@ -1,0 +1,6 @@
+{
+  "$comment": "(v0.8a) 20° 내리막(정면이 아래쪽)에 서는 스폰 자세: stand에서 발목 flex만 −20°(발끝 아래로) 더해 발바닥을 경사면에 맞춘다. 서 있는 동안 목표는 stand이고 균형 계층이 지지발 목표를 지면 법선에 맞춘다.",
+  "name": "stand_slope20_down",
+  "base": "stand",
+  "joints": { "LeftFoot": { "flex": -13 }, "RightFoot": { "flex": -13 } }
+}

@@ -1,0 +1,6 @@
+{
+  "$comment": "10° 오르막(정면 +Z가 위쪽)에 서는 스폰 자세: stand에서 발목 flex만 +10°(발끝 위로) 더해 발바닥을 경사면에 맞춘다. 서 있는 동안의 목표는 stand이고, 균형 계층이 지지발 목표를 지면 법선에 맞춘다.",
+  "name": "stand_slope10",
+  "base": "stand",
+  "joints": { "LeftFoot": { "flex": 17 }, "RightFoot": { "flex": 17 } }
+}

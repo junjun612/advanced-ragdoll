@@ -1,0 +1,51 @@
+{
+  "name": "lean_target",
+  "milestone": "0.3",
+  "description": "보조 없이 서 있다가 1초에 lean 클립(1초 동안 Spine·Spine2를 합 20° 앞으로 숙임) 재생. 넘어지지 않고, Spine2 기울기 ≥ 15°인 로그 프레임 내내 Hips가 시작 위치보다 뒤로 ≥ 0.03m (SPEC 9.2 v0.3 ※, leanHipsBackMin 정의는 docs/ALGORITHMS.md v0.3)",
+  "duration": 6.0,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "stepping": false,
+  "events": [
+    {
+      "t": 1.0,
+      "type": "playClip",
+      "clip": "lean"
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      },
+      "leanTiltMaxDeg": {
+        "min": 15
+      },
+      "leanHipsBackMin": {
+        "min": 0.03
+      }
+    }
+  }
+}

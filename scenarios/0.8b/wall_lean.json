@@ -1,0 +1,66 @@
+{
+  "name": "wall_lean",
+  "milestone": "0.8b",
+  "description": "SPEC 9.2 v0.8b: 벽(앞 0.85m)을 보고 서 있다가 1초에 등 뒤에서 Spine2를 앞(벽 쪽)으로 큰 충격(large) → 벽 쪽으로 넘어지며 두 손으로 벽을 짚고(팔꿈치를 굽혀 받음) 버틴 뒤 밀어내 섬.",
+  "duration": 6,
+  "seed": 1,
+  "terrain": "wall",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          0,
+          0,
+          1
+        ],
+        "magnitude": "large",
+        "duration": 0.15
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "assistUsage.root": {
+        "max": 0
+      },
+      "assistUsage.pin": {
+        "max": 0
+      },
+      "wallBraced": {
+        "min": 1
+      },
+      "wallContactLead": {
+        "max": 0.8
+      },
+      "wallPushOff": {
+        "min": 1
+      }
+    }
+  }
+}

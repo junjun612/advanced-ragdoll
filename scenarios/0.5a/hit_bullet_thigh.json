@@ -1,0 +1,70 @@
+{
+  "name": "hit_bullet_thigh",
+  "milestone": "0.5a",
+  "description": "오른 허벅지 앞 위쪽에 총탄 (Δv 0.25). InjuredLeg(오른다리 strength 상한·성한 발로 체중) + 오른손이 몸통을 숙여 허벅지를 움켜쥠 (v0.0: 같은 쪽 허벅지는 몸통 37.5° 이상 숙여야 닿음).",
+  "duration": 5,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1,
+      "type": "hit",
+      "hit": {
+        "type": "bullet",
+        "body": "RightUpLeg",
+        "point": [
+          -0.09,
+          0.86,
+          0.4
+        ],
+        "direction": [
+          0,
+          0,
+          -1
+        ],
+        "magnitude": 0.25
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      },
+      "clutchReachTime": {
+        "max": 1
+      },
+      "clutchHoldTime": {
+        "min": 1
+      },
+      "injuredLegStrengthMax": {
+        "max": 0.65
+      },
+      "loadHealthyMean": {
+        "min": 0.55
+      }
+    }
+  }
+}

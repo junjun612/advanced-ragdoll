@@ -1,0 +1,30 @@
+{
+  "$comment": "일어서기 (SPEC 12 v0.7). 정의: docs/ALGORITHMS.md v0.7. 라이브러리는 assets/library/getup.json (npm run getup:build).",
+  "$detect": "쓰러짐 판정: 누움(발·손·정강이가 아닌 바디가 지면에 닿고 COM 높이 < lyingComHeight) + COM 속도 < settleSpeed가 이어진 시간이 delay초(상처가 깊으면(피해 누적 하체 상한 < 1) woundedDelay초)를 넘으면 시작. 실패한 뒤 재시도는 retryDelay초. 사망(Limp)이면 시작하지 않는다. 게임이 막을 수 있다(setGetup(false)).",
+  "detect": { "lyingComHeight": 0.5, "settleSpeed": 0.3, "delay": 1.6, "woundedDelay": 2.6, "retryDelay": 0.8 },
+  "$match": "포즈 매칭 비용 가중치 (getupFeatures.ts): 바디 상대 위치(m²), Hips 축(단위 벡터), 깔린 팔다리. 성공률이 낮은 클립은 penalty·(1 − 성공률)을 더한다",
+  "match": { "body": 1.0, "axis": 0.5, "pinned": 0.15, "successPenalty": 0.5 },
+  "$exec": "실행: blendTime초 관성화(지금 물리 자세 → 클립 0프레임, 관절·Hips 둘 다), 근육 kp·kd × motorScale(높은 강성), 다리·몸통 힘 상한 그대로. 실패 = 클립 balanceTau + balanceGrace초가 지나도 균형에 못 넘김, 또는 Hips가 기준보다 failHipsDrop m 넘게 낮은 채 failHold초. 실패하면 Ragdoll(힘 0)로 떨어진 뒤 다른 클립으로 재시도, 한 번 쓰러짐에 최대 maxAttempts번",
+  "exec": { "blendTime": 0.3, "motorScale": 2.0, "balanceGrace": 1.2, "failHipsDrop": 0.3, "failHold": 0.6, "maxAttempts": 3, "handoverTiltDeg": 45, "handoverEarly": 0.6, "rate": 1.0, "armMotorScale": 2.0 },
+  "$balance": "균형 복귀: 클립이 두 발 지지(balanceTau 뒤)이고 실제로 두 발이 닿았으며 발이 아닌 바디가 닿아 있지 않으면 Active + 애니 추종 QP(v0.6 걷기 추종)로 남은 클립을 따라간다. 클립 끝 idleBefore초 전에 Idle 클립으로 관성화(idleBlend초)",
+  "balance": { "idleClip": "kimodo_idle_relaxed", "idleBefore": 0.3, "settleSpeed": 0.1, "settleHold": 0.5, "idleBlend": 0.5, "minHipsFrac": 0.55, "handoverComHeight": 0.62, "settleMax": 4.0, "handoverDcmMargin": 0.02, "dcmWaitMax": 0.8, "idleAtHandover": false, "balanceMinComHeight": 0.6, "braceGuardTime": 1.0, "braceGuardThreshold": 0.95, "handoverMaxSpeed": 9, "upComHeight": 9 },
+  "$qp": "겟업 전신 QP (getupQP.ts, docs/ALGORITHMS.md v0.7): 지금 바닥에 닿은 모든 점에 마찰 피라미드 힘, 과제 = COM(클립 COM을 실제 짚은 곳 기준으로 옮긴 목표, 수평 kpH·kdH·최대 가속 maxHAccel, 수직 kpV·kdV, 지지 기준 이동 저역 통과 supportTau초) + 각운동량 감쇠 + 골반·몸통 방향 + 관절 자세 PD + 관절 제한 피하기 + 접촉 미끄럼 감쇠. 토크 = 역동역학, 모터 kp·kd × motorScale(모터 PD 추정분을 뺌).",
+  "qp": {
+    "enabled": true,
+    "feetPhaseOnly": true,
+    "com": { "kpH": 16, "kdH": 8, "kpV": 40, "kdV": 12, "maxHAccel": 4, "supportTau": 0.15 },
+    "wLin": 0.1, "wAng": 0.05, "angularDamping": 2.0,
+    "pelvis": { "kp": 60, "kd": 15, "weight": 5 },
+    "torso": { "kp": 40, "kd": 12, "weight": 10 },
+    "posture": { "kp": 100, "kd": 20, "weight": 1, "weights": { "Spine": 2, "Spine2": 2 } },
+    "limitAvoid": { "marginDeg": 6, "kp": 200, "kd": 25, "weight": 200 },
+    "slip": { "kv": 10, "weight": 2 },
+    "regularization": 0.001, "mu": 0.8, "regRho": 0.0001, "smoothRho": 0.001,
+    "maxPointsPerBody": 4, "motorScale": 1.0, "clipContactHeight": 0.05,
+    "feet": { "soleContactDist": 0.03, "copMargin": 0.015, "kv": 10 }
+  },
+  "$assist": "겟업 보조 (SPEC 3 원칙 6의 명시적 보조, assist.getup): Hips 높이(수직 힘)와 Hips 자세(토크, freeYaw면 수직축 둘레 오차는 끌지 않음)를 클립 기준(관성화 포함)으로 끄는 관절 모터(보이지 않는 키네마틱 앵커 2개, root 보조와 같은 방식). 허용 범위(상한): 힘 maxForceBodyWeight × 체중, 토크 maxTorque N·m. 세기 = 처음 rise초에 0→1, balanceTau 전 fallTime초 동안 1→endLevel, 균형으로 넘긴 뒤 tailTime초에 0(균형 계층이 받는 동안 함께 줄임). 겟업 QP는 이 렌치를 외부 렌치로 안다. 사용량 = |F| + |τ|/usageLeverArm (N), 적분 assistUsage.getup (N·s)",
+  "assist": { "enabled": true, "heightKp": 3000, "heightKd": 300, "uprightKp": 800, "uprightKd": 80, "maxForceBodyWeight": 0.5, "maxTorque": 250, "rise": 0.3, "fallTime": 0.6, "usageLeverArm": 1.0, "freeYaw": false, "endLevel": 1.0, "tailTime": 2.0 },
+  "$terrain": "(v0.8a) 평지에서만 일어선다(라이브러리는 평지 클립): COM 둘레 radius m 십자 5점 지면 높이 차 ≤ maxStep m. 경사 지형은 늘 아님. README 결정",
+  "terrain": { "radius": 0.8, "maxStep": 0.03 }
+}

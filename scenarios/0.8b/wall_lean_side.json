@@ -1,0 +1,67 @@
+{
+  "name": "wall_lean_side",
+  "milestone": "0.8b",
+  "$added": "추가 시나리오 (v0.8b 품질 확인용, SPEC 9.2 목록에는 없음)",
+  "description": "벽(오른쪽 0.85m)과 나란히 정면(+X)을 보고 서 있다가 1초에 왼쪽에서 Spine2를 오른쪽(벽 쪽)으로 큰 충격(large) → 벽 쪽 손(오른손) 하나로 벽을 짚고 버틴 뒤 밀어내 섬.",
+  "duration": 6,
+  "seed": 1,
+  "terrain": "wall",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 1.5707963267948966,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1,
+      "type": "hit",
+      "hit": {
+        "type": "push",
+        "body": "Spine2",
+        "direction": [
+          0,
+          0,
+          1
+        ],
+        "magnitude": "large",
+        "duration": 0.15
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "assistUsage.root": {
+        "max": 0
+      },
+      "assistUsage.pin": {
+        "max": 0
+      },
+      "wallBraced": {
+        "min": 1
+      },
+      "wallPushOff": {
+        "min": 1
+      },
+      "wallContactLead": {
+        "max": 0.9
+      }
+    }
+  }
+}

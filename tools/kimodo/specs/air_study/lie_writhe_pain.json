@@ -1,0 +1,13 @@
+{
+  "clip": "lie_writhe_pain",
+  "label": "바닥에 누워 고통으로 몸부림",
+  "text": "a person lies on their back on the ground in pain, writhing slowly, knees drawn up, holding their stomach",
+  "duration_s": 6,
+  "models": ["rp12"],
+  "seeds": [1, 2, 3, 4, 5, 6, 7, 8],
+  "rootMotion": "kept",
+  "expect": {},
+  "weights": { "startPoseDeg": 0, "endPoseDeg": 0 },
+  "top": 4,
+  "filmCamera": "side"
+}

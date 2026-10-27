@@ -1,0 +1,16 @@
+{
+  "clip": "explosion_thrown_roll",
+  "label": "앞쪽 폭발 → 뒤로 날아가 착지 후 뒤로 구름",
+  "text": "a person standing still is thrown backward through the air by an explosion in front of them, lands on the ground and rolls backward",
+  "holdStartFrames": [24, 30],
+  "rootPath": { "points": [[0, 0], [0, 0], [0, -2.0]], "frames": [0, 30, 50] },
+  "duration_s": 4,
+  "models": ["rp12"],
+  "seeds": [1, 2, 3, 4, 5, 6, 7, 8],
+  "startPose": "stand",
+  "rootMotion": "kept",
+  "expect": {},
+  "weights": { "startPoseDeg": 0, "endPoseDeg": 0 },
+  "top": 4,
+  "filmCamera": "side"
+}

@@ -1,0 +1,20 @@
+{
+  "name": "prop_hit",
+  "milestone": "0.8c",
+  "description": "위에서 떨어진 상자에 맞음 (SPEC 9.2): Kimodo Idle을 추종하며 서 있는 머리 위 약 1.2m에서 3kg 상자(30×24×30cm)를 떨어뜨린다(1.0초). 머리에 닿는 접촉 충격량을 감지 창 0.05초 동안 모아 Δv(약 0.18 m/s)로 바꿔 melee hit 이벤트를 만든다(충격 재적용 없음, 상자 속력 ≥ 1.5 m/s일 때만 날아온 충격). 반응: 고개가 숙여지고(피격 반응), 서 있는 클립 추종을 균형·스텝 계층에 넘겨 한 걸음 물러서며, 손을 맞은 머리로 가져가 문지른다(HoldWound 2.2초). 상자는 어깨 뒤로 미끄러져 떨어진다.",
+  "duration": 6,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": { "position": [0, 0, 0], "yaw": 0, "state": "Active", "pose": "kimodo_idle_relaxed" },
+  "clip": null,
+  "events": [
+    { "t": 1.0, "type": "spawnProp", "prop": { "id": "box", "shape": { "type": "box", "halfExtents": [0.15, 0.12, 0.15] }, "mass": 3, "position": [0.02, 2.9, 0.04], "rotation": [0, 0.13, 0, 0.9915], "angVel": [0.4, 0, -0.3] } }
+  ],
+  "cameras": ["side", "front"],
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": { "propHits": { "min": 1 }, "propHitMaxDv": { "min": 0.05, "max": 0.6 }, "hitReactedEvents": { "min": 1 }, "clutchReachTime": { "max": 1.2 }, "assistUsage": { "max": 0 } }
+  }
+}

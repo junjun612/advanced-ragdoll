@@ -1,0 +1,17 @@
+{
+  "name": "push_front",
+  "milestone": "0.1",
+  "description": "근육 없이 서 있다가 0.1초에 Spine2를 앞(+Z)으로 큰 충격(large)",
+  "duration": 4.0,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": { "position": [0, 0, 0], "yaw": 0, "state": "Ragdoll" },
+  "clip": null,
+  "events": [
+    { "t": 0.1, "type": "hit", "hit": { "type": "push", "body": "Spine2", "direction": [0, 0, 1], "magnitude": "large" } }
+  ],
+  "cameras": ["side"],
+  "reference": null,
+  "expect": { "exploded": false, "fell": true, "fallDirection": { "dir": [0, 0, 1], "maxAngleDeg": 45 } }
+}

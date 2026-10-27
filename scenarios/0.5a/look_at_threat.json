@@ -1,0 +1,51 @@
+{
+  "name": "look_at_threat",
+  "milestone": "0.5a",
+  "description": "0.5초에 왼쪽 앞 위협 지점(45°, 눈높이 아래)을 바라봄 (lookAt). 머리 방향 오차 < 15°.",
+  "duration": 5,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 0.5,
+      "type": "lookAt",
+      "target": [
+        2,
+        1.5,
+        2
+      ]
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      },
+      "gazeErrorDeg": {
+        "max": 15
+      }
+    }
+  }
+}

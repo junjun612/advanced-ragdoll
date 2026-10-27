@@ -1,0 +1,41 @@
+{
+  "clip": "walk_start",
+  "label": "서기 → 걷기 시작",
+  "text": "a person standing still starts walking forward at a normal relaxed pace",
+  "duration_s": 4.0,
+  "startPose": "stand",
+  "holdStartFrames": [
+    0,
+    6
+  ],
+  "rootMotion": "kept",
+  "expect": {
+    "dir": [
+      0,
+      1
+    ],
+    "minSpeed": 0.6,
+    "maxSpeed": 1.8
+  },
+  "weights": {
+    "startPoseDeg": 1,
+    "endPoseDeg": 0,
+    "footSlideRawCmPerS": 2.0,
+    "footLockCorrectionCm": 1.0
+  },
+  "models": [
+    "rp12"
+  ],
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "top": 3,
+  "filmCamera": "side,front"
+}
