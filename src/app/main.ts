@@ -272,7 +272,7 @@ async function main(): Promise<void> {
   chk('이름표', 'tags', true, '#2e52a0');
   checkbox(dbg, '상태 글', true, (v) => { showText = v; charsEl.style.display = v ? '' : 'none'; });
   checkbox(dbg, '범례', false, (v) => { legendEl.style.display = v ? '' : 'none'; });
-  checkbox(dbg, '카메라 추적', false, (v) => { view.follow = v; view.resetFollow(); });
+  checkbox(dbg, '카메라 추적', true, (v) => { view.follow = v; view.resetFollow(); });
   sView.append(el('div', { class: 'hint' }, `핀 세기 색: 바디가 주황으로 빛날수록 핀(애니 쪽으로 끄는 보조 힘)이 세다. 관절 오차 색: 0° 초록 → ${filmCfg.debug.jointErrorMaxDeg ?? 20}° 이상 빨강.`));
   legendEl.replaceChildren(...LEGEND.map((l) => el('div', { class: 'leg' },
     el('span', { class: `sw ${l.kind}`, style: l.kind === 'gradient' ? `background:linear-gradient(90deg, rgb(46,82,158), rgb(199,214,240))` : `background:${l.color || '#202020'}` }), l.label)));
@@ -425,7 +425,10 @@ async function main(): Promise<void> {
     view.resetFollow();
     view.setTerrain(host.played?.terrain ?? host.terrain);
     const s0 = host.state(0);
-    view.frameOn([s0.com[0], 0, s0.com[2]], host.chars.length > 1 ? 1.35 : 1);
+    // 여러 캐릭터면 모두의 가운데를 본다
+    const cs = host.chars.map((c) => c.ch.getState().com);
+    const cx = cs.reduce((a, c) => a + c[0], 0) / cs.length, cz = cs.reduce((a, c) => a + c[2], 0) / cs.length;
+    view.frameOn([cx, Math.max(0, s0.balance?.groundHeight ?? 0), cz], host.chars.length > 1 ? 1.35 : 1, host.played?.cameras?.[0]);
     refreshCharSel();
     rootCheck.checked = host.rootAssist;
     lastInputEl.textContent = '아직 입력 없음';
@@ -508,7 +511,7 @@ async function main(): Promise<void> {
     if (sc) {
       const why = [host.musclesDirty ? '근육 튜닝' : '', host.interacted ? '대화형 입력' : '', host.animOverride > 0 ? '애니 강제' : ''].filter(Boolean);
       matchEl.innerHTML = host.faithful
-        ? `<span class="ok">sim과 같은 재생</span> — 같은 시드 ${host.played!.seed}, 러너 공용 재생 함수 (npm run sim -- ${esc(sc.name)}와 프레임 단위로 같음)`
+        ? `<span class="ok">sim과 같은 입력</span> — 같은 시드 ${host.played!.seed}·러너 공용 재생 함수 (npm run sim -- ${esc(sc.name)}와 같은 호출). 브라우저 수학 함수가 Node와 마지막 자리에서 달라 넘어짐·충돌처럼 갈림이 큰 장면은 몇 cm 어긋날 수 있다 (결정 app-6)`
         : `<span class="warn">sim과 달라짐</span> (${why.join('·')}) — 처음부터 누르면 다시 같아진다`;
     } else matchEl.textContent = '자유 실행 (시나리오 아님)';
     // 애니 강제(보조 힘) 경고: 비율과 이번 프레임 핀 힘

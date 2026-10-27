@@ -42,7 +42,7 @@ export class AppView {
   readonly chars: CharView[] = [];
   mode: DisplayMode = 'fbx';
   input: InputMode = 'push';
-  follow = false;
+  follow = true;
   drag: DragState | null = null;
   /** 드래그를 놓았을 때 (밀기). 짧은 드래그는 부르지 않는다 */
   onPush: ((ci: number, body: BodyName, point: Vec3, dir: Vec3) => void) | null = null;
@@ -210,12 +210,14 @@ export class AppView {
     if (frames.length) {
       const cx = frames.reduce((a, f) => a + f.state.com[0], 0) / frames.length;
       const cz = frames.reduce((a, f) => a + f.state.com[2], 0) / frames.length;
+      // 높이는 COM이 아니라 발밑 지면 높이를 따라간다 (넘어져도 카메라가 내려앉지 않고, 계단·모서리에서는 따라 내려간다)
+      const cy = frames.reduce((a, f) => a + ((f.state as { balance?: { groundHeight?: number } }).balance?.groundHeight ?? 0), 0) / frames.length;
       if (this.follow && this.lastCenter) {
-        const dx = cx - this.lastCenter[0], dz = cz - this.lastCenter[2];
-        this.camera.position.x += dx; this.camera.position.z += dz;
-        this.controls.target.x += dx; this.controls.target.z += dz;
+        const dx = cx - this.lastCenter[0], dy = cy - this.lastCenter[1], dz = cz - this.lastCenter[2];
+        this.camera.position.x += dx; this.camera.position.y += dy; this.camera.position.z += dz;
+        this.controls.target.x += dx; this.controls.target.y += dy; this.controls.target.z += dz;
       }
-      this.lastCenter = [cx, 0, cz];
+      this.lastCenter = [cx, cy, cz];
     }
     this.controls.update();
     this.renderer.render(this.rs.scene, this.camera);
@@ -252,10 +254,17 @@ export class AppView {
     return [r.left + ((v.x + 1) / 2) * r.width, r.top + ((1 - v.y) / 2) * r.height];
   }
 
-  /** 카메라를 점 쪽으로 (시나리오 시작) */
-  frameOn(center: Vec3, distanceScale = 1): void {
+  /**
+   * 카메라를 점 쪽으로 (시나리오 시작). kind = 시나리오 첫 카메라: side는 +X 쪽 옆에서(필름 측면과 같음), front는 +Z 앞에서,
+   * 그 밖은 config 기본 3/4 방향. 거리는 기본 카메라 거리 × distanceScale
+   */
+  frameOn(center: Vec3, distanceScale = 1, kind?: string): void {
     const c = this.cfg.camera;
-    const off = new THREE.Vector3(c.position[0] - c.target[0], c.position[1] - c.target[1], c.position[2] - c.target[2]).multiplyScalar(distanceScale);
+    const base = new THREE.Vector3(c.position[0] - c.target[0], c.position[1] - c.target[1], c.position[2] - c.target[2]);
+    const len = base.length(), h = base.y;
+    const flat = Math.sqrt(Math.max(0, len * len - h * h));
+    const off = kind === 'side' ? new THREE.Vector3(flat, h, 0) : kind === 'front' ? new THREE.Vector3(0, h, flat) : base;
+    off.multiplyScalar(distanceScale);
     this.controls.target.set(center[0], c.target[1] + Math.max(0, center[1]), center[2]);
     this.camera.position.copy(this.controls.target).add(off);
     this.controls.update();
@@ -348,7 +357,9 @@ export class AppView {
       const moved = Math.hypot(e.clientX - this.downPx[0], e.clientY - this.downPx[1]);
       this.downPx = null;
       if (moved < this.cfg.pushMinDragPx) {
-        const g = this.pickGround(e);
+        // 던지기·시선은 캐릭터를 겨눌 수 있다 (바디를 맞히면 그 점, 아니면 지면)
+        const b = this.input === 'throw' || this.input === 'look' ? this.pick(e) : null;
+        const g = b ? b.point : this.pickGround(e);
         if (g) this.onGround?.(this.input, [g.x, g.y, g.z], [this.camera.position.x, this.camera.position.y, this.camera.position.z]);
       }
       return;
