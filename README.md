@@ -14,7 +14,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)
 ![Rapier](https://img.shields.io/badge/Rapier-0.21-e0662b)
 ![three.js](https://img.shields.io/badge/three.js-r186-000?logo=threedotjs)
-![Scenarios](https://img.shields.io/badge/시나리오-78%2F82_통과-2ea043)
+![Scenarios](https://img.shields.io/badge/시나리오-73%2F82_통과-2ea043)
 ![Tests](https://img.shields.io/badge/테스트-168_통과-2ea043)
 ![Deterministic](https://img.shields.io/badge/결정론-바이트_동일-8957e5)
 

@@ -14,6 +14,13 @@ import reactionCfg from '../../config/reaction.json';
 import { ReactionController, ReactionLibrary, styleTrackingRef, type ReactionConfig } from './character/reaction';
 import settleCfg from '../../config/settle.json';
 import { SettleController, type SettleConfig } from './character/settle';
+import presenceCfg from '../../config/presence.json';
+import { HandPoseController, type HandPoseConfig } from './character/handPose';
+import { BreathController, type BreathConfig } from './character/breath';
+import { ToneController, type ToneConfig } from './character/tone';
+import type { PresenceBehaviorConfig } from './character/behaviors/blender';
+/** (pres-1) 누움 판정에서 빼는 바디 (서 있거나 짚거나 꿇어도 닿는 곳) */
+const HAND_POSE_LIMB_ENDS = new Set<string>(['LeftFoot', 'RightFoot', 'LeftHand', 'RightHand', 'LeftLeg', 'RightLeg', 'LeftToeBase', 'RightToeBase', 'LeftForeArm', 'RightForeArm']);
 import { GETUP_LIBRARY } from './character/getupClips.generated';
 import { GetupAssist, GetupController, GetupLibrary, RootBlend, type GetupConfig, type GetupLibraryData, type GetupLog } from './character/getup';
 import { classifyFeature, poseFeature, POSTURE_KO } from './character/getupFeatures';
@@ -426,6 +433,12 @@ export class Character {
   readonly reaction: ReactionController;
   /** 진정 단계 (README 결정 settle-1): 버틴 뒤 팔을 내리고 상체를 세운다 */
   readonly settle: SettleController;
+  /** (README 결정 pres-1) 손가락 포즈 상태 (렌더 전용, 물리 영향 없음) */
+  readonly handPose: HandPoseController;
+  /** (README 결정 pres-3) 호흡·미세 움직임 (서기 포즈 목표 변조) */
+  readonly breath: BreathController;
+  /** (결정 tone-1) 근긴장: 공동수축·신장 반사 → 근육 모터 강성·감쇠 배율 */
+  readonly tone: ToneController;
   private reactionLib: ReactionLibrary | null = null;
   private readonly reactionNames: string[];
   private readonly baseWalkCfg: WalkConfig;
@@ -554,6 +567,11 @@ export class Character {
     this.reactionNames = Object.keys(lib).filter((k) => k.startsWith(rcfg.clipPrefix)).sort();
     this.reaction = new ReactionController(rcfg, null, this.animCfg.walk);
     this.settle = new SettleController(opts.settleConfig ?? (settleCfg as unknown as SettleConfig));
+    this.handPose = new HandPoseController(presenceCfg.handPose as unknown as HandPoseConfig);
+    this.breath = new BreathController(presenceCfg.breath as unknown as BreathConfig, rng.fork('breath'));
+    this.tone = new ToneController((this.muscles.cfg as unknown as { tone?: ToneConfig }).tone ?? ({ enabled: false } as ToneConfig));
+    this.behaviors.presence = { reaction: presenceCfg.reaction, gaze: presenceCfg.gaze } as unknown as PresenceBehaviorConfig;
+    this.behaviors.lastRd = this.rd;
     if (animSpawn && animAnchor) {
       this.anim.play(animSpawn, world.time, { anchor: animAnchor, startTime: 0, blendTime: 0 });
       if (this.states.name === 'Animated') this.setBodiesKinematic(true);
@@ -1057,6 +1075,7 @@ export class Character {
     // (v0.6) 키네마틱 재생 중 피격·충격 → 먼저 Active로 (애니 속도를 넘겨 튐 없이, 반응 중이라 핀 없음)
     if (this.pending.length && this.states.name === 'Animated') this.setState('Active', { hit: true });
     if (this.pending.length) this.reactUntil = Math.max(this.reactUntil, t + this.animCfg.resume.reactHold);
+    this.behaviors.walking = !!this.anim.clip && this.walk.engaged;
     const applyJ = (body: BodyName, Jv: Vec3, pt: Vec3 | undefined): Vec3 => {
       const rb = this.rd.body(body).rb;
       const J = { x: Jv[0], y: Jv[1], z: Jv[2] };
@@ -1079,6 +1098,8 @@ export class Character {
         const res = resolveHit(p.hit, p.hit.dv, this.rd, this.def.totalMass, this.hitModel);
         this.emit({ t, type: 'hit', body: res.body, point: p.sensed.point, direction: res.dir, dv: res.dv, detail: res.type, source: p.sensed.source });
         this.behaviors.onHit(res, t);
+        this.breath.onHit(res.dv);
+        this.tone.onHit(t, res.dv, 'contact');
         this.reactToContact(t, p.sensed);
         // (README 결정 168) 반응 클립은 빈 공간에서 밀린 사람이다: 다른 사람·물체에 부딪히면 스타일을 놓고 균형·스텝 계층과 접촉 반응(팔 힘 빼기·돌아보기)이 받는다
         const st = this.reaction.style;
@@ -1100,6 +1121,8 @@ export class Character {
         });
         this.emit({ t, type: 'hit', body: res.body, point: res.point ?? point, direction: res.dir, dv: res.dv, detail: res.type });
         this.behaviors.onHit(res, t);
+        this.breath.onHit(res.dv);
+        this.tone.onHit(t, res.dv, res.type);
         // (2026-10-27) 반응 클립 추종: 감지 지연 뒤 클립을 고른다 (서 있는 몸, 스텝 계층이 켜져 있을 때)
         this.scheduleReaction(t, p.hit.type, res.dv, res.body);
       } else if (p.body && p.impulse) applyJ(p.body, p.impulse, p.point);
@@ -1136,6 +1159,17 @@ export class Character {
     }
     // (README 결정 settle-1) 진정 단계: 충격 뒤 DCM이 다각형 안에 넉넉하고 넘어짐 확실도가 낮은 상태가 이어지면 '버텼다' → 팔을 서기 자세로 내리고 상체를 세운다.
     // 판단 입력은 직전 스텝의 균형(DCM 여유)·넘어짐 확실도 값. 반응 걸음·새 충격·크게 흔들림이면 바로 나온다
+    // (README 결정 pres-3) 호흡·미세 움직임: 서기 포즈 클립(애니 클립 아님)을 따르는 서 있는 몸에만
+    if (this.breath.cfg.enabled) {
+      const hp = this.rd.body('Hips').rb.translation();
+      const pw = this.world.physics, gh = pw.flat ? 0 : pw.groundHeightAt(hp.x, hp.z);
+      // 가파른 경사에서는 끈다: 발목 한계 근처로 서 있어 작은 상체 변조에도 넘어졌다(slope20_push 근처 입력 12시드 넘어짐 1 → 4, README 결정 pres-6)
+      const bc = this.breath.cfg, e = 0.2;
+      const slopeDeg = pw.flat ? 0 : (Math.atan(Math.hypot(pw.groundHeightAt(hp.x + e, hp.z) - pw.groundHeightAt(hp.x - e, hp.z), pw.groundHeightAt(hp.x, hp.z + e) - pw.groundHeightAt(hp.x, hp.z - e)) / (2 * e)) * 180) / Math.PI;
+      this.breath.update(this.world.dt, !ref && this.stateName === 'Active' && !this.behaviors.dead && this.getup.phase === 'monitor' && hp.y - gh >= this.breath.cfg.minHipsH && slopeDeg < bc.maxSlopeDeg,
+        this.stepping.busy || this.behaviors.list.some((b) => b.stopT === null && b.name !== 'LookAt' && b.name !== 'InjuredLeg'));
+      if (!ref) clipTargets = this.breath.apply(t, clipTargets);
+    }
     const idleTargets = clipTargets;
     if (this.settle.cfg.enabled) {
       const v = this.rd.com().vel;
@@ -1160,6 +1194,15 @@ export class Character {
     this.balance.trackRef = this.reaction.style && this.reaction.style.w > 0 ? styleTrackingRef(this.reaction.cfg.style!, this.reaction.style.clip, this.reaction.style.w, this.reaction.style.armK) : null;
     this.balance.settleRef = this.settle.ref();
     this.balance.settleLog = this.settle.log;
+    // (결정 tone-1) 근긴장: 서서 균형을 잡는 동안만(넘어짐·누움·일어서기·Ragdoll은 배율 1). 신장 반사 입력 = 직전 스텝 근육의 신장 속도.
+    // 레벨은 근육 모터(7단계)와 전신 QP 자세 과제(힌트 toneRef, tone.qp)에 같이 쓴다
+    if (this.tone.cfg.enabled) {
+      const stretch: Partial<Record<JointName, number>> = {};
+      for (const m of this.muscles.joints) stretch[m.name] = m.stretch;
+      this.tone.update(t, this.world.dt, stretch, this.stateName === 'Active' && this.balance.state.enabled && this.getup.phase === 'monitor' && !this.behaviors.dead);
+      const q = this.tone.cfg.qp;
+      this.balance.toneRef = q && Object.keys(this.tone.level).length ? { level: this.tone.level, kpGain: q.kpGain, kdGain: q.kdGain, wGain: q.wGain } : null;
+    }
     // 4~5. 행동 (v0.5a): 클립 목표 위에 레이어·가중치 블렌드 → 관절 목표, 강도 배율, 손 IK 목표, COM 낮추기, 스텝 수정
     const ss = this.stepping.state;
     const blend = this.behaviors.update({ t, dt: this.world.dt, rd: this.rd, def: this.def, per, bodyIdx: (n) => this.rd.body(n).idx, stepping: { busy: this.stepping.busy, state: ss.state, stepCount: ss.stepCount, target: ss.target, swing: ss.phase === 'swing' && ss.swingFoot && ss.target ? { foot: ss.swingFoot, target: ss.target } : null } }, clipTargets, this.stateName === 'Active');
@@ -1249,6 +1292,7 @@ export class Character {
       if (e.type === 'voidStep' && !this.behaviors.list.some((b) => b.name === 'Misstep' && b.stopT === null)) this.behaviors.trigger('Misstep', { foot: e.foot ?? 'RightFoot' }, t);
       // 반응 클립을 첫 반응 착지 뒤에 붙이는 방식(startOn 'landing'): 스텝 계층이 첫 걸음으로 받은 뒤 클립을 고른다
       if (e.type === 'step' && this.reaction.style) this.reaction.style.ours++;
+      if (e.type === 'step') this.breath.onStep();
       if (e.type === 'step' && this.reaction.waitLanding) { this.reaction.waitLanding = false; this.reaction.pendingT = t + this.world.dt; }
     }
     this.stepping.events = [];
@@ -1279,7 +1323,8 @@ export class Character {
       if (this.getupAssist.strength > 0) this.getupAssist.set(0, null);
       this.getupRefTau = this.getup.phase === 'balance' ? this.anim.tau : null;
     }
-    this.muscles.apply(this.world.dt, t, this.stateName !== 'Ragdoll', bal.targets, mcmd, behOn ? blend.strengthMul : null, behOn ? blend.capacityMul : null);
+    const toneMul = this.tone.cfg.enabled ? { kp: this.tone.kp, kd: this.tone.kd } : null;
+    this.muscles.apply(this.world.dt, t, this.stateName !== 'Ragdoll', bal.targets, mcmd, behOn ? blend.strengthMul : null, behOn ? blend.capacityMul : null, toneMul);
     this.pin.apply();
     this.animOverridePin?.apply();
     this.rootAssist.apply();
@@ -1708,6 +1753,13 @@ export class Character {
         this.emit({ t: this.world.time, type: 'exploded', detail: worst });
       }
     }
+    // (pres-1) 손가락 포즈: 행동·접촉 → 손마다 굽힘·벌림 (로그 전용)
+    if (this.handPose.cfg.enabled) {
+      const ground = this.perception().ground;
+      const lying = [...ground].some((b) => !HAND_POSE_LIMB_ENDS.has(b));
+      const hs = (h: 'LeftHand' | 'RightHand') => this.muscles.out(h).strength;
+      this.handPose.update(this.world.dt, { t: this.world.time, bl: this.behaviors, ground, lying, state: this.stateName, handStrength: { LeftHand: hs('LeftHand'), RightHand: hs('RightHand') }, stepping: this.stepping.state.state === 'lift' || this.stepping.state.state === 'step' });
+    }
   }
 
   /**
@@ -1916,6 +1968,9 @@ export class Character {
       balance: this.balance.state,
       stepping: this.stepping.state,
       stepTargets: this.stepping.state.target ? [[this.stepping.state.target[0], this.stepping.state.target[2]]] : [],
+      ...(this.handPose.cfg.enabled ? { fingers: this.handPose.log() } : {}),
+      ...(this.breath.cfg.enabled ? { breath: this.breath.log() } : {}),
+      ...(this.tone.cfg.enabled ? { tone: this.tone.log } : {}),
       ...(this.behaviors.state.grab ? { grabTarget: this.behaviors.state.grab.hands.map((h) => h.anchor ?? h.target).find((p) => !!p) ?? null } : {}),
       debug: {
         spine2TiltDeg: tilt,

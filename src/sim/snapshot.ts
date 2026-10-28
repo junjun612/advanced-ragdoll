@@ -39,6 +39,9 @@ import { PoseClip } from './character/pose';
 import { Ragdoll } from './character/ragdoll';
 import { ReactionController, ReactionLibrary } from './character/reaction';
 import { SettleController } from './character/settle';
+import { ToneController } from './character/tone';
+import { HandPoseController } from './character/handPose';
+import { BreathController } from './character/breath';
 import { PoweredStates } from './character/states';
 import { Stepping } from './character/stepping';
 import { WalkController } from './character/walk';
@@ -65,10 +68,12 @@ import musclesCfg from '../../config/muscles.json';
 import reactionCfg from '../../config/reaction.json';
 import simCfg from '../../config/sim.json';
 import steppingCfg from '../../config/stepping.json';
+import presenceCfg from '../../config/presence.json';
 
 /** 스냅샷 형식 이름·판 (형식을 바꾸면 판을 올린다) */
 export const SNAPSHOT_FORMAT = 'advanced-ragdoll/world-snapshot';
-export const SNAPSHOT_VERSION = 1;
+// 3: (결정 tone-7) Character.tone(ToneController), Muscles 관절 stretch
+export const SNAPSHOT_VERSION = 3;
 
 /** 값 인코딩: JSON 원시값 그대로, 그 밖은 표지 하나짜리 객체 */
 export type Enc =
@@ -115,7 +120,7 @@ const classList = (): Record<string, { prototype: unknown }> => ({
   BlastStun, Flail, PrepareLanding, Roll, Kneel, Limp, BraceForFall, CatchFall, ProtectHead, BraceAgainstWall, Grab, GrabJoint, HangOnLedge,
   HitReaction, HoldWound, SmoothNoise, InjuredLeg, LookAt, Stagger, Misstep, StairStep, Trip, Tumble, Writhe,
   GetupAssist, GetupController, GetupLibrary, RootBlend, GetupQP, Muscles, DelayLine, PinAssist, PoseClip, Ragdoll,
-  ReactionController, ReactionLibrary, SettleController, PoweredStates, Stepping, WalkController, WholeBody,
+  ReactionController, ReactionLibrary, SettleController, ToneController, HandPoseController, BreathController, PoweredStates, Stepping, WalkController, WholeBody,
   FrameLogger, AnimMetrics, BehaviorMetrics, GetupMetrics, MuscleMetrics, QualityMetrics, ReactionMetrics, SummaryBuilder,
 });
 /** Rapier 데이터 클래스 (wasm 객체를 갖지 않는 순수 JS 값): 일반 객체처럼 저장한다 */
@@ -154,7 +159,7 @@ function classes() {
 let statics: { ids: Map<object, number>; list: object[]; hash: string } | null = null;
 function staticTable() {
   if (statics) return statics;
-  const roots: unknown[] = [POSES, ANIM_CLIPS, GETUP_LIBRARY, REACTION_CLIPS, animDriverCfg, assistCfg, balanceCfg, behaviorsCfg, getupCfg, hitModelCfg, hitScaleCfg, interactionCfg, milestonesCfg, musclesCfg, reactionCfg, simCfg, steppingCfg];
+  const roots: unknown[] = [POSES, ANIM_CLIPS, GETUP_LIBRARY, REACTION_CLIPS, animDriverCfg, assistCfg, balanceCfg, behaviorsCfg, getupCfg, hitModelCfg, hitScaleCfg, interactionCfg, milestonesCfg, musclesCfg, reactionCfg, simCfg, steppingCfg, presenceCfg];
   const ids = new Map<object, number>(), list: object[] = [];
   const h = new Hasher();
   const visit = (v: unknown): void => {

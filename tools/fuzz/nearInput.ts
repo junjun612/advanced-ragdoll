@@ -2,6 +2,8 @@
 // muscles.json 모듈 객체를 그 자리에서 바꿔(모든 캐릭터에 적용) 근처 입력(jitterScenario 시드 1..N)으로 시나리오를 돌린다
 import muscles from '../../config/muscles.json';
 import hitModelCfg from '../../config/hitModel.json';
+import presenceCfg from '../../config/presence.json';
+import steppingCfg from '../../config/stepping.json';
 import { runScenario } from '../../src/sim/runner';
 import { findScenario, loadScenario, loadInputs, jitterScenario } from '../simCommon';
 
@@ -15,12 +17,25 @@ const hm = hitModelCfg as unknown as { push: { minDuration?: number } };
 if (old) hm.push.minDuration = 0;
 if (flags.has('md')) hm.push.minDuration = 0.025;
 if (flags.has('ffv')) { m.forceVelocity!.joints.LeftFoot = [15, 30]; m.forceVelocity!.joints.RightFoot = [15, 30]; }
+// nr: 어깨 끝 저항 끔(결정 rom-3 이전). (README 결정 pres-*) 인간다움 실험 끄기: nd 반응 지연 흔들기, ng 위협 돌아보기, nf 넘어질 곳 보기, ns 머리 안정, nb 호흡, np 전부(= 실험 전 물리)
+const pc = presenceCfg as unknown as { reaction: { enabled: boolean }; gaze: { glance: { enabled: boolean }; fallWeight: number; stabilize: { enabled: boolean } }; breath: { enabled: boolean } };
+const np = flags.has('np');
+if (np || flags.has('nd')) pc.reaction.enabled = false;
+if (np || flags.has('ng')) pc.gaze.glance.enabled = false;
+if (np || flags.has('nf')) pc.gaze.fallWeight = 0;
+if (np || flags.has('ns')) pc.gaze.stabilize.enabled = false;
+if (np || flags.has('nb')) pc.breath.enabled = false;
+// (결정 tone-4) nsu: 정착 중 상체 자세 감쇠를 다리와 같게(tone-4 이전). tone: 근긴장(공동수축) 켜기(tone-1, 기본 끔)
+if (flags.has('nsu')) delete (steppingCfg as unknown as { postureKd: { settleUpper?: number } }).postureKd.settleUpper;
+if (flags.has('tone')) (muscles as unknown as { tone: { enabled: boolean } }).tone.enabled = true;
 const hand = flags.has('h12') ? 12 : flags.has('h8') ? 8 : null;
 const inputs = (sc: Parameters<typeof loadInputs>[0]) => {
   const i = loadInputs(sc);
   const bodies = (i.ragdoll as unknown as { bodies: Record<string, { inertiaScale?: number }> }).bodies;
   if (old) for (const n of ['LeftHand', 'RightHand', 'LeftFoot', 'RightFoot']) bodies[n]!.inertiaScale = 4;
   if (hand) for (const n of ['LeftHand', 'RightHand']) bodies[n]!.inertiaScale = hand;
+  // (결정 merge2-*) nr: 어깨 끝 저항 끄기(rom-3 이전 물리)
+  if (flags.has('nr')) delete (i.ragdoll as { shoulderRom?: unknown }).shoulderRom;
   return i;
 };
 // falls:<시작 시드> = getup_random_x20과 같은 무작위 쓰러짐(사망 제외)을 N개 돌려 성공(일어서서 Idle, 폭발 없음) 수

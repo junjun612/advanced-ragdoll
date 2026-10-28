@@ -9,5 +9,7 @@
   },
   "$twistShare": "전완 회내·회외: 물리는 손목 관절 twist(±90 = 회내·회외 ±80 + 손목 ±10)로 받고, 피부는 전완 본이 손의 전완 축 비틀림 t만큼을 함께 돌아 전완을 따라 꼬인다 (README 결정 72).",
   "twistShare": { "LeftForeArm": { "child": "LeftHand", "t": 0.6 }, "RightForeArm": { "child": "RightHand", "t": 0.6 } },
-  "color": { "surface": [0.62, 0.64, 0.68], "joints": [0.22, 0.24, 0.3] }
+  "color": { "surface": [0.62, 0.64, 0.68], "joints": [0.22, 0.24, 0.3] },
+  "$fingers": "(README 결정 pres-1) 손가락 굽힘: 로그 fingers의 curl·spread·thumb(0~1) × 아래 최대 각. flexDeg = 손가락 마디 1·2·3(사람 MCP 90·PIP 100·DIP 80의 약 0.85배 — X Bot 손가락 메시가 굵어 끝까지 굽히면 서로 파고든다), 엄지 마디 굽힘·맞섬, 손가락별 벌림(엄지 쪽 +, 굽힐수록 줄어듦).",
+  "fingers": { "flexDeg": [78, 90, 65], "thumbFlexDeg": [15, 35, 45], "thumbOppDeg": 40, "spreadDeg": { "Index": 9, "Middle": 2, "Ring": -5, "Pinky": -12 } }
 }

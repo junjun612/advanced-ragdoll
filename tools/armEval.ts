@@ -61,7 +61,7 @@ function reactLib(): Record<string, never> | undefined {
   return out as Record<string, never>;
 }
 
-interface Row { name: string; seed: number; passed: boolean; fell: boolean; steps: number; rec: number | null; land: number | null; arm: ArmStats; refArm: number | null; fails: string; exploded?: boolean; romFrac?: number; romMax?: number; settleTime?: number | null; settleFrac?: number }
+interface Row { name: string; seed: number; passed: boolean; fell: boolean; steps: number; rec: number | null; land: number | null; arm: ArmStats; refArm: number | null; fails: string; exploded?: boolean; romFrac?: number; romMax?: number; settleTime?: number | null; settleFrac?: number; reactive?: number; closing?: number; stepLens?: number[]; stepEnd?: number | null; drag?: number }
 
 /**
  * (README 결정 settle-2) 정착 시간: 마지막 충격 뒤, 마지막으로 '아직 버티는 중'인 로그 프레임까지의 시간(초). 버티는 중 = COM 수평 속도 > 0.1 m/s
@@ -105,6 +105,27 @@ function romExcessDeg(f: { bodies: Record<string, { rot: number[] }> }): number 
   return Math.max(0, ex);
 }
 
+/**
+ * (README 결정 step-1) 걸음 계획 지표: 충격 뒤 걸음 이벤트(meta.events 'step', 5cm 넘게 옮긴 착지)를 반응(reactive)·모으기(closing·place·replace)로 나누고,
+ * 걸음마다 옮긴 거리(m), 마지막 걸음 끝 시각(마지막 충격 기준 초), 마지막 걸음 뒤 발 끌림(m: 두 로그 프레임 모두 발 높이 < 0.08 m인 동안 발 수평 이동 합, 두 발)을 낸다.
+ */
+function stepsOf(events: { t: number; type: string; detail?: string }[], log: string, hitT: number): { reactive: number; closing: number; stepLens: number[]; stepEnd: number | null; drag: number } {
+  const st = events.filter((e) => e.type === 'step' && e.t >= hitT - 1e-9);
+  const lens = st.map((e) => Number(/moved=([\d.]+)/.exec(e.detail ?? '')?.[1] ?? NaN));
+  const reactive = st.filter((e) => / reactive /.test(e.detail ?? '')).length;
+  const tEnd = st.length ? st[st.length - 1]!.t : hitT;
+  const fr = log.trim().split('\n').map((x) => JSON.parse(x) as { time: number; bodies: Record<string, { pos: number[] }> });
+  let drag = 0;
+  for (let i = 1; i < fr.length; i++) {
+    if (fr[i]!.time <= tEnd + 1e-9) continue;
+    for (const f of ['LeftFoot', 'RightFoot']) {
+      const a = fr[i - 1]!.bodies[f]!.pos, b = fr[i]!.bodies[f]!.pos;
+      if (a[1]! < 0.08 && b[1]! < 0.08) drag += Math.hypot(b[0]! - a[0]!, b[2]! - a[2]!);
+    }
+  }
+  return { reactive, closing: st.length - reactive, stepLens: lens, stepEnd: st.length ? tEnd - hitT : null, drag };
+}
+
 async function worker(name: string, seed: number): Promise<Row> {
   const { runScenario } = await import('../src/sim/runner');
   const c = cfgs() as Record<string, never>;
@@ -130,7 +151,7 @@ async function worker(name: string, seed: number): Promise<Row> {
     name, seed, passed: s.expectations.passed, fell: s.fell, steps: s.stepsTaken ?? 0, rec: s.recoveredAfterHit ?? null,
     land: (s.metrics.landingErrorMean as number | undefined) ?? null, arm: armStats(def, logToArmFrames(r.log), hitT, WINDOW),
     refArm: typeof s.metrics.refArmRatio === 'number' ? s.metrics.refArmRatio : null, fails: s.expectations.failures.join('; '),
-    exploded: !!s.exploded, ...settleOf(r.log, lastHitT, s.fell), ...(() => { const fr = r.log.trim().split('\n').map((x) => JSON.parse(x)); const e = fr.map(romExcessDeg); return { romFrac: e.filter((x) => x > 5).length / Math.max(1, e.length), romMax: Math.max(0, ...e) }; })(),
+    exploded: !!s.exploded, ...settleOf(r.log, lastHitT, s.fell), ...stepsOf(r.meta.events as never, r.log, lastHitT), ...(() => { const fr = r.log.trim().split('\n').map((x) => JSON.parse(x)); const e = fr.map(romExcessDeg); return { romFrac: e.filter((x) => x > 5).length / Math.max(1, e.length), romMax: Math.max(0, ...e) }; })(),
   };
 }
 

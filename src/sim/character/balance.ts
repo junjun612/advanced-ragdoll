@@ -281,6 +281,8 @@ export class Balance {
   trackRef: TrackingRef | null = null;
   /** 진정 단계 힌트 (README 결정 settle-1): 레퍼런스 쪽(api.ts SettleController)이 매 스텝 넣는다. null = 진정 아님 */
   settleRef: SettleRef | null = null;
+  /** (결정 tone-3) 근긴장 힌트: 관절별 레벨 L(0~1) → 자세 과제 kp·kd·가중치 × (1 + (gain − 1)·L). 없으면 그대로 */
+  toneRef: { level: Partial<Record<JointName, number>>; kpGain: number; kdGain: number; wGain: number } | null = null;
   /** 진정 단계 로그 (balance.settle로 기록만) */
   settleLog: SettleLog | null = null;
   /** 스텝 계층 (v0.4, Character가 넣는다). 없으면 v0.3 그대로 */
@@ -649,7 +651,9 @@ export class Balance {
     const ts = beh?.trunkGainScale ?? 1;
     // 반응 상체 스타일: 팔을 클립 모양에 묶는 대신 몸통이 각운동량을 더 받게 몸통 과제 가중치를 trunkWeightScale배로 (README 결정 160)
     const tws = this.trackRef ? 1 + this.trackRef.w * (this.trackRef.trunkWeightScale - 1) : 1;
-    const torsoG = ts !== 1 || tws !== 1 ? { kp: torsoG0.kp * ts, kd: torsoG0.kd * Math.sqrt(ts), weight: torsoG0.weight * tws } : torsoG0;
+    // (결정 tone-5, 실험) 정착 중 몸통 과제 가중치 배율 — 몸통 세우기가 COM 힘 과제를 이겨 COM을 가장자리로 미는 것(step-2)을 줄이는 실험. 없으면 1
+    const tsw = sc?.mode === 'settle' && !sc.shifting ? this.stepping?.cfg.settle.torsoWeightScale ?? 1 : 1;
+    const torsoG = ts !== 1 || tws !== 1 || tsw !== 1 ? { kp: torsoG0.kp * ts, kd: torsoG0.kd * Math.sqrt(ts), weight: torsoG0.weight * tws * tsw } : torsoG0;
     const alphaDes = sub(scale(toRotationVector(qe), torsoG.kp), scale(trunkW, torsoG.kd));
     const s2j = wb.jacobian(wst, this.spine2Idx);
     for (let r = 0; r < 3; r++) {
@@ -752,6 +756,8 @@ export class Balance {
       // 진정 단계: 팔을 서기 자세에 붙들고(가중치 armWeight) 감쇠를 키운다(armKd) — 손 과제가 걸린 팔 제외
       const settleArm = !!sr && /Arm|Hand/.test(name) && this.handBusy(beh, name) < 0.05;
       if (settleArm) w = Math.max(w, w + sr!.level * (sr!.armWeight - w));
+      const tL = this.toneRef?.level[name] ?? 0;
+      if (tL > 0) w *= 1 + (this.toneRef!.wGain - 1) * tL;
       if (w <= 0) continue;
       const j = this.jointsByName.get(name)!;
       const pq = rd.bodies[b.parent]!.rb.rotation(), cq = rd.bodies[b.idx]!.rb.rotation();
@@ -766,8 +772,11 @@ export class Balance {
         const axisW = ang(wst.S[d]!);
         const row = new Float64Array(n);
         row[d] = 1;
-        const kd0 = sc && this.stepping ? (sc.mode === 'settle' || sc.shifting ? this.stepping.cfg.postureKd.settle : this.stepping.cfg.postureKd.step) : cfg.wb.posture.kd;
-        addRow(row, cfg.wb.posture.kp * dot(e, axisW) - (settleArm ? kd0 + sr!.level * (sr!.armKd - kd0) : kd0) * wst.qd[d]!, w);
+        // (결정 tone-4) 정착·체중 이동 중 감쇠: 다리는 settle(체중 이동을 막지 않게), 몸통·목·팔은 settleUpper(없으면 settle) — kp 100에 kd 10이면 감쇠비 0.5라 상체가 출렁였다
+        const pk = this.stepping?.cfg.postureKd;
+        const kd0 = sc && pk ? (sc.mode === 'settle' || sc.shifting ? (/Leg|Foot/.test(name) ? pk.settle : pk.settleUpper ?? pk.settle) : pk.step) : cfg.wb.posture.kd;
+        const kdP = settleArm ? kd0 + sr!.level * (sr!.armKd - kd0) : kd0;
+        addRow(row, cfg.wb.posture.kp * (tL > 0 ? 1 + (this.toneRef!.kpGain - 1) * tL : 1) * dot(e, axisW) - kdP * (tL > 0 ? 1 + (this.toneRef!.kdGain - 1) * tL : 1) * wst.qd[d]!, w);
       }
     }
     // 관절 제한 피하기 (v0.4): QP는 관절 제한을 모른다. 무릎이 0°(완전히 폄)나 발목이 제한(비틀기 ±5° 등)에 닿으면 QP가 더 가려는 가속도를 내고

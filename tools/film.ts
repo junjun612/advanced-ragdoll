@@ -1,5 +1,6 @@
 // 필름스트립 생성기 (SPEC 8.3, 13장).
 // 사용법: npm run film -- <name> [--camera side|front|top|follow] [--camera ...] [--fbx|--both] [--out <dir>]
+// --zoom <바디,바디>[@거리]: 그 바디 가운데 확대 컷(손가락·얼굴), 칸에 손 포즈 라벨 (README 결정 pres-1).
 // --fbx: 캡슐 대신 X Bot FBX 스킨(config/skin.json). --both: 시각마다 위 캡슐 + 아래 FBX 두 칸(같은 카메라).
 // out/<name>/{log.jsonl, meta.json, summary.json}을 읽어 out/<name>/film.png (카메라가 여럿이면 film_<camera>.png도) 를 쓴다.
 // 렌더는 Playwright Chromium(헤드리스, SwiftShader WebGL)에서 src/render를 그대로 돌린다.
@@ -19,7 +20,7 @@ import {
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-interface Args { name: string; cameras: CameraKind[]; outDir: string | null; variant: FilmVariant; compare: string | null; from: number | null; to: number | null; interval: number | null; suffix: string }
+interface Args { name: string; cameras: CameraKind[]; outDir: string | null; variant: FilmVariant; compare: string | null; from: number | null; to: number | null; interval: number | null; suffix: string; zoom: { bodies: string[]; distance: number } | null }
 
 function parseArgs(argv: string[]): Args {
   let name = '';
@@ -28,6 +29,7 @@ function parseArgs(argv: string[]): Args {
   let variant: FilmVariant = 'capsule';
   let compare: string | null = null;
   let from: number | null = null, to: number | null = null, interval: number | null = null, suffix = '';
+  let zoom: Args['zoom'] = null;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
     if (a === '--camera' || a.startsWith('--camera=')) {
@@ -46,6 +48,10 @@ function parseArgs(argv: string[]): Args {
       to = Number(argv[++i]);
     } else if (a === '--interval') {
       interval = Number(argv[++i]);
+    } else if (a === '--zoom') {
+      // (pres-1) 확대 컷: --zoom LeftHand,RightHand[@거리m] (기본 0.9 m)
+      const [b, d] = (argv[++i] ?? 'Head').split('@');
+      zoom = { bodies: b!.split(',').filter(Boolean), distance: d ? Number(d) : 0.9 };
     } else if (a === '--suffix') {
       suffix = argv[++i] ?? '';
     } else if (a === '--out') {
@@ -57,7 +63,7 @@ function parseArgs(argv: string[]): Args {
     }
   }
   if (!name) throw new Error('사용법: npm run film -- <name> [--camera side|front|top|follow] [--fbx|--both] [--compare <레퍼런스 클립 경로>]');
-  return { name, cameras, outDir, variant, compare, from, to, interval, suffix };
+  return { name, cameras, outDir, variant, compare, from, to, interval, suffix, zoom };
 }
 
 const readJson = <T>(p: string): T => JSON.parse(readFileSync(p, 'utf8')) as T;
@@ -205,7 +211,7 @@ async function main(): Promise<void> {
     const written: string[] = [];
     for (const [i, camera] of cameras.entries()) {
       const input: FilmInput = { def, cfg, meta, summary, frames, frameTimes: times, camera, variant: args.variant, compare: cmp ?? undefined,
-        ...(others.length ? { others, primaryName: meta.characters?.[0]?.name } : {}), ...(props ? { props } : {}) };
+        ...(others.length ? { others, primaryName: meta.characters?.[0]?.name } : {}), ...(props ? { props } : {}), ...(args.zoom ? { zoom: args.zoom } : {}) };
       const dataUrl = await page.evaluate(
         (inp) => (globalThis as unknown as { renderFilm: (x: FilmInput) => string }).renderFilm(inp),
         input,
@@ -213,7 +219,7 @@ async function main(): Promise<void> {
       if (pageErrors.length) throw new Error(`페이지 오류:\n${pageErrors.join('\n')}`);
       const png = Buffer.from(dataUrl.slice(dataUrl.indexOf(',') + 1), 'base64');
       // 캡슐 기본 출력(film.png)은 덮어쓰지 않도록 변형은 접미사를 붙인다: film_fbx.png, film_both_front.png
-      const sfx = (args.variant === 'capsule' ? '' : `_${args.variant}`) + (cmp ? '_cmp' : '') + (args.suffix ? `_${args.suffix}` : '');
+      const sfx = (args.variant === 'capsule' ? '' : `_${args.variant}`) + (cmp ? '_cmp' : '') + (args.zoom ? '_zoom' : '') + (args.suffix ? `_${args.suffix}` : '');
       const targets = cameras.length > 1 ? [join(outDir, `film${sfx}_${camera}.png`)] : [];
       if (i === 0) targets.unshift(join(outDir, `film${sfx}.png`));
       for (const t of targets) { writeFileSync(t, png); written.push(t); }

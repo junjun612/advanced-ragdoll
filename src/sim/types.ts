@@ -116,6 +116,12 @@ export interface CharacterState {
   reaction?: ReactionLog;
   /** 스텝 목표 발자국 (xz, 필름스트립 하늘색) */
   stepTargets: Vec2[];
+  /** (README 결정 pres-1) 손가락 포즈: 손마다 포즈 이름·굽힘·벌림·엄지 (0~1, 렌더 전용) */
+  fingers?: Record<'LeftHand' | 'RightHand', { pose: string; curl: number; spread: number; thumb: number }>;
+  /** (README 결정 pres-3) 호흡: 파형 b(0 날숨~1 들숨), 호흡수 Hz, 깊이 배율, 각성 0~1, 켜짐 정도 k */
+  breath?: { b: number; rate: number; depth: number; arousal: number; k: number };
+  /** (결정 tone-1) 근긴장: 공동수축 레벨 co, 신장 반사 최대 레벨·관절, 감쇠 최대 배율 */
+  tone?: { co: number; reflexMax: number; reflexJoint: string | null; maxKd: number };
   /** (v0.8b) 잡기 대상 (잡은 앵커, 뻗는 중이면 손바닥 목표). 잡을 곳·벽이 있는 지형에서만 */
   grabTarget?: Vec3 | null;
   debug: Record<string, number | string>;

@@ -359,6 +359,13 @@ export class BraceForFall extends Behavior {
       for (const [jn, tq] of Object.entries(sol.targets)) joints[jn as JointName] = { target: rateLimited(this.prevT, jn as JointName, tq, p.maxTargetRate, ctx.dt, ctx.def, true), ...this.armOut(kind, jn as JointName) };
     }
     this.phase = this.landedT === null ? `${FALL_KIND_KO[kind]}으로 넘어짐 대비` : '착지';
+    // (pres-2) 앞·옆으로 넘어질 때 짚을 곳(뻗는 손 착지점 가운데)을 본다. 뒤로는 턱을 당긴다(ProtectHead)
+    const gw = (this.params as { gazeWeight?: number }).gazeWeight ?? 0;
+    const lps = this.arms.map((h) => this.land[h]).filter((v): v is Vec3 => !!v);
+    if (gw > 0 && kind !== 'backward' && this.landedT === null && lps.length) {
+      const c = scale(lps.reduce((a, v) => add(a, v), [0, 0, 0] as Vec3), 1 / lps.length);
+      return { joints, balanceMode: 'off', stepAllowed: false, gaze: { target: c, weight: gw } };
+    }
     return { joints, balanceMode: 'off', stepAllowed: false };
   }
 

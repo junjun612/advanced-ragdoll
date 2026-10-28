@@ -9,6 +9,8 @@ import type { BodyName } from '../characterDef';
 import { isFootBody, type FootName } from '../perception';
 import type { ResolvedHit, Wound } from '../hitModel';
 import type { Prng } from '../../prng';
+import { conjugate, fromRotationVector } from '../../math/quat';
+import { cross, normalize, dot } from '../../math/vec3';
 import { type Vec3, add, sub, scale, length, angleBetween } from '../../math/vec3';
 import { type Quat, identityQ, multiplyQ, rotate, slerp } from '../../math/quat';
 import type { Vec2 } from '../../math/geometry';
@@ -92,6 +94,20 @@ export interface GrabLog {
  * 총탄마다 하체 힘 상한 lowerCap −= Δv × lowerPerDv[부위] (부위 = HoldWound.bodyRegion), 회복 없음, floor 아래로는 안 내려감.
  * 상한은 다리 관절 힘 상한 배율(capacity)로 걸린다. lowerCap < kneelBelow면 Kneel, < limpBelow면 Limp.
  */
+/**
+ * (README 결정 pres-2) 반응 지연·시선 (config/presence.json reaction·gaze). 지연: 피격마다 의도 반응 지연 = base ± jitter (prng 'reactionDelay'),
+ * 같은 값을 그 뒤 넘어짐 대비·잡기 등 자동 시작 판단에도 쓴다. 시선: 밀리면 위협 쪽 돌아보기(glance), 앞·옆으로 넘어질 때 착지점 보기(fallWeight),
+ * 반응 걸음·비틀거림 중 머리 흔들림 안정(stabilize: Spine2 위 방향의 빠른 흔들림을 목에서 gain만큼 되돌림)
+ */
+export interface PresenceBehaviorConfig {
+  reaction: { enabled: boolean; base: number; jitter: number };
+  gaze: {
+    glance: { enabled: boolean; types: string[]; lag: number; duration: number; weight: number; dist: number; maxBehindDeg: number };
+    fallWeight: number;
+    stabilize: { enabled: boolean; tau: number; gain: number; maxDeg: number; fade: number };
+  };
+}
+
 export interface DamageConfig { lowerPerDv: Record<string, number>; floor: number; kneelBelow: number; limpBelow: number; kneelMaxSpeed: number; kneelWait: number; kneelCap: number }
 
 /** 블렌드 결과 (균형·근육 계층 입력) */
@@ -137,6 +153,8 @@ export interface BehaviorLogState {
   grab?: GrabLog;
   /** (relax-1) 마지막 몸통·머리 새 접촉: 시각·바디·충돌 |Δv|(m/s)·이완을 걸었는가 (한 번이라도 닿은 뒤에만) */
   impact?: { t: number; body: string; dv: number; relaxed: boolean };
+  /** (pres-2) 이번 의도 반응 지연(초)과 머리 안정(목에서 되돌린 각 도, 켜짐 정도) */
+  presence?: { delay: number; stabDeg: number; stabK: number };
 }
 
 export const emptyBehaviorLog = (): BehaviorLogState => ({ active: [], layers: {}, strengthMul: {}, wounds: [], hands: [], gaze: null, comDrop: 0, tiltAllowDeg: 0, trunkGainScale: 1, balanceMode: 'on', fall: null, damage: { lowerCap: 1 }, air: null });
@@ -166,6 +184,19 @@ export class BehaviorBlender {
   /** 이번 비행에서 Flail을 켠 적이 있는가 (착지하면 지움) */
   private flailedThisFlight = false;
 
+  /** (pres-2) 반응 지연·시선 설정 (Character가 넣는다, 없으면 이전 동작) */
+  presence: PresenceBehaviorConfig | null = null;
+  /** (pres-2) 걷기 추종 중인가 (Character가 매 스텝 넣는다) — 걷다 밀리면 돌아보지 않는다(근처 입력 12시드 넘어짐 3 → 5) */
+  walking = false;
+  private delayRng: Prng | null = null;
+  /** 이번 피격의 의도 반응 지연 (첫 피격 전에는 cfg.reactionDelay) */
+  private delayNow: number | null = null;
+  private get delay(): number { return this.delayNow ?? this.cfg.reactionDelay; }
+  /** (pres-2) 머리 안정: Spine2 위 방향 저역 통과, 켜짐 정도, 마지막 되돌린 각 */
+  private stabUp: Vec3 | null = null;
+  private stabK = 0;
+  private stabDeg = 0;
+
   constructor(public cfg: BehaviorsConfig, readonly rng: Prng, gravity = 9.81) {
     this.fall = new FallMonitor(cfg.fall, gravity);
     this.air = new AirMonitor(cfg.air, gravity);
@@ -186,7 +217,7 @@ export class BehaviorBlender {
   private make(name: string, params: Record<string, unknown>, t0: number, hitT: number): Behavior {
     const base = (this.cfg as unknown as Record<string, Record<string, unknown>>)[name];
     if (!base || !(name in this.cfg.layers)) throw new Error(`unknown behavior '${name}' (known: ${Object.keys(this.cfg.layers).filter((n) => n !== 'Balance').join(', ')}, LiftFoot)`);
-    const p = { ...base, ...(name === 'PrepareLanding' || name === 'Roll' || name === 'Writhe' || name === 'Tumble' || name === 'Lie' ? { lie: this.cfg.lie } : {}), ...params };
+    const p = { ...base, ...(name === 'BraceForFall' && this.presence ? { gazeWeight: this.presence.gaze.fallWeight } : {}), ...(name === 'PrepareLanding' || name === 'Roll' || name === 'Writhe' || name === 'Tumble' || name === 'Lie' ? { lie: this.cfg.lie } : {}), ...params };
     const b = name === 'HitReaction' ? new HitReaction(p, t0, hitT)
       : name === 'HoldWound' ? new HoldWound(p, t0, hitT)
         : name === 'InjuredLeg' ? new InjuredLeg(p, t0, hitT)
@@ -244,7 +275,13 @@ export class BehaviorBlender {
 
   /** 피격 (hitModel 결과) → 상처 저장, 행동 켜기. 의도 행동은 감지 지연 뒤 */
   onHit(res: ResolvedHit, t: number): void {
-    const delay = this.cfg.reactionDelay;
+    // (pres-2) 사람 반사 지연: 피격마다 base ± jitter (힘 빠짐·물리는 즉시, 의도 반응만 늦게)
+    const pr = this.presence;
+    if (pr?.reaction.enabled && !this.has('Limp')) {
+      this.delayRng ??= this.rng.fork('reactionDelay');
+      this.delayNow = pr.reaction.base + this.delayRng.range(-pr.reaction.jitter, pr.reaction.jitter);
+    }
+    const delay = this.delay;
     if (this.has('Limp')) return; // 이미 늘어진 몸은 충격만 받는다
     const wound = res.wound ? this.addWound(res.wound, t) : null;
     this.lastHitT = t;
@@ -272,6 +309,28 @@ export class BehaviorBlender {
       else if (name === 'BlastStun') this.make(name, { intensity: res.intensity }, t, t);
       else this.make(name, {}, t + delay, t);
     }
+    // (pres-2) 위협 쪽 돌아보기: 밀리면(상처를 쥐지 않는 피격) 미는 쪽(맞은 점에서 충격 반대 방향 dist m, 머리 높이)을 잠깐 본다. 사람이 정한 LookAt이 있으면 하지 않는다
+    const gl = pr?.gaze.glance;
+    if (gl?.enabled && !this.walking && gl.types.includes(res.type) && !res.behaviors.includes('HoldWound') && !this.list.some((b) => b instanceof LookAt && b.stopT === null && !b.auto)) {
+      for (const b of this.list) if (b instanceof LookAt && b.auto) b.stop(t);
+      const head = bodyPose(this.lastRd!, 'Head').pos;
+      const src = res.point ?? bodyPose(this.lastRd!, res.body).pos;
+      const d = res.dir;
+      let tgt: Vec3 = [src[0] - d[0] * gl.dist, head[1], src[2] - d[2] * gl.dist];
+      // 위협이 바로 뒤(골반 정면과 maxBehindDeg 넘게 벌어짐)면 어깨 너머로: 맞은 점이 있는 쪽(가운데면 prng)으로 maxBehindDeg에 놓는다 — 정확히 뒤를 겨누면 yaw가 ±180°에서 뒤집혀 고개가 좌우로 휙 넘어갔다
+      const hq = bodyPose(this.lastRd!, 'Hips').rot;
+      const fw = rotate(hq, [0, 0, 1]), sd = rotate(hq, [1, 0, 0]);
+      const rel: Vec3 = [tgt[0] - head[0], 0, tgt[2] - head[2]];
+      const fwd = rel[0] * fw[0] + rel[2] * fw[2], lat = rel[0] * sd[0] + rel[2] * sd[2];
+      const yaw = Math.atan2(lat, fwd), mb = (gl.maxBehindDeg * Math.PI) / 180;
+      if (Math.abs(yaw) > mb) {
+        const hl = (src[0] - head[0]) * sd[0] + (src[2] - head[2]) * sd[2];
+        const sgn = Math.abs(hl) > 0.03 ? Math.sign(hl) : this.delayRng ? (this.delayRng.float() < 0.5 ? -1 : 1) : 1;
+        const r = Math.hypot(rel[0], rel[2]);
+        tgt = [head[0] + r * (Math.cos(mb) * fw[0] + sgn * Math.sin(mb) * sd[0]), head[1], head[2] + r * (Math.cos(mb) * fw[2] + sgn * Math.sin(mb) * sd[2])];
+      }
+      this.make('LookAt', { target: tgt, weight: gl.weight, duration: gl.duration, auto: true }, t + delay + gl.lag, t);
+    }
   }
 
   /**
@@ -281,7 +340,7 @@ export class BehaviorBlender {
    * - BraceForFall 중 손이 지면에 닿으면 CatchFall
    */
   private autoStart(ctx: Omit<BehaviorContext, 'base' | 'wounds' | 'busyHands' | 'rng'>, t: number): void {
-    const delay = this.cfg.reactionDelay;
+    const delay = this.delay;
     if (this.has('Limp')) return;
     const d = this.cfg.damage;
     if (this.lowerCap < d.limpBelow) { this.startLimp(t, { cause: 'damage' }); return; }
@@ -369,7 +428,7 @@ export class BehaviorBlender {
    *   발로 착지하면 착지 순간 그 속도(또는 경사면)일 때 Roll — 다리를 펴서 받은 뒤 구른다
    */
   private autoStartAir(ctx: Omit<BehaviorContext, 'base' | 'wounds' | 'busyHands' | 'rng'>, t: number): void {
-    const a = ctx.air, c = this.cfg.air, delay = this.cfg.reactionDelay;
+    const a = ctx.air, c = this.cfg.air, delay = this.delay;
     if (!a) return;
     if (a.contact && !this.list.some((b) => b instanceof Flail && b.stopT === null)) this.flailedThisFlight = false;
     // 비행이 짧으면(공중 시간 + 착지 예측 < minFlightTotal) 공중 행동을 켜지 않는다 — 넘어지며 발이 잠깐 뜨는 것은 넘어짐 대비가 맡는다
@@ -445,7 +504,7 @@ export class BehaviorBlender {
     const c = f?.certainty ?? 0;
     const vH = Math.hypot(ctx.rd.com().vel[0], ctx.rd.com().vel[2]);
     const sinceHit = t - this.lastHitT;
-    const need = (sinceHit >= this.cfg.reactionDelay && sinceHit <= ga.window && (ctx.stepping.busy || c >= ga.certainty || vH >= ga.speed)) || c >= ga.certaintyAny || !!ctx.air?.airborne || this.has('Misstep');
+    const need = (sinceHit >= this.delay && sinceHit <= ga.window && (ctx.stepping.busy || c >= ga.certainty || vH >= ga.speed)) || c >= ga.certaintyAny || !!ctx.air?.airborne || this.has('Misstep');
     if (!need) return;
     if (sense) {
       const active = this.grabs;
@@ -484,7 +543,7 @@ export class BehaviorBlender {
     const low = com[1] - ctx.rd.pw.groundHeightAt(com[0], com[2]) < tp.maxComHeight; // 몸이 그 아래 지면 가까이 (모서리 너머로 떨어지는 중은 아님)
     if (body && low && Math.hypot(vel[0], vel[1], vel[2]) >= tp.startSpeed && descendingAhead(ctx, vel, tp.probe, tp.min)) {
       for (const b of this.list) if ((b instanceof BraceForFall || b instanceof ProtectHead || b instanceof CatchFall || b instanceof Roll || b instanceof PrepareLanding || b instanceof Flail || b instanceof Stagger || b instanceof Trip || b instanceof Misstep || b instanceof Lie) && b.stopT === null) b.stop(t);
-      this.make('Tumble', {}, t + this.cfg.reactionDelay, t);
+      this.make('Tumble', {}, t + this.delay, t);
     }
   }
 
@@ -564,8 +623,12 @@ export class BehaviorBlender {
     return w;
   }
 
+  /** (pres-2) 마지막 update의 랙돌 (onHit 위협 방향 계산) */
+  lastRd: BehaviorContext['rd'] | null = null;
+
   update(ctx0: Omit<BehaviorContext, 'base' | 'wounds' | 'busyHands' | 'rng' | 'fall' | 'badlyHurt' | 'air'>, base: JointTargets | null, active = true): BlendResult {
     const t = ctx0.t;
+    this.lastRd = ctx0.rd;
     const T = this.cfg.transitionTime;
     // 넘어짐 신호 (v0.5b): 행동이 없어도 매 스텝 계산해 로그에 남긴다 (PRNG를 쓰지 않아 v0.4 경로는 그대로)
     const fall = this.fall.update(ctx0.rd, ctx0.per, ctx0.dt, this.lastTiltAllow, this.list.some((b) => b instanceof Kneel && b.stopT === null), ctx0.stepping.busy, ctx0.stepping.swing ?? null);
@@ -646,6 +709,23 @@ export class BehaviorBlender {
       if (out.stepAllowed === false && w > 0.5) stepAllowed = false;
       if (out.minComHeight !== undefined && w > 0.5) minComHeight = Math.min(minComHeight ?? Infinity, out.minComHeight);
     }
+    // (pres-2) 머리 흔들림 안정 (전정-목 반사 근사): 반응 걸음·비틀거림 중 Spine2 위 방향이 저역 통과 값에서 빨리 벗어난 만큼 목에서 gain배 되돌린다
+    const stab = this.presence?.gaze.stabilize;
+    if (stab?.enabled) {
+      const s2 = bodyPose(ctx.rd, 'Spine2');
+      const up = rotate(s2.rot, [0, 1, 0]);
+      this.stabUp = this.stabUp ? normalize(add(this.stabUp, scale(sub(up, this.stabUp), 1 - Math.exp(-ctx.dt / stab.tau)))) : up;
+      const on = (ctx.stepping.state === 'lift' || ctx.stepping.state === 'step' || this.list.some((x) => x instanceof Stagger && x.stopT === null && !x.armed)) && !this.has('Limp') && !this.has('BraceForFall') && !this.has('Lie') && !this.has('Writhe') && !this.list.some((b) => (b instanceof Flail || b instanceof Roll || b instanceof Tumble) && b.stopT === null);
+      this.stabK += ((on ? 1 : 0) - this.stabK) * (1 - Math.exp(-ctx.dt / stab.fade));
+      const ax = cross(up, this.stabUp);
+      const sn = Math.hypot(ax[0], ax[1], ax[2]);
+      const ang = Math.min((stab.maxDeg * Math.PI) / 180, Math.atan2(sn, dot(up, this.stabUp)) * stab.gain) * this.stabK;
+      this.stabDeg = (ang * 180) / Math.PI;
+      if (ang > 1e-5 && sn > 1e-9) {
+        const loc = rotate(conjugate(s2.rot), scale(ax, ang / sn));
+        targets.Head = multiplyQ(fromRotationVector(loc), targets.Head ?? identityQ());
+      }
+    }
     // 로그
     for (const [jn, l] of Object.entries(layerLog)) log.layers[jn as JointName] = l!.join(' > ');
     log.strengthMul = strengthMul;
@@ -676,6 +756,7 @@ export class BehaviorBlender {
     log.air = air;
     log.damage = { lowerCap: this.lowerCap };
     if (this.lastImpact) log.impact = this.lastImpact;
+    if (this.presence) log.presence = { delay: this.delay, stabDeg: Math.round(this.stabDeg * 100) / 100, stabK: Math.round(this.stabK * 1000) / 1000 };
     this.lastTiltAllow = tiltAllow;
     this.lastStrength = strengthMul;
     // (v0.8b) 잡기·벽 로그 (잡을 곳·벽이 있는 지형에서만 — 이전 지형 로그는 그대로)

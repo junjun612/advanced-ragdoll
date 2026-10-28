@@ -32,6 +32,26 @@ export interface FilmInput {
   primaryName?: string;
   /** (v0.8c) 프롭: 형상, 칸마다 상태 */
   props?: { meta: PropMetaLite[]; frames: (PropStateLite[] | null)[] };
+  /** (pres-1) 확대 컷: 카메라가 이 바디(들의 가운데)를 distance m에서 본다 (손가락·얼굴 확인용). 칸에 손 포즈 라벨을 붙인다 */
+  zoom?: { bodies: string[]; distance: number };
+}
+
+/** (pres-1) 손 포즈 한글 라벨 */
+const HAND_POSE_KO: Record<string, string> = { rest: '편안', limp: '늘어짐', fist: '주먹', grip: '쥠', reach: '펴며 뻗기', clutch: '누름', open: '편 손', guard: '감쌈', spread: '벌림' };
+/** (pres-2·3) 호흡·반응 지연·머리 안정 라벨: 숨이 가쁘거나(각성 ≥ 0.05) 머리 안정이 1° 넘게 걸릴 때(확대 컷은 늘) */
+export function presenceText(s: CharacterStateLite, always = false): string {
+  const br = s.breath, pr = s.behavior?.presence;
+  const parts: string[] = [];
+  if (br && br.k > 0.05 && (always || br.arousal >= 0.05)) parts.push(`숨 ${(br.rate * 60).toFixed(0)}회/분 ×${br.depth.toFixed(1)}${br.b > 0.5 ? ' 들숨' : ' 날숨'}`);
+  if (pr && pr.stabK > 0.05 && (always || pr.stabDeg >= 1)) parts.push(`머리 안정 ${pr.stabDeg.toFixed(0)}°`);
+  if (pr && always) parts.push(`반응 지연 ${(pr.delay * 1000).toFixed(0)}ms`);
+  return parts.join(' · ');
+}
+export function fingerText(s: CharacterStateLite): string {
+  const f = s.fingers;
+  if (!f) return '';
+  const one = (h: string, k: string) => { const x = f[h]; return x ? `${k} ${HAND_POSE_KO[x.pose] ?? x.pose} ${Math.round(x.curl * 100)}` : ''; };
+  return `손: ${one('LeftHand', '왼')} · ${one('RightHand', '오른')}`;
 }
 
 const fmtSec = (t: number): string => `${(Math.round(t * 10) / 10).toFixed(1)}초`;
@@ -210,6 +230,7 @@ export function renderFilmstrip(input: FilmInput, skin?: FbxSkin, extraSkins: Fb
     ghost?.applyState(input.compare!.frames[i] ?? null);
     skin?.applyState(displayState(state));
     debug.update(state, primaryEvents, t);
+    if (input.zoom) debug.group.visible = false;
     const ost = others.map((o) => o.frames[i] ?? null);
     ost.forEach((st, k) => {
       otherMeshes[k]!.applyState(st);
@@ -219,7 +240,17 @@ export function renderFilmstrip(input: FilmInput, skin?: FbxSkin, extraSkins: Fb
       if (sk && st) sk.applyState(displayState(st));
     });
     propMeshes?.applyState(input.props!.frames[i]);
-    if (others.length) {
+    if (input.zoom) {
+      // (pres-1) 확대 컷: 바디 가운데를 그 방향에서 가까이
+      const zs = input.zoom.bodies.map((n) => state.bodies[n]?.pos).filter((p): p is [number, number, number] => !!p);
+      const c = zs.length ? zs.reduce((a, p) => [a[0] + p[0] / zs.length, a[1] + p[1] / zs.length, a[2] + p[2] / zs.length] as [number, number, number], [0, 0, 0] as [number, number, number]) : state.com;
+      const o = kind === 'side' ? [1, 0.35, 0] : kind === 'front' ? [0, 0.35, 1] : kind === 'top' ? [0, 1, 0.001] : cfg.camera.followOffset;
+      const on = Math.hypot(o[0]!, o[1]!, o[2]!);
+      cam.up.set(0, 1, 0);
+      cam.position.set(c[0] + (o[0]! / on) * input.zoom.distance, c[1] + (o[1]! / on) * input.zoom.distance, c[2] + (o[2]! / on) * input.zoom.distance);
+      cam.lookAt(c[0], c[1], c[2]);
+      cam.updateProjectionMatrix();
+    } else if (others.length) {
       const fr = groupFraming([state, ...ost], kind, cfg);
       placeCamera(cam, kind, fr.com, framedConfig(cfg, fr.distance));
     } else placeCamera(cam, kind, state.com, cfg);
@@ -307,6 +338,19 @@ export function renderFilmstrip(input: FilmInput, skin?: FbxSkin, extraSkins: Fb
     if (rt) {
       ctx.font = `bold 11px ${font}`;
       textBox(ctx, rt, x + 3, y + cell - (wt ? 65 : 44), 'left', 'rgba(180,90,20,0.9)', '#ffffff');
+    }
+    // (pres-2·3) 호흡(각성 있을 때)·반응 지연·머리 안정
+    const pst = presenceText(state, !!input.zoom);
+    if (pst) {
+      ctx.font = `bold 11px ${font}`;
+      textBox(ctx, pst, x + cell - 3, y + cell - (wt ? 66 : 44), 'right', 'rgba(60,110,40,0.9)', '#ffffff');
+    }
+    if (input.zoom) {
+      const ftx = fingerText(state);
+      if (ftx) {
+        ctx.font = `bold 11px ${font}`;
+        textBox(ctx, ftx, x + 3, y + cellH - 22, 'left', 'rgba(20,90,90,0.9)', '#ffffff');
+      }
     }
     const hits = activeImpacts(primaryEvents, t, cfg.impactShowSec);
     if (hits.length) {

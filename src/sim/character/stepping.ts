@@ -65,14 +65,14 @@ export interface SteppingConfig {
   legCost: { load: number; dir: number; cross: number; reach: number; clamp: number; bias: number; heavyLoad: number; heavyPenalty: number; sameFoot: number };
   settle: {
     stillSpeed: number; closeSagittal: number; closeWidthTol: number; shiftFraction: number; shiftTime: number; shiftLoad: number;
-    closeDuration: number; closeApex: number; shiftTol: number; shiftMaxSpeed: number; standTime: number; maxClosing: number; comGoalTau: number; shiftKDcm: number; stepMode: boolean; freezeLegs: boolean; trunkGains: boolean; armPostureWeight: number; recenter: boolean; recenterSpeed: number; recenterFreeze?: boolean; placeSpeed: number; placeApex: number; placeMaxSpeed: number;
+    closeDuration: number; closeApex: number; shiftTol: number; shiftMaxSpeed: number; standTime: number; maxClosing: number; comGoalTau: number; shiftKDcm: number; stepMode: boolean; freezeLegs: boolean; trunkGains: boolean; armPostureWeight: number; recenter: boolean; recenterSpeed: number; recenterFreeze?: boolean; placeSpeed: number; placeApex: number; placeMaxSpeed: number; torsoWeightScale?: number;
   };
   trunk: { torso: { kp: number; kd: number; weight: number }; pelvis: { kp: number; kd: number; weight: number }; wAng: number; wLin: number; wLinVertical: number; armAccelReg: number; handAccelReg?: number; yawKp: number; yawKd: number; yawWeight: number };
   motorPlanJoints: JointName[];
   trunkImmediate: boolean;
   maxTiltDeg: number;
   reHeightDrop: number;
-  postureKd: { step: number; settle: number };
+  postureKd: { step: number; settle: number; settleUpper?: number };
   verticalCap: number;
   lunge: { maxDrop: number; dropPerMs: number; tau: number };
   toeOff: { marginDeg: number; heelLift: number };

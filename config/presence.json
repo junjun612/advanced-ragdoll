@@ -1,0 +1,47 @@
+{
+  "$comment": "인간다움 실험 (README 결정 pres-*): 손가락 포즈(handPose), 시선·머리 안정(gaze), 호흡·미세 움직임(breath). 정의 docs/ALGORITHMS.md '인간다움 실험'.",
+  "$handPose": "(pres-1) 손가락 포즈: 손마다 행동·접촉으로 포즈를 고르고(우선순위: 늘어짐·랙돌 limp > 잡기 grip(뻗는 중 reach) > 매달리기 grip > 벽·사람 짚기 open > 상처 누르기 clutch > 바닥에 닿은 손 open(누워 있으면 limp) > 손 짚기·넘어짐 대비로 뻗는 손 open > 머리 감싸기 guard > 공중 허우적 spread > 누움·몸부림·충격 후 이완 limp > 손목 강도 < limpStrength면 limp > 피격 뒤 tenseWindow초 안 의도 반응 중 fist > 반응 걸음(스텝 계층 lift·step, 끝난 뒤 spreadHold초 유지) spread > 서기 rest), 굽힘 curl·벌림 spread·엄지 thumb(0~1)를 시간 상수(쥐기 tauClose, 펴기 tauOpen, rest·limp로 tauRelax)로 따라간다. 렌더만 쓰고 물리에는 영향 없음. 렌더 굽힘 각은 config/skin.json fingers",
+  "handPose": {
+    "enabled": true,
+    "poses": {
+      "rest": { "curl": 0.42, "spread": 0.1, "thumb": 0.4 },
+      "limp": { "curl": 0.55, "spread": 0.06, "thumb": 0.3 },
+      "fist": { "curl": 0.82, "spread": 0.0, "thumb": 0.8 },
+      "grip": { "curl": 0.72, "spread": 0.0, "thumb": 0.8 },
+      "reach": { "curl": 0.1, "spread": 0.45, "thumb": 0.1 },
+      "clutch": { "curl": 0.4, "spread": 0.05, "thumb": 0.4 },
+      "open": { "curl": 0.04, "spread": 0.5, "thumb": 0.05 },
+      "guard": { "curl": 0.3, "spread": 0.2, "thumb": 0.3 },
+      "spread": { "curl": 0.12, "spread": 0.7, "thumb": 0.15 }
+    },
+    "ko": { "rest": "편안", "limp": "늘어짐", "fist": "주먹", "grip": "쥠", "reach": "펴며 뻗기", "clutch": "누름", "open": "편 손", "guard": "감쌈", "spread": "벌림" },
+    "tauClose": 0.08,
+    "tauOpen": 0.06,
+    "tauRelax": 0.35,
+    "tenseWindow": 0.6,
+    "limpStrength": 0.25,
+    "spreadHold": 0.6
+  },
+  "$reaction": "(pres-2) 의도 반응 지연: 피격마다 base ± jitter초(prng 'reactionDelay', 균등). 행동 계층의 의도 반응(움찔·움켜쥐기·손 뻗기·넘어짐 대비·잡기 시작 판단)에 behaviors.json reactionDelay 대신 쓴다. 근육 힘 빠짐·물리 충격은 즉시. 사람 자세 교란 뒤 팔 반응 100~150 ms(Maki & McIlroy 1997), 시각·청각 단순 반응 150~200 ms. 균형 감지 지연(balance.json delay)·반응 클립 지연(reaction.json delay)은 그대로",
+  "reaction": { "enabled": false, "base": 0.09, "jitter": 0.01 },
+  "$gaze": "(pres-2) 시선. glance: types 피격(상처를 쥐지 않는 것)이면 반응 지연 + lag초 뒤 duration초 동안 미는 쪽(맞은 점 − 충격 방향 × dist m, 머리 높이; 골반 정면과 maxBehindDeg 넘게 뒤면 맞은 점 쪽 어깨 너머 maxBehindDeg로)을 weight로 돌아본다(LookAt auto, 사람이 정한 LookAt이 있으면 안 함). fallWeight: 앞·옆으로 넘어질 때 뻗는 손 착지점 가운데를 보는 가중치. stabilize: 반응 걸음(스텝 계층 lift·step)·비틀거림(대기 아님) 중(넘어짐·공중·누움 제외) Spine2 위 방향과 그 저역 통과(tau초)의 차이를 목(Head 목표)에서 gain배 되돌림, 최대 maxDeg, 켜고 끄기 fade초 (사람 머리는 걸을 때 몸통보다 훨씬 덜 흔들린다 — 전정-목 반사)",
+  "gaze": {
+    "glance": { "enabled": true, "types": ["push", "melee"], "lag": 0.25, "duration": 1.2, "weight": 0.45, "dist": 0.9, "maxBehindDeg": 110 },
+    "fallWeight": 0.5,
+    "stabilize": { "enabled": true, "tau": 0.15, "gain": 0.6, "maxDeg": 12, "fade": 0.15 }
+  },
+  "$breath": "(pres-3) 호흡·미세 움직임: 서기 포즈 클립을 따를 때(애니 클립·반응 클립 추종 중이 아님, Active, 골반 높이 ≥ minHipsH, 골반 아래 지면 경사 < maxSlopeDeg — 20° 경사는 발목 한계 근처라 작은 변조에도 넘어졌다) 관절 목표에 변조를 곱한다(숨은 힘 없음). 호흡 파형 b(들숨 inhaleFrac, 날숨 나머지, smoothstep) − 0.5에 joints[도, flex·twist·side]를 곱함: 척추를 펴고(Spine·Spine2 flex −) 머리를 반대로(시선 유지), 팔을 조금 든다(어깨 들림 근사, 쇄골 바디 없음). 호흡수 rateHz ± rateJitter(캐릭터별 prng 'breath'), 사람 쉴 때 12~18회/분. 각성 arousal: 피격 Δv × perDv, 반응 걸음마다 perStep, max까지, tau초 지수 감쇠 → 호흡수 + rateAdd·a, 깊이 × (1 + depthAdd·a) (맞은 뒤 숨 고르기: 크고 빠르게 → 점점 느리게). sway: 시드 노이즈(band Hz)로 척추 옆굽힘·비틀기·고개의 느린 흔들림(도). fadeTau초로 켜고 끔. 의도 반응 중(LookAt·InjuredLeg 밖의 행동이 켜져 있거나 스텝 계층이 바쁨)은 reactK까지만 — 반응을 마치고 서면 1(숨 고르기가 보이는 때)",
+  "breath": {
+    "enabled": true,
+    "rateHz": 0.25,
+    "rateJitter": 0.03,
+    "inhaleFrac": 0.4,
+    "joints": { "Spine": [-0.6, 0, 0], "Spine2": [-1.6, 0, 0], "Head": [1.4, 0, 0], "LeftArm": [0, 0, 0.8], "RightArm": [0, 0, -0.8] },
+    "arousal": { "perDv": 0.6, "perStep": 0.08, "tau": 8.0, "max": 1.0, "rateAdd": 0.3, "depthAdd": 1.5 },
+    "sway": { "band": [0.05, 0.15], "joints": { "Spine": [0, 0.6, 0.8], "Spine2": [0, 0, 0.5], "Head": [0.8, 1.5, 0.6] } },
+    "minHipsH": 0.75,
+    "maxSlopeDeg": 12,
+    "fadeTau": 0.5,
+    "reactK": 0.3
+  }
+}

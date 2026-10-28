@@ -43,6 +43,14 @@
     "leftLeg": ["LeftUpLeg", "LeftLeg", "LeftFoot"],
     "rightLeg": ["RightUpLeg", "RightLeg", "RightFoot"]
   },
+  "$tone": "(2026-10-28, README 결정 tone-1~) 근긴장: 관절 모터 강성·감쇠 배율 (src/sim/character/tone.ts). 공동수축 = 피격 Δv가 minDv~refDv면 세기 0~1, latency초 뒤 rise·hold·fall 동안 관절 가중치만큼 레벨. 신장 반사 = 신장 속도(관절 상대 각속도 − 근육 목표 속도, °/s)가 문턱을 넘으면 latency초 뒤 (속도 − 문턱)·gainPerDegS 레벨(≤ max), tau초 감쇠. 레벨 L → 강성 × (1 + (kpGain − 1)L), 감쇠 × (1 + (kdGain − 1)L). 모터에만 곱하고 균형 계층의 모터 추정분 빼기에는 넣지 않는다(계획에서 벗어난 움직임에만 맞서는 추가 임피던스). 토크 상한 s·maxTorque는 그대로. 서서 균형을 잡는 동안만",
+  "tone": {
+    "enabled": false, "kpGain": 2, "kdGain": 4,
+    "coContraction": { "enabled": true, "latency": 0.04, "rise": 0.04, "hold": 0.12, "fall": 0.2, "minDv": 0.1, "refDv": 0.6,
+      "joints": { "Spine": 1, "Spine2": 1, "Head": 1, "LeftArm": 0.7, "RightArm": 0.7, "LeftForeArm": 0.5, "RightForeArm": 0.5, "LeftHand": 0.3, "RightHand": 0.3 } },
+    "reflex": { "enabled": false, "latency": 0.035, "thresholdDegS": 60, "gainPerDegS": 0.005, "max": 1, "tau": 0.15,
+      "joints": { "Spine": 1, "Spine2": 1, "Head": 1, "LeftArm": 0.5, "RightArm": 0.5, "LeftForeArm": 0.5, "RightForeArm": 0.5, "LeftHand": 0.5, "RightHand": 0.5 } }
+  },
   "$fatigue": "피로 (v0.5에서 켠다): 토크를 오래 쓰면 strength 상한이 떨어지고 쉬면 회복. v0.2는 훅만 있고 꺼져 있다.",
   "fatigue": { "enabled": false, "drainPerSecAtMax": 0.05, "recoverPerSec": 0.1, "minCap": 0.3 }
 }

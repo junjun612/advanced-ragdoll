@@ -36,15 +36,17 @@ describe('public API events (v0.9)', () => {
     expect(res).toEqual(plain);
   }, 300_000);
 
-  it('rail_grab: grabbed with hand and anchor point; released when the arm goes limp', async () => {
+  it('rail_grab: grabbed with hand and anchor point; released when the hold ends (after the arm goes limp)', async () => {
     const { got, res, plain } = await listened('rail_grab');
     const g = got.filter((e) => e.type === 'grabbed');
     expect(g.length).toBeGreaterThanOrEqual(1);
     expect(g[0]!.body).toMatch(/Hand$/);
     expect(g[0]!.point).toHaveLength(3);
     expect(res).toEqual(plain);
-    // 이 장면은 끝까지 쥐고 있다 → 잡은 팔 힘을 빼면(Grab releaseStrength) 놓는다
-    const inp = loadInputs(loadScenario(findScenario('rail_grab')));
+    // 잡은 팔 힘을 잠깐 빼면(setMuscleScale 0 → 2초에 회복) 그 뒤 잡기가 끝날 때(버텨 냄 recovered, 또는 넘어진 뒤 행동 끝) 'released'가 온다.
+    // (결정 rom-6) 놓는 시각은 혼돈 궤적에 달려 있다(어깨 끝 저항 끔: 5.08초 버텨 냄, 켬: 5.24초 넘어진 뒤 6.47초) → 장면 길이(6초)에 3초를 더해 끝나기 전에 놓이게 한다
+    const sc0 = loadScenario(findScenario('rail_grab'));
+    const inp = loadInputs({ ...sc0, duration: sc0.duration + 3 });
     const ev: SimEvent[] = [];
     await runScenario(inp, {
       listen: (ch) => {

@@ -48,6 +48,10 @@ export interface ShoulderRomConfig {
   crossDeg: number;
   /** 넘은 각에 대한 강성(N·m/rad), 들어가는 쪽 각속도 감쇠(N·m·s/rad), 토크 상한(N·m) */
   stiffness: number; damping: number; maxTorque: number;
+  /** (결정 rom-2) 감쇠를 넘은 각 0 → rampDeg에서 0 → 1로 키운다 (없으면 경계에서 바로 전부). 사람 연조직 저항은 끝에 가까워질수록 커진다 — 경계에서 감쇠가 계단처럼 켜지면 빠른 팔 흔들기(뒤로 걷기)에 한 스텝 300 N·m가 몸통을 쳤다 */
+  dampRampDeg?: number;
+  /** (결정 rom-3) 강성도 넘은 각 0 → stiffRampDeg에서 0 → k로 키운다(스프링 = k·e²/(2·e0), 그 뒤 k·(e − e0/2)): 경계 근처 작은 넘침은 저항이 작고 깊어질수록 커진다 */
+  stiffRampDeg?: number;
 }
 
 /** 어깨 범위 상태 (로그): 넘은 각(도, 뒤·반대쪽 중 큰 것)과 건 토크(N·m) */
@@ -395,7 +399,10 @@ export class Ragdoll {
         if (n < 1e-6) continue;
         const axis: Vec3 = [c[0] / n, c[1] / n, c[2] / n];
         const into = -(wRel[0] * axis[0] + wRel[1] * axis[1] + wRel[2] * axis[2]); // 한계 쪽으로 들어가는 각속도
-        const mag = Math.min(rc.maxTorque, rc.stiffness * e + rc.damping * Math.max(0, into));
+        const ramp = rc.dampRampDeg ? Math.min(1, e / (rc.dampRampDeg * RAD)) : 1;
+        const e0 = (rc.stiffRampDeg ?? 0) * RAD;
+        const spring = e0 > 0 ? (e < e0 ? (e * e) / (2 * e0) : e - e0 / 2) : e;
+        const mag = Math.min(rc.maxTorque, rc.stiffness * spring + ramp * rc.damping * Math.max(0, into));
         tq = add(tq, scale(axis, mag));
       }
       const tm = Math.hypot(tq[0], tq[1], tq[2]);

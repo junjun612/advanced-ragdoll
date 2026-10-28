@@ -33,7 +33,27 @@ export function balanceText(state: CharacterStateLite): string {
   if (!b) return '';
   if (!b.enabled) return STRATEGY_LABEL.off!;
   const w = b.hipWeight > 0.05 && b.hipWeight < 0.95 ? ` ${b.hipWeight.toFixed(1)}` : '';
-  return `${STRATEGY_LABEL[b.strategy] ?? b.strategy}${w} · 여유 ${(b.margin * 100).toFixed(1)}cm${settleText(state) ? ` · ${settleText(state)}` : ''}`;
+  return `${STRATEGY_LABEL[b.strategy] ?? b.strategy}${w} · 여유 ${(b.margin * 100).toFixed(1)}cm${settleText(state) ? ` · ${settleText(state)}` : ''}${romText(state) ? ` · ${romText(state)}` : ''}${toneText(state) ? ` · ${toneText(state)}` : ''}`;
+}
+
+/** (결정 tone-1) 근긴장: "공동수축 0.8 · 신장 반사 Spine2 0.4 (감쇠 ×3.4)". 꺼져 있거나 0이면 '' */
+export function toneText(state: CharacterStateLite): string {
+  const k = state.tone;
+  if (!k || (k.co < 0.05 && k.reflexMax < 0.05)) return '';
+  const p: string[] = [];
+  if (k.co >= 0.05) p.push(`공동수축 ${k.co.toFixed(1)}`);
+  if (k.reflexMax >= 0.05) p.push(`신장 반사 ${k.reflexJoint ?? ''} ${k.reflexMax.toFixed(1)}`);
+  return `${p.join(' · ')} (감쇠 ×${k.maxKd.toFixed(1)})`;
+}
+
+/** (결정 rom-4) 어깨 가동 범위 끝 저항이 걸린 팔: "어깨 끝 왼 7°" (토크 5 N·m 넘을 때). 없으면 '' */
+export function romText(state: CharacterStateLite): string {
+  const out: string[] = [];
+  for (const [n, ko] of [['LeftArm', '왼'], ['RightArm', '오른']] as const) {
+    const r = state.joints?.[n]?.rom;
+    if (r && r.torque > 5) out.push(`${ko} ${Math.round(r.excessDeg)}°`);
+  }
+  return out.length ? `어깨 끝 ${out.join('·')}` : '';
 }
 
 /** 진정 단계 텍스트 (README 결정 settle-1): "진정 0.8" / "진정 풀림(걸음)". 충격 뒤 진정 판단 중이 아니면 '' */

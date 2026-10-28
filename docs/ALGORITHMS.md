@@ -586,7 +586,8 @@ grabbed, gripTime(기준 피격 → 첫 잡음), grabSlipMax(잡은 동안 손�
 - (이전 기록, 결정 157): 받침 안쪽을 보고 뒤로 밀려 떨어지는 몸은 발뒤꿈치(모서리) 둘레로 돌아 바깥으로 빠져, 어깨가 모서리에서 팔 길이 안에 드는 것은 엉덩이가 모서리에 걸친 0.1초 남짓뿐이다. 주저앉으며 뻗기를 넣어도 그때 팔이 떨어지는 몸에 휘둘려(손 4~6 m/s) 윗면에 닿지 못한다(시도 11가지). 또 X Bot 어깨 스윙 콘 100°(A포즈 rest 기준)는 팔을 수평 위 약 40°까지만 들 수 있어 팔을 머리 위로 뻗고 매달리는 자세 자체가 관절 제한 밖이다.
 - 난간 잡기는 근처 입력 7/8(나머지는 잡은 채 다리가 풀려 난간에 기대 주저앉음), 벽 짚기 7/8. 잡을 때 팔이 궤적보다 0.1~0.15m 늦다(뻗는 0.3초 동안).
 - 스텝 계층의 뒤쪽 헛디딤: 낭떠러지로 내딛는 스윙 시간에 바닥까지 높이(3m × 0.6초/m)가 더해져 스윙이 끝나지 않아 헛디딤 알림이 안 온다(결정 158, 고치면 fall_from_ledge_3m 공중 시간이 바뀌어 그대로 둠).
-## 어깨 가동 범위 (결정 171, `config/ragdoll.json $shoulderRom`, 기본 끔)
+## 어깨 가동 범위 (결정 171·rom-1~4, `config/ragdoll.json $shoulderRom`, 2026-10-28부터 기본 켬)
+(2026-10-28, 결정 rom-3) 끝 저항은 넘은 각 e에 대해 스프링 k·e²/(2·e0) (e < e0 = stiffRampDeg 8°, 그 뒤 k·(e − e0/2)), 감쇠 c·min(1, e/dampRampDeg 8°)·들어가는 각속도 — 경계에서 0으로 시작해 깊어질수록 커진다. 경계에서 바로 선형 강성·감쇠(아래 원래 식)는 걷는 팔 흔들기에 한 스텝 수백 N·m를 걸어 뒤로 걷기·어깨 스치기가 넘어졌다.
 X Bot 어깨 = Rapier 구형 관절, T포즈 위팔 방향을 축으로 스윙 콘 100°(AngX·AngZ 각각 ±100°) + 비틀기 ±70°. 좌표가 전체 사원수의 2·asin(허수 성분)이라 비틀기와 섞여, 비틀기를 고르면 몸통 기준 모든 팔 방향에 갈 수 있다(사람보다 넓음: 폄 100° 넘는 장면 다수). `Ragdoll.applyShoulderRom`(근육 apply 맨 앞, 근육 상태와 무관): 위팔 방향 d를 Spine2 rest 기준 몸통 좌표(x 왼쪽·y 위·z 앞)로 보고, 관상면 뒤 각 β = asin(−d_z)가 팔 높이별 한계(아래 60°·수평 45°·위 10°, d_y로 선형)를, 시상면 넘어 반대쪽 각이 45°를 넘으면 넘은 각 e에 τ = min(maxTorque, k·e + c·들어가는 각속도)를 앞쪽·제 쪽으로 돌리는 축으로 위팔 +τ, Spine2 −τ. 로그 `joints.LeftArm/RightArm.rom {excessDeg, torque}`.
 
 # v0.8c 캐릭터·물체 (README 결정 8c-1~8c-10, 값은 `config/interaction.json`)
@@ -711,3 +712,43 @@ interPenetrationMax(다른 캐릭터 바디와의 관통 깊이 최대, m — �
 
 ## 결과 (근처 입력 216짝, 결정 settle-2)
 넘어짐 23 → 22(p = 1.0), 팔 사용 110 → 98°/s, lateOut 0.159 → 0.124, 정착 시간 2.40 → 2.20초, 팔 들림 p90 53.6 → 52.7°, 몸통 최대 변화 없음. 남은 늦은 팔 들림은 대부분 걸음 중·진정 전(DCM 가장자리) — 결정 settle-4.
+
+# 인간다움 실험: 손가락·반응 지연·시선·호흡 (2026-10-28, README 결정 pres-1~, 값은 `config/presence.json`·`config/skin.json fingers`)
+
+## 손가락 포즈 (pres-1, 렌더 전용)
+코드 `src/sim/character/handPose.ts`(HandPoseController, `api.ts _postStep`에서 매 스텝), 렌더 `src/render/skin.ts`(buildFingerAxes·fingerRot). 물리 영향 없음(로그 `fingers`만 추가 — 다른 필드는 바이트 동일).
+- 손마다 포즈 선택(우선순위): 늘어짐·랙돌 → limp, 잡기 hold → grip(뻗는 중 reach), 매달리기 → grip, 벽·사람 짚기 → open, 상처 누르기 → clutch(뻗는 중 reach), 바닥에 닿은 손 → open(누워 있으면 limp), 손 짚기·앞옆 넘어짐 대비로 뻗는 손 → open, 머리 감싸기 → guard, 공중 허우적 → spread, 누움·몸부림·충격 후 이완 → limp, 손목 강도 < limpStrength → limp, 피격 뒤 tenseWindow초 안 HitReaction → fist, 스텝 계층 lift·step → spread, 그 밖 rest.
+- 포즈 = 굽힘 curl·벌림 spread·엄지 thumb(0~1). 쥘 때 tauClose, 펼 때 tauOpen, rest·limp로 tauRelax 지수 접근.
+- 렌더: 손바닥 법선 n = 손 바디 rest 회전 · (0, −1, 0)(X Bot T포즈는 손바닥이 아래), 마디 방향 d. 굽힘 = (d × n) 축으로 flexDeg[마디] × curl, 벌림(첫 마디) = n 축으로 spreadDeg × spread × (1 − curl), 엄지 = 굽힘 thumbFlexDeg × thumb + 첫 마디 맞섬(가운뎃손가락 축) thumbOppDeg × thumb. 부모 본 Δ회전 뒤에 rest 좌표 회전을 곱한다.
+- 필름 `--zoom <바디,…>[@거리]`: 그 바디 가운데 확대 컷, 칸 아래 "손: 왼 주먹 82 · 오른 누름 40".
+
+## 반응 지연 (pres-2)
+`blender.ts onHit`: 피격마다 의도 반응 지연 = reaction.base ± jitter(prng 'reactionDelay'). 그 피격의 의도 행동 시작(HitReaction 의도 부분·HoldWound·넘어짐 대비·잡기 시작 판단·공중 행동)에 behaviors.json reactionDelay 대신 쓴다. 힘 빠짐(immediate)·충격은 즉시. 균형 감지 지연·반응 클립 지연은 그대로. 로그 `behavior.presence.delay`.
+
+## 시선 (pres-2)
+- 위협 돌아보기(glance): 상처를 쥐지 않는 피격(types)이면 지연 + lag초에 LookAt(auto, duration초) — 대상 = 맞은 점 − 충격 방향 × dist, 머리 높이. 사람이 정한 LookAt이 있으면 하지 않고, 새 사람 LookAt이 오면 끈다.
+- 넘어질 곳 보기: BraceForFall(앞·옆)이 뻗는 손 착지점 가운데를 fallWeight로 본다(gaze 출력, 착지 전까지).
+- 머리 안정(stabilize): 스텝 계층 lift·step 또는 비틀거림(대기 아님) 중(넘어짐·공중·누움 제외) Spine2 위 방향 u와 그 저역 통과 ū(tau초)의 사이각 × gain(최대 maxDeg)만큼 u → ū 회전을 Spine2 로컬로 바꿔 Head 목표 앞에 곱한다(빠른 흔들림만 되돌림). 켜고 끄기 fade초. 로그 `behavior.presence.stabDeg·stabK`.
+
+## 호흡·미세 움직임 (pres-3)
+코드 `src/sim/character/breath.ts`(BreathController), 연결 `api.ts _preStep`(서기 포즈 클립 목표, 진정 단계·반응 스타일·행동 앞). 서기 포즈 클립(애니 클립 아님)을 따르는 Active·서 있는(골반 ≥ minHipsH) 몸에서 k → 1(fadeTau).
+- 파형 b: 위상 φ += 호흡수·dt, 들숨(inhaleFrac) smoothstep 0 → 1, 날숨 1 → 0. 관절 목표 앞에 degQ(joints × k × 깊이 × (b − 0.5)).
+- 각성 a: 피격 Δv × perDv, 착지 걸음마다 perStep(최대 max), e^(−dt/tau) 감쇠. 호흡수 = rateHz(± rateJitter, 캐릭터별) + rateAdd·a, 깊이 = 1 + depthAdd·a.
+- 흔들림: 시드 부드러운 노이즈(band Hz) × sway.joints(도) × k.
+- 로그 `breath` {b, rate, depth, arousal, k}. 필름 라벨 "숨 27회/분 ×1.8 들숨"(각성 ≥ 0.05, 확대 컷은 늘). 시계열 그림 `npx tsx tools/presencePlot.ts <시나리오> [비교 폴더]` → out/<시나리오>/presence.png.
+
+# 흐느적거림 진단·근긴장 (2026-10-28, README 결정 tone-1~7, 값은 `config/muscles.json tone`·`config/stepping.json postureKd.settleUpper`)
+
+## 진단 (`tools/toneDiag.ts`)
+- 묶음 = (자식, 부모) 상대 회전 또는 월드 회전(몸통 = Spine2, 골반 = Hips). 몸통·골반·척추·목은 세로축(y) 비틀기를 뺀 swing만. 기준 = 충격 직전 프레임, d(t) = 기준 대비 회전 벡터(도).
+- 최대 벗어남 = max|d|, 상대 각속도 평균, 반전 수 = d의 주성분 축 투영에서 처음 3° 움직인 뒤 극값에서 3° 넘게 되돌아온 횟수, 오버슈트 = 최대 벗어남 뒤 반대 부호 최대 / 최대, 정착 시간 = 상대 각속도 > 30°/s 마지막 시각. sim = 관측 훅 120 Hz, 사람 = Kimodo 클립 30 Hz.
+- 사용: `run`(근처 입력 묶음, SET = armEval 키 + mu = muscles.json, PUSHDUR, OUTDIR) → `table`(묶음·시나리오별 중앙값, 두 파일이면 전→후) · `bars`·`plot`(한글 그림) · `human`(사람 클립).
+
+## 근긴장 (`src/sim/character/tone.ts`, 기본 끔 — 결정 tone-5)
+- 공동수축: 피격 Δv → k = clamp((Δv − minDv)/(refDv − minDv)), latency 뒤 rise·hold·fall smoothstep 포락선 × k × 관절 가중치.
+- 신장 반사: 신장 속도 = |관절 상대 각속도 − 근육 목표 속도|(°/s, 직전 스텝), latency 뒤 (속도 − 문턱)·gainPerDegS(≤ max), tau 감쇠.
+- 레벨 L = max(공동수축, 반사) → 모터 강성 × (1 + (kpGain − 1)L)·감쇠 × (1 + (kdGain − 1)L). 균형 계층의 모터 추정분 빼기에는 넣지 않는다. tone.qp가 있으면 전신 QP 자세 과제 kp·kd·가중치에도 같은 L(힌트 `balance.toneRef`). 서서 균형 중(Active·균형 켬·겟업 monitor·사망 아님)만.
+- 로그 `tone` {co, reflexMax, reflexJoint, maxKd}, 필름 "공동수축 0.8 · 신장 반사 Spine2 0.4 (감쇠 ×3.4)".
+
+## 정착 중 상체 감쇠 (결정 tone-4, 채택)
+- 스텝 계층 정착·체중 이동 중 자세 과제 kd: 다리(UpLeg·Leg·Foot) = postureKd.settle(10), 그 밖(몸통·목·팔) = postureKd.settleUpper(20). kp 100에서 감쇠비 0.5 → 1.

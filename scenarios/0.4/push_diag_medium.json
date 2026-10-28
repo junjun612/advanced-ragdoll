@@ -1,6 +1,7 @@
 {
   "name": "push_diag_medium",
   "milestone": "0.4",
+  "knownIssue": "결정 merge2-2(9f-7): 시드 1 혼돈 — 인간다움·어깨 끝 저항 병합 뒤 착지 오차 평균 0.085 > 0.05. 근처 입력 통과는 병합 전과 같음: 12시드 master 4 → 병합 4/12(넘어짐 4 → 3), 24시드 6 → 8/24",
   "description": "Spine2를 오른쪽 뒤 대각선(−X, −Z)으로 medium(Δv 0.8). 레퍼런스 Kimodo push_diag_medium RP-v1.2 시드2(앞-왼쪽에서 밀려 오른쪽 뒤로; 레퍼런스 방향에 맞춰 방향을 바꿈 — README 결정 67).",
   "duration": 5.0,
   "seed": 1,

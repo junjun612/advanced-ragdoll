@@ -1,5 +1,6 @@
 {
   "name": "push_left_medium",
+  "knownIssue": "결정 tone-6(9f-7): 시드 1 혼돈 — 정착 상체 감쇠(tone-4) 뒤 넓은 발로 끝나 3초 안 회복 판정을 못 함(넘어지지 않음). 근처 입력 24시드 14 → 11/24(넘어짐 2 → 1, 나머지 실패는 착지 오차·발 미끄러짐·회복 시간), ALL × 4 2 → 1/4 — 이항 표준오차(≈2.4건) 안",
   "milestone": "0.4",
   "description": "Spine2를 왼쪽(+X)으로 medium(Δv 0.8). 레퍼런스 Kimodo push_right_hard RP 시드5(오른쪽에서 밀림 Δv 1.08: 3걸음, 회복 1.3초).",
   "duration": 5.0,

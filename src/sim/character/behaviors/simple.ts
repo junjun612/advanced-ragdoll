@@ -77,16 +77,21 @@ export class Stagger extends Behavior {
 export class LookAt extends Behavior {
   readonly name = 'LookAt';
   target: Vec3 | null;
+  /** (pres-2) 행동 계층이 스스로 켠 시선(위협 돌아보기) — 사람이 정한 LookAt이 오면 비킨다 */
+  readonly auto: boolean;
   private yaw = 0;
   private pitch = 0;
   constructor(params: Record<string, unknown>, t0: number, hitT: number) {
     super(params, t0, hitT);
     this.target = (params.target as Vec3 | undefined) ?? null;
+    this.auto = !!params.auto;
   }
   update(ctx: BehaviorContext): BehaviorOutput {
     if (!this.target) { this.stop(ctx.t); return { joints: {} }; }
-    const p = this.params as { weight: number };
-    this.phase = '';
+    const p = this.params as { weight: number; duration?: number };
+    // (pres-2) duration초 뒤 스스로 끝 (위협 돌아보기)
+    if (p.duration !== undefined && ctx.t - this.startT >= p.duration) this.stop(ctx.t);
+    this.phase = this.auto ? '돌아보기' : '';
     return { joints: {}, gaze: { target: this.target, weight: p.weight } };
   }
   /** 블렌더가 시선 해 적용 뒤 기록 (로그) */

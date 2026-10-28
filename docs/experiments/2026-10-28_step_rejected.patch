@@ -1,0 +1,312 @@
+diff --git a/config/stepping.json b/config/stepping.json
+index 328926f..91c5e9c 100644
+--- a/config/stepping.json
++++ b/config/stepping.json
+@@ -37,6 +37,8 @@
+   "minFootSpacing": 0.14,
+   "$crossSteps": "교차 스텝(지지발 너머로 딛기)을 후보로 쓸지. 끔(README 결정 68): 사람 레퍼런스(Kimodo 18개 후보)에 교차 걸음이 없고, 교차 뒤 다리가 엉켜 푸는 걸음이 막혔다. 한 발 지지에서 지지발 쪽으로 밀리면 2단 스텝(든 발을 지지발 뒤 liftFoot.downBack에 내린 뒤 지지발을 옮김).",
+   "crossSteps": false,
++  "$decisive": "(README 결정 step-1) 결정적 걸음 계획. dcmInHull: 옆 간격 후보를 '예측 착지 DCM(옆 간격으로 옮기지 않음)이 착지 뒤 다각형 안 landingMargin'으로 고르고, 착지 때 DCM 목표도 옆 간격만큼 옮기지 않는다(제한에 잘린 만큼만). 키가 없으면 이전 동작",
++  "decisive": { "dcmInHull": false, "heelDown": null },
+   "dcmGoalMinT": 0.1,
+   "$lateReplan": "스윙 진행 until 전에는 목표 고정(replanUntil) 뒤라도 새 목표가 jump m 넘게 바뀌면 다시 계획한다(스윙 중 다시 밀림). README 결정 73",
+   "lateReplan": { "until": 0.75, "jump": 0.08 },
+diff --git a/src/render/debugDraw.ts b/src/render/debugDraw.ts
+index 5207374..14db96f 100644
+--- a/src/render/debugDraw.ts
++++ b/src/render/debugDraw.ts
+@@ -22,6 +22,7 @@ export const DEBUG_COLOR = {
+   gaze: '#00a0ff',
+   fallHand: '#ff7a00',
+   touchdown: '#00b8d4',
++  dcmGoal: '#2060e0',
+ } as const;
+ 
+ /** 균형 전략 라벨 (이미지 안 한글) */
+@@ -61,6 +62,8 @@ export function stepText(state: CharacterStateLite): string {
+   else return '';
+   if (s.phase === 'unload') t += ' · 하중 빼기';
+   if (s.staggerHandoff) t += ' · 비틀거림 넘김';
++  // (결정 step-1) 결정적 걸음 계획: 필요 보폭, 제한에 잘리면 다음 걸음이 받을 남은 거리
++  if (s.state === 'step' && s.plan) t += ` · 필요 ${Math.round(s.plan.need * 100)}cm${s.plan.clamp >= 0.03 ? ` (남음 ${Math.round(s.plan.clamp * 100)})` : ''}`;
+   // (v0.8a) 지형 디딤: 디딤면 높이 차 / 헛디딤
+   if (s.state === 'step' && s.terrain) t += s.terrain.void ? ' · 헛디딤(디딜 곳 없음)' : Math.abs(s.terrain.dh) >= 0.02 ? ` · ${s.terrain.dh < 0 ? '아래' : '위'} 디딤면 ${Math.round(Math.abs(s.terrain.dh) * 100)}cm` : '';
+   return t;
+@@ -116,6 +119,7 @@ export const LEGEND: { label: string; color: string; kind: 'dot' | 'cross' | 'li
+   { label: '근육 강도', color: '', kind: 'gradient' },
+   { label: '스텝 목표', color: DEBUG_COLOR.stepTarget, kind: 'foot' },
+   { label: '실제 착지', color: DEBUG_COLOR.landing, kind: 'foot' },
++  { label: '착지·정착 DCM 목표', color: DEBUG_COLOR.dcmGoal, kind: 'cross' },
+   { label: '잡기 대상', color: DEBUG_COLOR.grab, kind: 'dot' },
+   { label: '압력 중심', color: DEBUG_COLOR.cop, kind: 'dot' },
+   { label: '가상 힘', color: DEBUG_COLOR.force, kind: 'arrow' },
+@@ -230,6 +234,8 @@ export class DebugDraw {
+   private readonly stepTargets: THREE.Mesh[] = [];
+   private readonly arrowMat = overlay(DEBUG_COLOR.impact);
+   private readonly stepMat = overlay(DEBUG_COLOR.stepTarget, 0.8);
++  /** (결정 step-1) 반응 걸음 착지 때 DCM 목표: 파란 고리 */
++  private readonly dcmGoalMark = new THREE.Mesh(new THREE.RingGeometry(0.035, 0.05, 20).rotateX(-Math.PI / 2), overlay(DEBUG_COLOR.dcmGoal, 0.9));
+   private readonly landMeshes: THREE.Mesh[] = [];
+   private readonly landMat = overlay(DEBUG_COLOR.landing, 0.85);
+   private captureOn = true;
+@@ -305,6 +311,12 @@ export class DebugDraw {
+     this.updateBalance(state);
+     this.updateArrows(state, this.impactOn ? activeImpacts(events, now, this.cfg.impactShowSec) : []);
+     this.updateStepTargets(state.stepTargets ?? []);
++    {
++      const sp = state.stepping, g = (sp?.state === 'step' && sp.kind === 'reactive') || sp?.state === 'settle' ? sp?.xiGoal ?? null : null;
++      if (!this.dcmGoalMark.parent) { this.dcmGoalMark.renderOrder = 11; this.group.add(this.dcmGoalMark); }
++      this.dcmGoalMark.visible = !!g;
++      if (g) this.dcmGoalMark.position.set(g[0], 0.008, g[1]);
++    }
+     this.updateLandings(state);
+     this.updateBehavior(state);
+   }
+diff --git a/src/render/stateTypes.ts b/src/render/stateTypes.ts
+index 2817f32..f0a2be7 100644
+--- a/src/render/stateTypes.ts
++++ b/src/render/stateTypes.ts
+@@ -67,6 +67,10 @@ export interface CharacterStateLite {
+     staggerHandoff?: boolean;
+     /** (v0.8a) 지형 디딤: 지지발 대비 높이 차, 받침 비율, 헛디딤 */
+     terrain?: { dh: number; supported: number; void: boolean };
++    /** 착지 때 DCM 목표 (xz) */
++    xiGoal?: Vec2 | null;
++    /** (결정 step-1) 반응 걸음 계획: 필요 보폭·잘린 거리 (m) */
++    plan?: { need: number; clamp: number };
+   };
+   /** 행동 계층 (v0.5a): 활성 행동(한글 이름), 상처, 손 목표, 시선 */
+   behavior?: {
+diff --git a/src/sim/character/balance.ts b/src/sim/character/balance.ts
+index 8df085e..a001944 100644
+--- a/src/sim/character/balance.ts
++++ b/src/sim/character/balance.ts
+@@ -172,6 +172,8 @@ export interface BalanceState {
+   armDanger?: number;
+   /** (결정 settle-1) 진정 단계: 진정 정도·단계·진입 시각·DCM 여유·나온 이유 (충격 뒤에만) */
+   settle?: SettleLog;
++  /** (결정 step-2) 정착 중 뒤꿈치 내리기: 뒤꿈치가 든 채 닿아 있어 발끝 둘레로 발을 평평하게 내리는 발 */
++  heelDown?: FootName[];
+   groundHeight: number | null;
+   groundNormal: Vec3 | null;
+ }
+@@ -502,7 +504,7 @@ export class Balance {
+ 
+     // 원하는 COM 힘: 수평 = DCM 피드백. ξ̇ = ω(ξ − p)를 ξ̇ = −k(ξ − ξ_t)로 → p = ξ + (k/ω)(ξ − ξ_t), F = Mω²(c − p)
+     // 스텝 계층이 하중을 옮기라고(comGoal) 하면 DCM 이득을 높여 빠르게 (사람의 의도적 체중 이동 0.3~0.5초)
+-    const kd = ((sc?.comGoal && this.stepping ? this.stepping.cfg.settle.shiftKDcm : cfg.com.kDcm) * this.variation.dcm) / omega;
++    const kd = ((sc?.comGoal && !sc.hold && this.stepping ? this.stepping.cfg.settle.shiftKDcm : cfg.com.kDcm) * this.variation.dcm) / omega;
+     const pDes: Vec3 = [dcm[0] + kd * (dcm[0] - cT[0]), 0, dcm[2] + kd * (dcm[2] - cT[2])];
+     if (sc?.dcmGoal) {
+       // 단일 지지 스텝 중: 착지 때 DCM이 목표(착지점 바로 뒤)에 오도록 원하는 CMP를 정한다. ξ(T) = p + (ξ − p)e^{ωT} → p = (ξ_g − ξe^{ωT}) / (1 − e^{ωT}).
+@@ -536,7 +538,7 @@ export class Balance {
+     let fh: Vec3 = scale([sensed.com[0] - pDes[0], 0, sensed.com[2] - pDes[2]], totalMass * omega * omega);
+     // 느린 적분: 근육 포즈가 정하는 자연 자세와 COM 목표가 달라 생기는 정상 상태 오차를 없앤다 (사람의 느린 자세 조정). 스텝 중에는 쉰다
+     const lim = cfg.com.integralLimit;
+-    if (sc && !sc.comGoal) this.comInt = [0, 0, 0];
++    if (sc && (!sc.comGoal || sc.hold)) this.comInt = [0, 0, 0];
+     else this.comInt = [Math.max(-lim, Math.min(lim, this.comInt[0] + (cT[0] - sensed.com[0]) * dt)), 0, Math.max(-lim, Math.min(lim, this.comInt[2] + (cT[2] - sensed.com[2]) * dt))];
+     fh = add(fh, scale(this.comInt, cfg.com.kiH));
+     const fhm = length(fh);
+@@ -578,6 +580,15 @@ export class Balance {
+         if ((lim && flex > lim[1] - tm.marginDeg * RAD) || heelUp) toeFeet.add(f);
+       }
+     }
++    // (결정 step-2) 정착 중 뒤꿈치가 든 채 닿은 발: QP 접촉을 발끝 줄로 두어(발끝 둘레로 돌 수 있게) 아래 다리 IK 목표가 뒤꿈치를 내리게 한다
++    const heelDownFeet = new Set<FootName>();
++    if (sc && this.stepping?.cfg.decisive?.heelDown && sc.mode === 'settle') {
++      for (const f of stanceFeet) {
++        const sole = per.feet[f].sole, g = per.feet[f].ground;
++        const hgt = (i: number) => (g && sole[i] ? dot(sub(sole[i]!, g.point), g.normal) : 0);
++        if (g && sole.length >= 4 && Math.min(hgt(0), hgt(1)) > this.stepping.cfg.decisive.heelDown.heelLift && Math.max(hgt(2), hgt(3)) < cfg.perception.soleContactDist) { heelDownFeet.add(f); toeFeet.add(f); }
++      }
++    }
+     for (const f of stanceFeet) {
+       let pts = footContactPoints(per, f, cfg.perception.soleContactDist, cfg.qp.copMargin);
+       if (toeFeet.has(f)) {
+@@ -644,7 +655,9 @@ export class Balance {
+     const trunkW: Vec3 = imm ? [s2w0.x, s2w0.y, s2w0.z] : sensed.angVel;
+     let qe = multiplyQ(qT, conjugate(trunkRot));
+     if (qe[3] < 0) qe = [-qe[0], -qe[1], -qe[2], -qe[3]];
+-    const torsoG0 = tr ? tr.torso : cfg.wb.torso, pelvisG = tr ? (sc?.shifting ? cfg.wb.pelvis : tr.pelvis) : cfg.wb.pelvis;
++    // (결정 step-5) 정착 중 몸통 세우기 과제 가중치·COM 힘 가중치 (decisive.settleQP): 몸통을 세우는 과제가 COM 힘 과제를 이겨 COM이 다각형 가장자리로 밀려 작은 걸음을 더 디뎠다
++    const sq = sc?.mode === 'settle' && tr ? this.stepping?.cfg.decisive?.settleQP : null;
++    const torsoG0 = tr ? (sq ? { ...tr.torso, weight: sq.torsoWeight } : tr.torso) : cfg.wb.torso, pelvisG = tr ? (sc?.shifting ? cfg.wb.pelvis : tr.pelvis) : cfg.wb.pelvis;
+     // 행동의 몸통 강성 배율 (Stagger: 상체 강성 낮춤, v0.5a)
+     const ts = beh?.trunkGainScale ?? 1;
+     // 반응 상체 스타일: 팔을 클립 모양에 묶는 대신 몸통이 각운동량을 더 받게 몸통 과제 가중치를 trunkWeightScale배로 (README 결정 160)
+@@ -707,6 +720,22 @@ export class Balance {
+         for (const jn of [LEG[f].hip, LEG[f].knee, LEG[f].ankle]) postureTargets[jn] = this.currentRel(jn);
+         // 닿아 있는 발은 발목만 '발바닥 평평' 목표 (지금 자세로 굳히면 모서리로 착지한 발이 기운 채 남아 미끄러진다; 뒤꿈치 든 발 제외)
+         if (stanceFeet.includes(f) && !toeFeet.has(f)) { const fa = this.flatAnkle(f, per); if (fa) postureTargets[LEG[f].ankle] = fa; }
++        // (결정 step-2) 정착 중 뒤꿈치가 든 채 닿은 발: 고관절·무릎을 지금 자세로 굳히면 발목만으로는 다리 길이 때문에 뒤꿈치가 못 내려와
++        // 발끝으로 선 채 남고, 지지 다각형이 발끝 줄만 남아 DCM이 뒤 가장자리에 걸려 작은 걸음을 더 내디뎠다.
++        // 사람은 걸음을 멈추면 바로 뒤꿈치를 내린다 → 발끝 줄을 고정한 채 발을 평평하게 돌린 자리로 다리 IK 목표(무릎이 굽는다)
++        if (heelDownFeet.has(f) && toeFeet.has(f) && this.stepping) {
++          const sole = per.feet[f].sole, g = per.feet[f].ground!;
++          {
++            const b = rd.body(f).rb, bq = b.rotation(), bp = b.translation();
++            const qf: Quat = [bq.x, bq.y, bq.z, bq.w];
++            const qDes = multiplyQ(fromTo(rotate(qf, UP), g.normal), qf);
++            const toe = scale(add(sole[2]!, sole[3]!), 0.5);
++            const o = rotate(conjugate(qf), sub(toe, [bp.x, bp.y, bp.z]));
++            const legT = this.stepping.legIK(f, sub(toe, rotate(qDes, o)), qDes, heading);
++            Object.assign(postureTargets, legT);
++            (st.heelDown ??= []).push(f);
++          }
++        }
+       }
+       if (sc.legTargets && sc.swingFoot) {
+         Object.assign(postureTargets, sc.legTargets);
+@@ -931,7 +960,7 @@ export class Balance {
+     const ptMinN = points.map((pt) => (unloadKey && pt.key.startsWith(unloadKey) ? 0 : cfg.qp.minNormal ?? 0));
+     const res = solveWholeBodyQP({
+       n, H, g: gvec, A: mm.A, momentumRhs: Wg.map((x, r) => x - mm.hBias[r]!), footRows, footRhs, points, com, Fdes, kdotDes,
+-      mu: cfg.qp.mu, wLin: tr ? tr.wLin : cfg.wb.wLin, wAng: tr ? tr.wAng : cfg.wb.wAng, regRho: cfg.qp.regularization, smoothRho: cfg.qp.smoothing, minNormal: cfg.qp.minNormal ?? 0, prevBeta: this.prevBeta,
++      mu: cfg.qp.mu, wLin: tr ? (sq ? sq.wLin : tr.wLin) : cfg.wb.wLin, wAng: tr ? tr.wAng : cfg.wb.wAng, regRho: cfg.qp.regularization, smoothRho: cfg.qp.smoothing, minNormal: cfg.qp.minNormal ?? 0, prevBeta: this.prevBeta,
+       pointPenalty: ptPenalty, pointMinNormal: ptMinN,
+       wLinAxes: tr && sc?.phase === 'swing' ? [1, tr.wLinVertical, 1] : undefined,
+     });
+diff --git a/src/sim/character/stepping.ts b/src/sim/character/stepping.ts
+index 7174514..43ce3e5 100644
+--- a/src/sim/character/stepping.ts
++++ b/src/sim/character/stepping.ts
+@@ -82,6 +82,11 @@ export interface SteppingConfig {
+   lateReplan?: { until: number; jump: number } | null;
+   /** 교차 스텝을 다리 선택 후보에 넣을지 (기본 끔) */
+   crossSteps: boolean;
++  /**
++   * (README 결정 step-1) 결정적 걸음 계획. dcmInHull: 옆 간격 후보를 '예측 착지 DCM(ξ_td, 옆 간격으로 옮기지 않음)이 착지 뒤 다각형 안 landingMargin'으로 고르고,
++   * 착지 때 DCM 목표도 옆 간격만큼 옮기지 않는다(제한으로 잘린 만큼만 옮김). 없으면 이전 동작
++   */
++  decisive?: { dcmInHull?: boolean; heelDown?: { heelLift: number } | null; overshootAdapt?: { min: number; dist: number } | null; settleHold?: { margin: number } | null; settleQP?: { torsoWeight: number; wLin: number } | null } | null;
+   maxSteps: number;
+   hardMaxSteps: number;
+   /** (v0.6) 걷기에서 넘겨받은 뒤 이 시간(초) 동안 그때의 지지발로는 내딛지 않는다 */
+@@ -111,6 +116,8 @@ export interface StepCommand {
+   dcmGoal?: { xi: Vec2; T: number };
+   /** COM 목표 (xz) 덮어쓰기 (하중 옮기기) */
+   comGoal?: Vec2;
++  /** (결정 step-4) comGoal이 '멈춘 자리에서 버티기' 목표: 체중 이동 이득(shiftKDcm) 대신 서기 DCM 이득 */
++  hold?: boolean;
+   /** 스윙 다리 관절 목표 (2관절 IK) */
+   legTargets?: JointTargets;
+   /** 자세 과제에서 현재 자세를 목표로 둘 지지 다리 (발이 서기 포즈와 다른 곳에 있을 때 다리끼리 싸우지 않게) */
+@@ -162,6 +169,8 @@ export interface SteppingState {
+   staggerHandoff: boolean;
+   /** (v0.8a, 지형 디딤일 때만) 착지 디딤면: 지지발 지면 대비 높이 차(m, + = 위), 발판 받침 비율, 디딜 곳 없는 헛디딤 */
+   terrain?: { dh: number; supported: number; void: boolean };
++  /** (결정 step-1) 이번 반응 걸음 계획: 필요 보폭(m, 제한 전), 제한으로 잘린 거리(m) — 잘렸으면 다음 걸음이 남은 오차를 받는다 */
++  plan?: { need: number; clamp: number; over?: number };
+ }
+ 
+ export const emptySteppingState = (): SteppingState => ({
+@@ -196,6 +205,10 @@ interface Plan {
+   foothold?: Foothold | null;
+   /** (v0.8a) 디딜 곳 없이 낭떠러지 쪽으로 내딛는 걸음 (헛디딤) */
+   void?: boolean;
++  /** (결정 step-1) 제한 전 원하는 착지점까지 스윙발 이동 거리(필요 보폭, m) */
++  need?: number;
++  /** (결정 step-3) 이 계획의 overshoot (m) */
++  over?: number;
+ }
+ 
+ interface ActiveStep {
+@@ -399,19 +412,41 @@ export class Stepping {
+     let perp: Vec2 = [-dir[1], dir[0]];
+     if (dot2(perp, lat) * side < 0) perp = sc2(perp, -1);
+     const perpW = Math.abs(dot2(perp, lat)); // 넘어지는 방향이 옆이면 0 → 옆 간격 없음
+-    const over = c.stepOvershoot + (this.jit?.over ?? 0);
++    // (결정 step-3) 넘어짐을 끝내는 걸음은 DCM 너머로 덜 딛는다: 예측 착지 DCM이 지지발 중심보다 넘어지는 방향으로 e m 앞이면
++    // overshoot = min + (기본 − min)·smoothstep(e / dist). 앞으로 크게 내디딘 뒤 뒤쪽 발을 데려오는 걸음(e ≈ 0)이 앞발보다 7cm 넘게 나가면
++    // 두 발이 COM보다 앞에 놓여 몸을 세우는 동안 뒤로 되밀려 작은 걸음을 더 디뎠다(어기영차). 지지발에서 멀리 넘어지는 첫 걸음은 그대로
++    const oa = c.decisive?.overshootAdapt;
++    const eAhead = dot2(sub2(xiTd, S), dir);
++    const over = (oa ? oa.min + (c.stepOvershoot - oa.min) * smooth(eAhead / oa.dist) : c.stepOvershoot) + (this.jit?.over ?? 0);
+     const base = add2(add2(xiTd, sc2(dir, over)), sc2([-dir[1], dir[0]], this.jit?.lat ?? 0));
+-    const xiGoalOf = (tgt: Vec2): Vec2 => sub2(tgt, sc2(dir, over));
++    // (결정 step-1) dcmInHull: 착지 때 DCM 목표 = 예측 착지 DCM(옆 간격으로 옮기지 않음) + 제한으로 잘린 만큼. 이전: 발 목표 − overshoot (옆 간격이 DCM 목표까지 옮겨 여유 검사가 늘 통과)
++    const inHull = !!c.decisive?.dcmInHull;
++    const xiG0 = sub2(base, sc2(dir, over));
++    let desiredRef: Vec2 = base;
++    // 착지 때 DCM 목표: 예측 착지 DCM + (보폭 제한으로 넘어지는 방향으로 짧아진 만큼) → 착지 뒤 다각형(지지발 + 계획 발자국) 안 landingMargin으로 옮긴다.
++    // 옆 간격·발 간격 제한으로 발이 옆으로 옮겨져도 DCM 목표를 따라 옮기지 않는다 — 스윙 중 CMP가 DCM을 착지 다각형 안으로 보내 착지 뒤 다시 내딛지 않게
++    const xiGoalOf = (tgt: Vec2): Vec2 => {
++      if (!inHull) return sub2(tgt, sc2(dir, over));
++      const g = add2(xiG0, sc2(dir, Math.min(0, dot2(sub2(tgt, desiredRef), dir))));
++      const hull = convexHull([...Ps, ...this.footprint(tgt, yaw)]);
++      if (hull.length < 3 || -signedDistanceToPolygon(g, hull) >= c.landingMargin) return g;
++      const cen = polygonCentroid(hull) ?? tgt;
++      // 다각형 안 가장 가까운 점에서 중심 쪽으로 landingMargin (얇은 다각형이면 중심까지)
++      const q = closestInPolygon(g, hull);
++      const dq = sub2(cen, q), lq = len2(dq);
++      return lq > 1e-9 ? add2(q, sc2(dq, Math.min(1, c.landingMargin / lq))) : q;
++    };
+     // 옆 간격 후보: 넓은 것부터, 착지 후 다각형 안 DCM 여유를 만족하는 첫 후보
+     let best: Vec2 = base, bestMargin = -Infinity;
+     for (const k of c.landingWidthSteps) {
+       const cand = add2(base, sc2(perp, (k * c.nominalWidth * perpW) / 2));
+       const hull = convexHull([...Ps, ...this.footprint(cand, yaw)]);
+-      const m = -signedDistanceToPolygon(xiGoalOf(cand), hull);
++      const m = -signedDistanceToPolygon(inHull ? xiG0 : xiGoalOf(cand), hull);
+       if (m >= c.landingMargin) { best = cand; bestMargin = m; break; }
+       if (m > bestMargin) { best = cand; bestMargin = m; }
+     }
+     const desired = best;
++    desiredRef = desired;
+     let tgt: Vec2 = [desired[0], desired[1]];
+     // 지지발 기준 좌표 (지지발 yaw — 몸 heading은 스텝 중 돌아 있을 수 있다): 옆 간격·교차
+     const sYaw = this.yawOf(this.bodyRot(stance));
+@@ -472,7 +507,7 @@ export class Stepping {
+     if (this.terrainOn) {
+       const fwd2 = h2(rotate(ctx.heading, [0, 0, 1])), lat2 = h2(rotate(ctx.heading, [1, 0, 0]));
+       const r = this.terrainTarget(tgt, S, dir, yaw, gStart, swing, fwd2, lat2, prev?.foothold?.height ?? null);
+-      return { target: v3(r.xz, r.y), xiGoal: xiGoalOf(r.xz), clampDist: len2(sub2(desired, r.xz)), crossing, dir, foothold: r.fh, ...(r.void ? { void: true } : {}) };
++      return { target: v3(r.xz, r.y), xiGoal: xiGoalOf(r.xz), clampDist: len2(sub2(desired, r.xz)), crossing, dir, foothold: r.fh, ...(r.void ? { void: true } : {}), ...(inHull || oa ? { need: len2(sub2(desired, this.footCenter(per, swing))), over } : {}) };
+     }
+     let gy = gStart;
+     for (let k = 0; k < 6; k++) {
+@@ -481,7 +516,7 @@ export class Stepping {
+       if (g && okSlope && Math.abs(g.point[1] - gStart) <= c.maxHeightDiff) { gy = g.point[1]; break; }
+       tgt = add2(S, sc2(sub2(tgt, S), 0.8));
+     }
+-    return { target: v3(tgt, gy), xiGoal: xiGoalOf(tgt), clampDist: len2(sub2(desired, tgt)), crossing, dir };
++    return { target: v3(tgt, gy), xiGoal: xiGoalOf(tgt), clampDist: len2(sub2(desired, tgt)), crossing, dir, ...(inHull || oa ? { need: len2(sub2(desired, this.footCenter(per, swing))), over } : {}) };
+   }
+ 
+   /**
+@@ -828,7 +863,25 @@ export class Stepping {
+         cmd.comGoal = this.recenterGoal;
+         if (!c.settle.recenterFreeze) cmd.freezeLegs = [];
+         cmd.shifting = true;
+-      } else this.recenterGoal = null;
++      } else {
++        this.recenterGoal = null;
++        // (결정 step-4) 정착 중 COM 목표 = 지금 DCM(멈출 자리)을 지지 다각형 안 margin으로 옮긴 점. 이전(목표 = 다각형 중심, 0.12초)은 엇갈려 선 두 발 가운데로
++        // COM을 바로 끌어 되밀렸고(밀린 반대쪽으로 DCM이 다각형을 벗어남) 0.5~0.9초 뒤 작은 걸음을 더 디뎠다. 사람은 멈춘 자리에서 버티고, 발 모으기·천천히 체중 되돌리기(recenter)는 그다음이다
++        const sh = c.decisive?.settleHold;
++        if (sh && poly.length >= 3) {
++          const inside = -signedDistanceToPolygon(xi, poly);
++          let g: Vec2 = xi;
++          if (inside < sh.margin) {
++            const cen = polygonCentroid(poly)!;
++            const q = inside >= 0 ? xi : closestInPolygon(xi, poly);
++            const dq = sub2(cen, q), lq = len2(dq), need = sh.margin - Math.max(0, inside);
++            g = lq > 1e-9 ? add2(q, sc2(dq, Math.min(1, need / lq))) : q;
++          }
++          cmd.comGoal = g;
++          cmd.hold = true;
++          out.xiGoal = g;
++        }
++      }
+       this.fillState(out, null);
+       return cmd;
+     }
+@@ -995,6 +1048,7 @@ export class Stepping {
+     }
+     this.fillState(out, { s: Math.max(0, sProg), target, kind: s.kind, foot: s.foot, phase: cmd.phase, crossing: s.plan.crossing, xiGoal: s.plan.xiGoal, T: Number.isFinite(Tsw) ? Tsw : 0 });
+     if (this.terrainOn) out.terrain = { dh: target[1] - (per.feet[s.stance].ground?.point[1] ?? target[1]), supported: s.plan.foothold?.supported ?? 0, void: !!s.plan.void };
++    if (s.kind === 'reactive' && s.plan.need !== undefined) out.plan = { need: s.plan.need, clamp: s.plan.clampDist, ...(s.plan.over !== undefined ? { over: s.plan.over } : {}) };
+     out.state = this.st;
+     return cmd;
+   }

@@ -26,7 +26,16 @@ export interface SkinConfig {
    */
   twistShare?: Record<string, { child: BodyName; t: number }>;
   color?: { surface: Vec3; joints: Vec3 };
+  /**
+   * (README 결정 pres-1) 손가락 굽힘: 로그 fingers(손마다 curl·spread·thumb 0~1)를 손가락 본 회전으로.
+   * flexDeg = 손가락 마디 1·2·3 최대 굽힘, thumbFlexDeg = 엄지 마디 굽힘, thumbOppDeg = 엄지 맞섬(손바닥 쪽으로 돌림),
+   * spreadDeg = 손가락별 벌림(엄지 쪽 +), 굽힐수록 벌림은 줄어든다
+   */
+  fingers?: { flexDeg: [number, number, number]; thumbFlexDeg: [number, number, number]; thumbOppDeg: number; spreadDeg: Record<string, number> };
 }
+
+/** 손가락 본 하나의 굽힘 축 (랙돌 rest 월드 좌표) */
+interface FingerBone { hand: 'LeftHand' | 'RightHand'; finger: string; seg: number; flexAxis: THREE.Vector3; spreadAxis: THREE.Vector3; spreadSign: number; oppAxis: THREE.Vector3 | null }
 
 export const CM_TO_M = 0.01;
 
@@ -63,6 +72,8 @@ export class FbxSkin {
   private readonly restScale = new Map<THREE.Bone, THREE.Vector3>();
   private readonly bodies = new Map<string, BodyDef>();
   private readonly cfg: SkinConfig;
+  /** (pres-1) 손가락 본 이름 → 굽힘 축 */
+  private readonly fingerBones = new Map<string, FingerBone>();
 
   constructor(fbx: ArrayBuffer, def: CharacterDef, cfg: SkinConfig) {
     this.cfg = cfg;
@@ -111,6 +122,7 @@ export class FbxSkin {
     for (const b of def.bodies) {
       if (!this.objByName.has(b.representativeBone)) throw new Error(`skin: 대표 본 ${b.representativeBone} 없음`);
     }
+    if (cfg.fingers) this.buildFingerAxes();
     for (const [name, a] of Object.entries(cfg.absorbed)) {
       if (!this.objByName.has(name)) throw new Error(`skin: 흡수 본 ${name} 없음`);
       if (!this.bodies.has(a.from) || !this.bodies.has(a.to)) throw new Error(`skin: 흡수 본 ${name}의 바디 이름 오류`);
@@ -123,6 +135,55 @@ export class FbxSkin {
       const col = cfg.color ? (/joint/i.test(m.name) ? cfg.color.joints : cfg.color.surface) : null;
       if (col) m.material = new THREE.MeshLambertMaterial({ color: new THREE.Color(col[0], col[1], col[2]) });
     });
+  }
+
+  /**
+   * (pres-1) 손가락 굽힘 축: 손바닥 법선 n = 손 바디 rest 회전 · (0, −1, 0) (X Bot T포즈는 손바닥이 아래), 손가락 방향 d = 마디 1 → 2.
+   * 굽힘 축 = d × n (손가락 끝이 손바닥 쪽으로), 벌림 축 = n, 엄지 맞섬 축 = 가운뎃손가락 방향(엄지 끝이 손바닥 쪽으로 가는 부호)
+   */
+  private buildFingerAxes(): void {
+    const pos = (n: string) => this.bones.find((b) => b.name === n)?.restPos;
+    for (const hand of ['LeftHand', 'RightHand'] as const) {
+      const hb = this.bodies.get(hand);
+      const mid1 = pos(`${hand}Middle1`), mid2 = pos(`${hand}Middle2`), idx1 = pos(`${hand}Index1`), pin1 = pos(`${hand}Pinky1`);
+      if (!hb || !mid1 || !mid2 || !idx1 || !pin1) continue;
+      const n0 = new THREE.Vector3(0, -1, 0).applyQuaternion(q(hb.restRotation));
+      const along = mid2.clone().sub(mid1).normalize();
+      const thumbSide = idx1.clone().sub(pin1).normalize();
+      for (const finger of ['Thumb', 'Index', 'Middle', 'Ring', 'Pinky']) {
+        for (let seg = 1; seg <= 3; seg++) {
+          const a = pos(`${hand}${finger}${seg}`), b = pos(`${hand}${finger}${seg + 1}`);
+          if (!a || !b) continue;
+          const d = b.clone().sub(a).normalize();
+          const n = n0.clone().sub(d.clone().multiplyScalar(n0.dot(d))).normalize();
+          const flexAxis = d.clone().cross(n).normalize();
+          const spreadSign = Math.sign(n.clone().cross(d).dot(thumbSide)) || 1;
+          let oppAxis: THREE.Vector3 | null = null;
+          if (finger === 'Thumb' && seg === 1) {
+            oppAxis = along.clone();
+            if (oppAxis.clone().cross(d).dot(n0) < 0) oppAxis.negate();
+          }
+          this.fingerBones.set(`${hand}${finger}${seg}`, { hand, finger, seg, flexAxis, spreadAxis: n, spreadSign, oppAxis });
+        }
+      }
+    }
+  }
+
+  /** (pres-1) 손가락 본의 rest 월드 좌표 굽힘 회전 */
+  private fingerRot(fb: FingerBone, f: { curl: number; spread: number; thumb: number }): THREE.Quaternion {
+    const c = this.cfg.fingers!, D2R = Math.PI / 180;
+    const out = new THREE.Quaternion();
+    if (fb.finger === 'Thumb') {
+      out.setFromAxisAngle(fb.flexAxis, c.thumbFlexDeg[fb.seg - 1]! * f.thumb * D2R);
+      if (fb.oppAxis) out.premultiply(new THREE.Quaternion().setFromAxisAngle(fb.oppAxis, c.thumbOppDeg * f.thumb * D2R));
+      return out;
+    }
+    out.setFromAxisAngle(fb.flexAxis, c.flexDeg[fb.seg - 1]! * f.curl * D2R);
+    if (fb.seg === 1) {
+      const sp = (c.spreadDeg[fb.finger] ?? 0) * f.spread * (1 - f.curl) * fb.spreadSign * D2R;
+      out.premultiply(new THREE.Quaternion().setFromAxisAngle(fb.spreadAxis, sp));
+    }
+    return out;
   }
 
   /** rest 회전이 같은 조상 바디 묶음의 꼭대기 관절 월드 위치. 회전이 항등이면 원점(무관). */
@@ -180,6 +241,10 @@ export class FbxSkin {
       }
       else if (abs) d = D.get(abs.from)!.clone().slerp(D.get(abs.to)!, abs.t);
       else d = b.parent ? boneD.get(b.parent)! : D.get('Hips')!;
+      // (pres-1) 손가락: 부모 본 Δ회전 뒤에 rest 좌표 굽힘을 곱한다 (자식 마디 위치도 이 회전으로 따라간다)
+      const fb = this.fingerBones.get(b.name);
+      const fs = fb && state.fingers?.[fb.hand];
+      if (fb && fs) d = d.clone().multiply(this.fingerRot(fb, fs));
       boneD.set(b.name, d);
 
       let pos: THREE.Vector3;

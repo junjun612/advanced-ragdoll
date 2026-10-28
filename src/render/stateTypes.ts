@@ -26,7 +26,7 @@ export interface CharacterStateLite {
   capturePoint?: Vec2;
   stance?: string;
   behaviors?: { name: string; weight: number }[];
-  joints?: Record<string, { errorDeg?: number; torque?: number; saturated?: boolean; strength?: number }>;
+  joints?: Record<string, { errorDeg?: number; torque?: number; saturated?: boolean; strength?: number; rom?: { excessDeg: number; torque: number } }>;
   posture?: Posture;
   assist?: { root: number; getup: number; pin: number };
   /** 일어서기 (v0.7) */
@@ -34,6 +34,12 @@ export interface CharacterStateLite {
   /** (2026-10-27) 반응 클립: 고른 클립·진행·끝난 이유 */
   reaction?: { phase: string; clip: string | null; tau: number; reason: string; style?: { clip: string; tau: number; rate: number; w: number; ourLandings: number; clipLandings: number[] } };
   debug?: Record<string, number | string>;
+  /** (pres-1) 손가락 포즈: 손마다 포즈 이름·굽힘·벌림·엄지 (0~1) */
+  fingers?: Record<string, { pose: string; curl: number; spread: number; thumb: number }>;
+  /** (pres-3) 호흡 */
+  breath?: { b: number; rate: number; depth: number; arousal: number; k: number };
+  /** (결정 tone-1) 근긴장: 공동수축 레벨, 신장 반사 최대 레벨·관절, 감쇠 최대 배율 */
+  tone?: { co: number; reflexMax: number; reflexJoint: string | null; maxKd: number };
   /** 균형 계층 (v0.3) */
   balance?: {
     enabled: boolean;
@@ -74,6 +80,8 @@ export interface CharacterStateLite {
     wounds?: { point: Vec3; normal: Vec3 }[];
     hands?: { hand: string; target: Vec3 | null; ref: Vec3; palm: Vec3; woundDist: number | null; weight: number }[];
     gaze?: { target: Vec3; errorDeg: number } | null;
+    /** (pres-2) 이번 의도 반응 지연(초), 머리 안정 각(도)·켜짐 */
+    presence?: { delay: number; stabDeg: number; stabK: number };
     /** 넘어짐 신호 (v0.5b): 확실도, 방향 종류, 손이 닿을 때까지 예측 시간, 예측 손 착지점 */
     fall?: { certainty: number; kind: string; timeToImpact: number; hands: Record<string, Vec3> } | null;
     /** 공중 신호 (v0.5c): 공중 여부·시간, 착지 예측 시간·지점, 마지막 착지 */

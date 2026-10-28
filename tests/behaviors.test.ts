@@ -63,8 +63,12 @@ describe('behavior blender (v0.5a)', () => {
     const p = ch.getState().bodies.Spine2.pos;
     ch.hit({ type: 'bullet', body: 'Spine2', point: [p[0], p[1], p[2] + 0.5], direction: [0, 0, -1], magnitude: 0.3 });
     const weightAt = (name: string) => ch.getState().behaviors.find((b) => b.name === name)?.weight ?? 0;
-    const delay = behaviorsCfg.reactionDelay, T = behaviorsCfg.transitionTime;
+    const T = behaviorsCfg.transitionTime;
     w.step();
+    // (README 결정 pres-2) 의도 반응 지연은 피격마다 presence.json reaction(base ± jitter)에서 뽑는다 — 이번 값은 로그에
+    const delay = ch.getState().behavior.presence?.delay ?? behaviorsCfg.reactionDelay;
+    expect(delay).toBeGreaterThanOrEqual(0.08);
+    expect(delay).toBeLessThanOrEqual(0.12);
     expect(weightAt('HitReaction')).toBe(1); // 수동 반응(힘 빠짐)은 즉시
     expect(weightAt('HoldWound')).toBe(0);
     while (w.time < 1 / 120 + delay + T / 2) w.step();

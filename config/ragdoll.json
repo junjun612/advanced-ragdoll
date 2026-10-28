@@ -11,7 +11,8 @@
   "$bodies": "손·발: 충격 후 고속 회전 방지 (README 결정 15). angularDamping은 Rapier 바디 각감쇠(1/s), inertiaScale은 형상 관성 배율, jointDamping은 손목·발목 관절 마찰. 전완: 각감쇠 20 /s, 관성 ×2 — 큰 가슴 충격(Δv 1.5)에서 전완이 99.8 rad/s까지 돌던 것을 막는다 (README 결정 36, 회귀 시나리오 push_chest_large_active).",
   "$noCollidePairs": "서로 충돌하지 않는 바디 쌍 [[A, B], ...] (v0.4, README 결정 66). 교차 스텝용으로 허벅지·정강이 쌍을 시도했으나 효과가 없어 비워 둔다.",
   "noCollidePairs": [],
-  "$shoulderRom": "어깨 가동 범위 끝 저항 (README 결정 171, 기본 끔 — 키 shoulderRom이 없으면 끔). 사람 ROM 문헌값(AAOS·Norkin & White·Soucie 2011: 굽힘 약 180°, 폄 50~60°, 벌림 180°, 수평 벌림 약 45°, 수평 모음 135°)을 넘는 팔 방향(몸통 관상면 뒤로 behindDownDeg/behindHorizDeg/behindUpDeg, 시상면 넘어 crossDeg)에 위팔↔Spine2 짝 토크(stiffness N·m/rad, damping, maxTorque)를 건다. 후보 값 { behindDownDeg 60, behindHorizDeg 45, behindUpDeg 10, crossDeg 45, stiffness 600, damping 15, maxTorque 600 }: 근처 입력 팔 지표는 같지만(결정 171) 시드 1 sim:all이 설정마다 다른 1~2개로 갈려(혼돈, 결정 165) 기본값으로 넣지 않았다.",
+  "$shoulderRom": "어깨 가동 범위 끝 저항 (README 결정 171·177·rom-1~4, 2026-10-28 기본 켬 — 키 shoulderRom이 없으면 끔). 사람 ROM 문헌값(AAOS·Norkin & White·Soucie 2011: 굽힘 약 180°, 폄 50~60°, 벌림 180°, 수평 벌림 약 45°, 수평 모음 135°)을 넘는 팔 방향(몸통 관상면 뒤로 behindDownDeg/behindHorizDeg/behindUpDeg, 시상면 넘어 crossDeg)에 위팔↔Spine2 짝 토크를 건다. 넘은 각 e에 대해 스프링 = stiffness·(e < e0 ? e²/(2·e0) : e − e0/2) (e0 = stiffRampDeg), 감쇠 = damping·min(1, e/dampRampDeg)·들어가는 각속도, 합은 maxTorque 이하 — 끝에 가까워질수록 저항이 커진다. 경계에서 바로 선형 강성·감쇠를 걸면(결정 177 값) 걷는 팔 흔들기가 경계를 살짝 넘을 때마다 한 스텝 최대 300 N·m가 몸통을 쳐 뒤로 걷기(walk_back_track 근처 입력 4 → 0/4)·어깨 스치기(감쇠만 키울 때 shoulder_bump_pass 16 → 0/16)가 넘어졌다(결정 rom-2·3)",
+  "shoulderRom": { "behindDownDeg": 60, "behindHorizDeg": 45, "behindUpDeg": 10, "crossDeg": 45, "stiffness": 600, "damping": 15, "maxTorque": 600, "dampRampDeg": 8, "stiffRampDeg": 8 },
   "bodies": {
     "LeftForeArm": { "angularDamping": 20, "inertiaScale": 2 },
     "RightForeArm": { "angularDamping": 20, "inertiaScale": 2 },

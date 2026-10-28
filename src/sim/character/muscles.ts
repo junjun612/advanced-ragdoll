@@ -123,6 +123,8 @@ interface MJ {
   out: MuscleJointOut;
   /** (v0.9) 목표 불연속 관성화 상태: 직전 원래 목표·출력, 오프셋(회전 벡터)과 시작 시각, 직전 시각. 근육이 꺼지면 비운다 */
   inert: { raw: Quat; out: Quat; off: Vec3 | null; t0: number; t: number } | null;
+  /** (결정 tone-2) 직전 스텝 신장 속도 °/s = |관절 상대 각속도 − 근육 목표 속도| (근긴장 신장 반사 입력) */
+  stretch: number;
 }
 
 const AXES = [R.JointAxis.AngX, R.JointAxis.AngY, R.JointAxis.AngZ];
@@ -195,6 +197,7 @@ export class Muscles {
         s: active ? 1 : 0,
         out: { errorDeg: 0, torque: 0, saturated: false, strength: active ? 1 : 0, targetCoords: [0, 0, 0] },
         inert: null,
+        stretch: 0,
       };
       this.joints.push(mj);
       this.byName.set(j.name, mj);
@@ -257,7 +260,8 @@ export class Muscles {
    * active = 근육을 쓰는 상태(Ragdoll이 아님). targets = 정의 관절 좌표계 목표(없는 관절은 rest).
    * bal = 균형 계층 명령 (v0.3): 관절 토크 쌍(× strength)을 중력 보상과 합쳐 같은 경로로 걸고, 지지 다리의 서브트리 중력 보상 배율을 바꾼다.
    */
-  apply(dt: number, t: number, active: boolean, targets: JointTargets | null, bal: BalanceCommand | null = null, strengthMul: Partial<Record<JointName, number>> | null = null, capacityMul: Partial<Record<JointName, number>> | null = null): void {
+  apply(dt: number, t: number, active: boolean, targets: JointTargets | null, bal: BalanceCommand | null = null, strengthMul: Partial<Record<JointName, number>> | null = null, capacityMul: Partial<Record<JointName, number>> | null = null,
+    tone: { kp: Partial<Record<JointName, number>>; kd: Partial<Record<JointName, number>> } | null = null): void {
     this.rd.resetTorques();
     // (README 결정 171) 어깨 가동 범위 끝 저항 — 근육 상태와 무관한 관절의 수동 성질
     this.rd.applyShoulderRom();
@@ -342,8 +346,11 @@ export class Muscles {
       const sp = fv ? length(w) : 0;
       const fvK = fv && sp > fv[0] ? Math.max(0, 1 - (sp - fv[0]) / (fv[1] - fv[0])) : 1;
       const act = s * m.capMul * m.maxTorque, pas = m.passive * this.cfg.passiveVelCap;
+      // (결정 tone-1) 근긴장 배율: 모터 강성·감쇠에만 곱한다. 균형 계층이 빼는 모터 추정분(tj)에는 넣지 않아 계획에서 벗어난 움직임에만 맞서는 추가 임피던스가 된다
+      const tKp = tone?.kp[m.name] ?? 1, tKd = tone?.kd[m.name] ?? 1;
+      m.stretch = s > 0 ? Math.hypot(w[0] - vt[0], w[1] - vt[1], w[2] - vt[2]) * (180 / Math.PI) : 0;
       for (let i = 0; i < nAx; i++) {
-        raw.jointConfigureMotor(h, AXES[i] as never, tc[i]!, vt[i]!, s * m.kp * msJ, s * m.kd * msJ + m.passive);
+        raw.jointConfigureMotor(h, AXES[i] as never, tc[i]!, vt[i]!, s * m.kp * msJ * tKp, s * m.kd * msJ * tKd + m.passive);
         const conc = fvK < 1 && (m.kp * (tc[i]! - cc[i]!) + m.kd * (vt[i]! - w[i]!)) * w[i]! > 0;
         raw.jointSetMotorMaxForce(h, AXES[i] as never, conc ? act * fvK + pas : maxF);
       }
