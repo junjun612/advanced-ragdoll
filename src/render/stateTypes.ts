@@ -51,6 +51,8 @@ export interface CharacterStateLite {
     /** 전신 제어 (v0.3): CMP(xz), COM 둘레 각운동량 */
     cmp?: Vec2 | null;
     angularMomentum?: Vec3;
+    /** (README 결정 settle-1) 진정 단계: 진정 정도 0~1, 단계, 진입 시각, DCM 여유, 나온 이유 */
+    settle?: { level: number; phase: string; since: number | null; margin: number; reason: string };
   };
   /** 스텝 계층 (v0.4): 상태, 스윙발, 착지 기록 */
   stepping?: {
@@ -68,7 +70,7 @@ export interface CharacterStateLite {
   };
   /** 행동 계층 (v0.5a): 활성 행동(한글 이름), 상처, 손 목표, 시선 */
   behavior?: {
-    active: { name: string; ko?: string; weight: number; phase?: string }[];
+    active: { name: string; ko?: string; weight: number; phase?: string; info?: Record<string, unknown> | null }[];
     wounds?: { point: Vec3; normal: Vec3 }[];
     hands?: { hand: string; target: Vec3 | null; ref: Vec3; palm: Vec3; woundDist: number | null; weight: number }[];
     gaze?: { target: Vec3; errorDeg: number } | null;

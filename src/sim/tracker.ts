@@ -7,6 +7,7 @@
 // Character.reference()로 매 스텝 레퍼런스를 읽을 수 있다 — 학습 데이터(레퍼런스, 상태) 쌍을 모으는 데 쓴다.
 import type { JointTargets } from './character/pose';
 import type { TrackingRef } from './character/reaction';
+import type { SettleRef } from './character/settle';
 import type { HandName, HandTarget } from './character/behaviors/types';
 import type { BalanceCommand } from './character/balance';
 import type { CharacterState, JointName } from './types';
@@ -24,6 +25,8 @@ export interface ReferenceFrame {
   joints: JointTargets | null;
   /** 관절별 추종 세기·추종 힌트 (반응 클립 상체 스타일 중에만, 결정 164). 위험할 때 풀기(release)는 추종기 판단이다 */
   tracking: TrackingRef | null;
+  /** 진정 단계 힌트 (README 결정 settle-1, 진정 정도 > 0일 때만): 팔 반사·벌림 배율, 팔 자세 과제 가중치·감쇠, 팔 각운동량 비용 배율 */
+  settle?: SettleRef;
   /** 전신 애니 추종 중인 클립 (걷기·Idle·겟업·반응 track 모드): 이름·클립 시각(s). 추종기는 클립의 COM·발 접촉도 읽는다 */
   clip: { name: string; tau: number } | null;
   /** 행동 계층 출력 (지금 추종기가 직접 읽는 것). 행동이 없으면 null */

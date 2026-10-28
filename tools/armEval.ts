@@ -3,13 +3,13 @@
 //   npx tsx tools/armEval.ts [--sweep N] [--jobs J] [--window 2.5] [--set preset] 시나리오... | --v04 | --focus
 //   npx tsx tools/armEval.ts --human push_back_hard,push_back_veryhard ...   (Kimodo 밀림 조사 RP 후보 분포)
 // 설정 덮어쓰기 SET="b.wb.armReflex.maxDeg=0;s.arms.stepGain=0;h.freeArm.abductDeg=0;a.walk.x=1;p.stand.joints.LeftArm.side=-20"
-//   b = balance.json, s = stepping.json, h = behaviors.json, m = hitModel.json, a = animDriver.json, p = poses (config/poses)
+//   b = balance.json, s = stepping.json, h = behaviors.json, m = hitModel.json, a = animDriver.json, r = reaction.json, settle = settle.json, p = poses (config/poses)
 // 근처 입력: 시드 1 = 원래 시나리오, 2~N = 세기 ±5%·방향 ±5° (simCommon.jitterScenario)
 import { spawn } from 'node:child_process';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { findScenario, loadScenario, loadInputs, jitterScenario, addRefSimilarity } from './simCommon';
-import { armStats, logToArmFrames, type ArmStats } from './armMetrics';
+import { armStats, armAngles, logToArmFrames, type ArmStats } from './armMetrics';
 import type { CharacterDef } from '../src/sim/character/characterDef';
 import { rotate, conjugate, multiplyQ } from '../src/sim/math/quat';
 
@@ -25,7 +25,7 @@ function cfgs(): Record<string, unknown> {
   const rd = (p: string) => JSON.parse(readFileSync(p, 'utf8'));
   const poses: Record<string, unknown> = {};
   for (const f of readdirSync('config/poses')) if (f.endsWith('.json')) poses[f.replace(/\.json$/, '')] = rd(join('config/poses', f));
-  const c: Record<string, Record<string, unknown>> = { b: rd('config/balance.json'), s: rd('config/stepping.json'), h: rd('config/behaviors.json'), m: rd('config/hitModel.json'), a: rd('config/animDriver.json'), r: rd('config/reaction.json'), p: poses };
+  const c: Record<string, Record<string, unknown>> = { b: rd('config/balance.json'), s: rd('config/stepping.json'), h: rd('config/behaviors.json'), m: rd('config/hitModel.json'), a: rd('config/animDriver.json'), r: rd('config/reaction.json'), settle: rd('config/settle.json'), p: poses };
   for (const kv of (process.env.SET ?? '').split(';').filter(Boolean)) {
     const i = kv.indexOf('=');
     const path = kv.slice(0, i).trim().split('.');
@@ -61,7 +61,30 @@ function reactLib(): Record<string, never> | undefined {
   return out as Record<string, never>;
 }
 
-interface Row { name: string; seed: number; passed: boolean; fell: boolean; steps: number; rec: number | null; land: number | null; arm: ArmStats; refArm: number | null; fails: string; exploded?: boolean; romFrac?: number; romMax?: number }
+interface Row { name: string; seed: number; passed: boolean; fell: boolean; steps: number; rec: number | null; land: number | null; arm: ArmStats; refArm: number | null; fails: string; exploded?: boolean; romFrac?: number; romMax?: number; settleTime?: number | null; settleFrac?: number }
+
+/**
+ * (README 결정 settle-2) 정착 시간: 마지막 충격 뒤, 마지막으로 '아직 버티는 중'인 로그 프레임까지의 시간(초). 버티는 중 = COM 수평 속도 > 0.1 m/s
+ * 또는 Spine2 기울기 > 10° 또는 두 팔 중 큰 팔 들림 > 35° 또는 스텝 계층이 걸음(step) 중. 넘어지면 null. settleFrac = 충격 뒤 진정 단계(balance.settle.level ≥ 0.5) 프레임 비율
+ */
+function settleOf(log: string, hitT: number, fell: boolean): { settleTime: number | null; settleFrac: number; lateBy: Record<string, number> } {
+  const fr = log.trim().split('\n').map((x) => JSON.parse(x) as { time: number; comVel: number[]; bodies: Record<string, { rot: [number, number, number, number] }>; stepping?: { state?: string; kind?: string }; balance?: { settle?: { level: number }; armDanger?: number }; reaction?: { style?: { w: number } } });
+  let last = hitT, n = 0, ns = 0;
+  // 늦은 팔 들림(충격 1초 뒤 ~ 창 끝, > 40°) 프레임이 어느 상태에서 났나: 반응 걸음 / 정착(진정 전) / 진정 중 / 서기
+  const lateBy: Record<string, number> = {};
+  for (const f of fr) {
+    if (f.time < hitT - 1e-9) continue;
+    const a = armAngles(def, Object.fromEntries(Object.entries(f.bodies).map(([k, b]) => [k, b.rot])));
+    if (Math.hypot(f.comVel[0]!, f.comVel[2]!) > 0.1 || a.trunk > 10 || Math.max(a.elev.Left, a.elev.Right) > 35 || f.stepping?.state === 'step') last = f.time;
+    n++;
+    if ((f.balance?.settle?.level ?? 0) >= 0.5) ns++;
+    if (f.time >= hitT + 1 - 1e-9 && f.time <= hitT + WINDOW + 1e-9 && Math.max(a.elev.Left, a.elev.Right) > 40) {
+      const k = f.stepping?.state === 'step' ? (f.stepping.kind === 'closing' ? 'closing' : 'step') : (f.balance?.settle?.level ?? 0) > 0 ? 'settle' : f.stepping?.state === 'settle' ? 'wait' : 'stand';
+      lateBy[k] = (lateBy[k] ?? 0) + 1;
+    }
+  }
+  return { settleTime: fell ? null : last - hitT, settleFrac: n ? ns / n : 0, lateBy };
+}
 
 /** (README 결정 171·177) 사람 어깨 가동 범위 후보 값 — ROM=1이면 이 값으로 끝 저항을 켠다. 넘은 각은 켜든 끄든 같은 식으로 잰다 (ragdoll.ts applyShoulderRom) */
 const ROM_CFG = { behindDownDeg: Number(process.env.ROM_DOWN ?? 60), behindHorizDeg: Number(process.env.ROM_HORIZ ?? 45), behindUpDeg: 10, crossDeg: 45, stiffness: 600, damping: 15, maxTorque: 600 };
@@ -90,7 +113,7 @@ async function worker(name: string, seed: number): Promise<Row> {
   if (process.env.PUSHDUR) sc = { ...sc, events: sc.events.map((e) => (e.type === 'hit' && e.hit?.type === 'push' && !e.hit.duration ? { ...e, hit: { ...e.hit, duration: Number(process.env.PUSHDUR) } } : e)) };
   const inp = loadInputs(sc);
   if (process.env.ROM === '1') inp.ragdoll = { ...inp.ragdoll, shoulderRom: ROM_CFG };
-  const r = await runScenario({ ...inp, characterOpts: { balanceConfig: c.b, steppingConfig: c.s, behaviorsConfig: c.h, hitModelConfig: c.m, animConfig: c.a, poses: c.p, reactionConfig: c.r, animClips: reactLib() } });
+  const r = await runScenario({ ...inp, characterOpts: { balanceConfig: c.b, steppingConfig: c.s, behaviorsConfig: c.h, hitModelConfig: c.m, animConfig: c.a, poses: c.p, reactionConfig: c.r, settleConfig: c.settle, animClips: reactLib() } });
   if (process.env.OUTDIR) {
     const { mkdirSync, writeFileSync } = await import('node:fs');
     const d = join(process.env.OUTDIR, `${name}${seed > 1 ? `__s${seed}` : ''}`);
@@ -101,12 +124,13 @@ async function worker(name: string, seed: number): Promise<Row> {
   }
   if (seed === 1) await addRefSimilarity(sc, r);
   const hitT = sc.events.find((e) => e.type === 'hit')?.t ?? 0;
+  const lastHitT = Math.max(hitT, ...sc.events.filter((e) => e.type === 'hit').map((e) => e.t));
   const s = r.summary;
   return {
     name, seed, passed: s.expectations.passed, fell: s.fell, steps: s.stepsTaken ?? 0, rec: s.recoveredAfterHit ?? null,
     land: (s.metrics.landingErrorMean as number | undefined) ?? null, arm: armStats(def, logToArmFrames(r.log), hitT, WINDOW),
     refArm: typeof s.metrics.refArmRatio === 'number' ? s.metrics.refArmRatio : null, fails: s.expectations.failures.join('; '),
-    exploded: !!s.exploded, ...(() => { const fr = r.log.trim().split('\n').map((x) => JSON.parse(x)); const e = fr.map(romExcessDeg); return { romFrac: e.filter((x) => x > 5).length / Math.max(1, e.length), romMax: Math.max(0, ...e) }; })(),
+    exploded: !!s.exploded, ...settleOf(r.log, lastHitT, s.fell), ...(() => { const fr = r.log.trim().split('\n').map((x) => JSON.parse(x)); const e = fr.map(romExcessDeg); return { romFrac: e.filter((x) => x > 5).length / Math.max(1, e.length), romMax: Math.max(0, ...e) }; })(),
   };
 }
 
@@ -147,7 +171,7 @@ async function variants(): Promise<void> {
 async function master(): Promise<void> {
   const N = Number(opt('--sweep', '1'));
   const J = Number(opt('--jobs', '24'));
-  const skip = new Set(['--sweep', '--jobs', '--window', '--variants', '--seed0']);
+  const skip = new Set(['--sweep', '--jobs', '--window', '--variants', '--seed0', '--json']);
   const names = argv.filter((a, k) => !a.startsWith('--') && !skip.has(argv[k - 1] ?? ''));
   const list = argv.includes('--v04') ? [...V04, ...names] : argv.includes('--focus') ? [...FOCUS, ...names] : names;
   const s0 = Number(opt('--seed0', '1'));
@@ -184,6 +208,7 @@ async function master(): Promise<void> {
   console.log(`합계 통과 ${P}/${T} 넘어짐 ${F} | 전체 중앙값 ${fmtArm(all)}`);
   const ex = rows.filter((r) => r.exploded).length;
   const rf = rows.reduce((a, r) => a + (r.romFrac ?? 0), 0) / Math.max(1, rows.length);
+  if (argv.includes('--json')) { const { writeFileSync } = await import('node:fs'); writeFileSync(opt('--json', 'armEval.json'), JSON.stringify(rows.sort((a, b) => a.name.localeCompare(b.name) || a.seed - b.seed))); }
   console.log(`폭발 ${ex} | 어깨 사람 범위 5° 넘은 프레임 평균 ${(rf * 100).toFixed(1)}% (실행 중 ${rows.filter((r) => (r.romFrac ?? 0) > 0).length}/${rows.length}), 넘은 각 최대 ${Math.max(0, ...rows.map((r) => r.romMax ?? 0)).toFixed(0)}°`);
 }
 

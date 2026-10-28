@@ -8,7 +8,10 @@ import { Behavior, envelope, type BehaviorContext, type BehaviorOutput, type Joi
 import { bodyPose, degQ } from './kinematics';
 
 export interface HitReactionParams {
-  weakScale: number; neighborScale: number; weakOnset: number; weakHold: number; recoverTime: [number, number];
+  weakScale: number; neighborScale: number;
+  /** (결정 leg-5) 다리를 맞았을 때 맞은 관절·이웃 관절 힘 빠짐 (없으면 weakScale·neighborScale) — 디딘 다리 무릎이 0.3까지 빠지면 꺾인 뒤 다시 펴지 못하고 주저앉았다 */
+  legWeakScale?: number; legNeighborScale?: number;
+  weakOnset: number; weakHold: number; recoverTime: [number, number];
   legScale: number; legDip: number; flinchDeg: number; headFlinchDeg: number; twistDeg: number;
   flinchRise: number; flinchHold: number; flinchFall: number;
   comDrop: number; comDropRise: number; comDropHold: number; comDropFall: number; duration: number; tiltAllowDeg?: number; trunkBrace?: number;
@@ -40,8 +43,11 @@ export class HitReaction extends Behavior {
     const limb = (n: string) => /Arm|Hand|Leg|Foot/.test(n);
     const neighbors = [parent ? jointOf(parent) : null, ...def.bodies.filter((x) => x.parent === b).map((x) => x.name as JointName)]
       .filter((x): x is JointName => !!x && (limb(b) || !limb(x)));
-    if (self) this.weak.push({ joint: self, scale: this.p.weakScale });
-    for (const n of neighbors) if (n !== self) this.weak.push({ joint: n, scale: this.p.neighborScale });
+    const legHit = /Leg|Foot/.test(b);
+    const ws = legHit ? this.p.legWeakScale ?? this.p.weakScale : this.p.weakScale;
+    const ns = legHit ? this.p.legNeighborScale ?? this.p.neighborScale : this.p.neighborScale;
+    if (self) this.weak.push({ joint: self, scale: ws });
+    for (const n of neighbors) if (n !== self) this.weak.push({ joint: n, scale: ns });
     // 움찔: 맞은 점이 오목한 쪽이 되게 (충격이 들어온 쪽 = −dir 쪽으로 굽힘). 골반 heading 기준
     const hips = bodyPose(ctx.rd, 'Hips');
     const fwd = rotate(hips.rot, [0, 0, 1]), lat = rotate(hips.rot, [1, 0, 0]);

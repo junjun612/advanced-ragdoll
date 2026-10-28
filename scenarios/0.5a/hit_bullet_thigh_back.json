@@ -1,0 +1,61 @@
+{
+  "name": "hit_bullet_thigh_back",
+  "milestone": "0.5a",
+  "description": "왼 허벅지 뒤 위쪽(엉덩이 바로 아래, 높이 0.75m)에 뒤에서 총탄 (Δv 0.35, 앱 기본). InjuredLeg + 다친 무릎이 살짝 꺾이고 성한 발로 디딤. HoldWound 도달 판단(결정 leg-2): 뒤를 향한 상처는 앞으로 숙여도 멀어지므로 숙이지 않고 닿을 때만(backMaxBendDeg 10°) 손을 등 뒤로 내려 뒤에서 쥔다 — 몸통은 거의 서 있고 상처 쪽으로 조금 기운다. 근처 입력에 따라 닿는 경계라 손을 그대로 두고 내려다보기도 한다(시드 2~8 중 2개 쥐기). 이전에는 왼손이 몸 앞에서 허벅지를 감싸 쥐려고 몸통을 계속 숙이다 2.8초에 웅크려 쓰러졌고, 감싸 쥐는 손 방향이 프레임마다 뒤집혀 팔이 튀어 폭발 판정까지 났다(결정 leg-3). 기대값: 몸통 기울기 최대 30° ※ (근처 입력 8개 8.5~19°, 고치기 전 167°; v0.0 같은 쪽 허벅지 앞도 37.5°면 닿음).",
+  "duration": 5,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1,
+      "type": "hit",
+      "hit": {
+        "type": "bullet",
+        "body": "LeftUpLeg",
+        "point": [
+          0.09,
+          0.75,
+          -0.4
+        ],
+        "direction": [
+          0,
+          0,
+          1
+        ],
+        "magnitude": 0.35
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      },
+      "trunkTiltMaxAfterHit": {
+        "max": 30
+      }
+    }
+  }
+}

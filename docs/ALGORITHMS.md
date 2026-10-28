@@ -359,6 +359,15 @@ sim:all 46/49, 회귀 0(알려진 문제 3, v0.4 결정 74). 이전 시나리오
 - Δv 0.3 m/s 앞뒤 제자리 버팀은 하지 않는다(결정 51): 레퍼런스상 사람은 내딛는다 → v0.4.
 - 하중 뺀 발 끌림·발 미끄러짐: 20초 서기 2.4cm, 밀기 4초 0.5cm.
 
+# 넘어짐 뒤 이완 (2026-10-27, README 결정 relax-1~6, 값은 `config/behaviors.json` ImpactRelax·relaxStart·Lie·BraceForFall(backward·air·landBodies)·ProtectHead(guardWeight…), `sim.json behaviorJudge.rigid*`)
+
+코드: `src/sim/character/behaviors/relax.ts`(ImpactRelax, Lie), `fall.ts`(BraceForFall·ProtectHead 변경), `blender.ts`(autoStartRelax, 대비 → 누움 넘김), 지표 `behaviorMetrics.ts`, 도구 `tools/relaxEval.ts`(시드 묶음 전후 비교)·`tools/relaxTrace.ts`(한 시드 시간순).
+- **충격 후 이완 ImpactRelax** (레이어 8.9, 강도 배율만, 즉시): Hips·Spine·Spine2·Head 중 하나가 새로 지면에 닿고 그 바디 속력(직전·지금 스텝 중 큰 쪽) ≥ minSpeed(0.6 m/s)면 시작. 깊이 d = smoothstep((v − 0.6)/(1.6 − 0.6)). 배율 = 1 − (1 − 수준)·d·e(t), e: 0.05초에 1로 → 0.22초 유지 → 0.6초에 0. 수준 팔다리 0.35·몸통 0.5·목 0.7. 이미 있으면 0.2초 뒤의 새 충돌로 다시 떨어뜨림. 늘어짐·구르기(풀기 전)·굴러 내려감·잡고 매달림 중에는 안 켬. 로그 `behavior.impact`(마지막 새 접촉의 시각·바디·속력·이완 여부), 행동 info(impactT·body·speed·depth·mul). 필름 "충격 후 이완 0.4"(팔다리 배율, 행동 목록 맨 앞).
+- **대비 끝 → 누움 Lie** (레이어 6.05, 즉시): BraceForFall은 landBodies(Hips·Spine·Spine2·Head)가 닿거나, 누움 조건(멈춤 0.3초, 또는 첫 접촉 0.5초 뒤 — 손으로 짚고 있으면 시간 조건은 안 씀)이 되면 끝나고(목표·강도를 더 내지 않음) 블렌더가 Lie를 켠다. Lie = 시작 때 실제 관절 자세 → 누운 자세(lie) 0.6초, 강도는 직전 행동 강도 배율(lastStrength) → 누운 자세 강도 0.3초(몸통이 안 닿은 채 넘겨받으면 0.9초), 목은 0.6초 유지 뒤. 균형·스텝 끔. 몸부림·공중·굴러 내려감·잡기가 켜지면 끔. Lie가 있으면 새 대비를 켜지 않는다.
+- **BraceForFall 뒤로 넘어짐 팔** (backward): 대비 시작 0.15초 뒤 + 예측 착지 0.25초 전(또는 발 아닌 접촉)부터 두 팔을 넘어지는 방향에서 그 팔 쪽으로 50°, 아래로 30° 뻗음(앞·옆과 같은 IK·속도 제한·착지 뒤 고정). **공중 다리** (air): 두 발이 다 떨어지면 다리 대비 자세 가중치 0.35·강도 0.25로 0.08초에.
+- **ProtectHead 반쯤 감싸기**: 팔 목표 가중치 0.55·팔 강도 0.6. 팔 놓기 = 몸통 착지 또는 (뒤) 시작 0.15초 뒤 + 예측 착지 0.25초 전, 0.12초에. 턱 당기기는 몸통 착지 뒤 0.35초 유지, 0.3초에 풀며 스스로 끝(예전: 대비 누움 단계에 블렌더가 끔).
+- **지표 postImpactRigidTime** (※): 첫 몸통·머리 접촉 뒤 3초(일어서기 전까지) 동안 관절 상대 각속도 평균 < 30°/s이고 관절 강도 평균 ≥ 0.4인 시간 합. 사람 기준 ≤ 0.2초. postImpactStrengthMin(그 뒤 0.5초 강도 평균 최소), trunkContactT.
+
 # v0.6 애니 통합 (README 결정 107~118, 값은 `config/animDriver.json`)
 
 ## 클립 재생 (`animDriver.ts`)
@@ -676,3 +685,29 @@ interPenetrationMax(다른 캐릭터 바디와의 관통 깊이 최대, m — �
 ## 지표·도구
 - 요약(충격 시나리오만): `trunkTiltMaxAfterHit`(첫 충격 뒤 3초 Spine2 기울기 최대), `staggerSteps`(첫 충격 뒤 걸음), `armMomShareMean/Max`, `reactionClipUsed`, 레퍼런스가 있으면 `refJointRmsDeg`(DTW 경로를 따라 바디별 부모 기준 상대 회전 차이 RMS).
 - `tools/armMetrics.ts`(sim 로그·Kimodo 클립 공통): 팔 들림(위팔–Spine2 아래축 각) 평균·p90, 40° 넘는 비율(전체, 충격 1초 뒤부터 lateOut), 팔꿈치, 팔 사용(°/s), 몸통 최대. `tools/armEval.ts`: 시나리오 × 근처 입력(세기 ±5%·방향 ±5°) 병렬 평가·사람 분포(`--human`). `tools/shiftVariance.ts`: 충격 시각 ±K 스텝 이동 결과 흩어짐.
+
+# 진정 단계 (2026-10-27, README 결정 settle-1~6, 값은 `config/settle.json`)
+
+코드: `src/sim/character/settle.ts`(SettleController·SettleRef), 연결 `api.ts _preStep`(반응 스타일 앞뒤), 추종기 쪽 `balance.ts`(settleRef 힌트), 경계 `tracker.ts ReferenceFrame.settle`. 도구 `tools/settleTrace.ts`, `tools/settleCompare.ts`, `tools/armEval.ts --json`(정착 시간·lateBy), `tools/film.ts --compare log:<폴더>`.
+
+## 판단 (레퍼런스 생성 쪽, 매 스텝, 반응 스타일 적용 전)
+- 입력: 이번 스텝 충격(피격·밀기·접촉 피격), 직전 스텝 균형 계층의 감지 DCM 여유(`balance.cpMargin`), 직전 넘어짐 확실도, COM 수평 속도, 스텝 계층 상태(반응 걸음 = lift 또는 step 중 closing이 아닌 것).
+- 자격: 마지막 충격 뒤 minAfterHit ~ armedFor초, Active, 균형 켬, 걷기 추종 아님, 일어서기 monitor, 반응 클립 blockBehaviors(넘어짐·바닥 행동 …) 없음. 충격이 없던 장면은 그대로(로그 동일).
+- 들어가기: 자격 + 여유 ≥ enter.margin + 확실도 < enter.fall + 속도 < enter.speed + 반응 걸음 아님이 enter.time초 이어지면 진입(진입 시각 기록). 나오기: 자격 없음·반응 걸음·여유 < exit.margin·확실도 > exit.fall·속도 > exit.speed·새 충격 중 하나면 바로.
+- 진정 정도 = smoothstep(u), 진입 중 u += dt/rise, 나오면 u −= dt/release. 척추 진행은 spineRise초.
+- 진정 1이 endStyleHold초 이어지면 반응 상체 스타일의 나오기를 시작(blendOut).
+
+## 레퍼런스
+- 팔 관절(armJoints) 목표 = slerp(스타일·행동 앞 목표, 서기(Idle) 자세 목표, 진정 정도), 척추·머리(spineJoints) = slerp(…, 서기, smoothstep(척추 진행)). 행동 계층(상처 움켜쥐기 손 IK·웅크림 등)은 그 위에서 그대로 돈다.
+
+## 추종기 힌트 (SettleRef, 진정 정도 ℓ로 선형)
+- 팔 반사 목표 × (1 + ℓ(reflexScale − 1)), 스텝 팔 벌림·쥐지 않는 팔 벌림 × (1 + ℓ(abductScale − 1)).
+- 팔 관절(손 과제가 걸린 팔 제외) 자세 과제 가중치 w ← w + ℓ(armWeight − w)(클 때만), 감쇠 kd ← kd + ℓ(armKd − kd).
+- 팔 각운동량 비용 가중치 × (1 + ℓ(armMomScale − 1)).
+- 다리·COM·몸통 과제는 그대로 → 남은 흔들림은 발목(CoP)·고관절(몸통)이 받는다. 핀·보조 0.
+
+## 로그·시각화
+`balance.settle` = {level, phase(wait/enter/settled/release), since, margin, reason("<이유> <시각>")}. 필름·앱 균형 줄 끝 "진정 0.8", 나온 뒤 0.5초 "진정 풀림(걸음|충격|여유|속도|넘어짐|행동)".
+
+## 결과 (근처 입력 216짝, 결정 settle-2)
+넘어짐 23 → 22(p = 1.0), 팔 사용 110 → 98°/s, lateOut 0.159 → 0.124, 정착 시간 2.40 → 2.20초, 팔 들림 p90 53.6 → 52.7°, 몸통 최대 변화 없음. 남은 늦은 팔 들림은 대부분 걸음 중·진정 전(DCM 가장자리) — 결정 settle-4.

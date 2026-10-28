@@ -33,7 +33,18 @@ export function balanceText(state: CharacterStateLite): string {
   if (!b) return '';
   if (!b.enabled) return STRATEGY_LABEL.off!;
   const w = b.hipWeight > 0.05 && b.hipWeight < 0.95 ? ` ${b.hipWeight.toFixed(1)}` : '';
-  return `${STRATEGY_LABEL[b.strategy] ?? b.strategy}${w} · 여유 ${(b.margin * 100).toFixed(1)}cm`;
+  return `${STRATEGY_LABEL[b.strategy] ?? b.strategy}${w} · 여유 ${(b.margin * 100).toFixed(1)}cm${settleText(state) ? ` · ${settleText(state)}` : ''}`;
+}
+
+/** 진정 단계 텍스트 (README 결정 settle-1): "진정 0.8" / "진정 풀림(걸음)". 충격 뒤 진정 판단 중이 아니면 '' */
+const SETTLE_WHY_KO: Record<string, string> = { hit: '충격', step: '걸음', fall: '넘어짐', speed: '속도', margin: '여유', ineligible: '행동' };
+export function settleText(state: CharacterStateLite): string {
+  const s = state.balance?.settle;
+  if (!s) return '';
+  // 나온 직후 0.5초는 이유를 보인다 (reason = "<이유> <시각>")
+  const [why, at] = s.reason.split(' ');
+  if (s.since === null && why && state.time - Number(at) < 0.5) return `진정 풀림(${SETTLE_WHY_KO[why] ?? why})`;
+  return s.level > 0 ? `진정 ${s.level.toFixed(1)}` : '';
 }
 
 const FOOT_KO: Record<string, string> = { LeftFoot: '왼발', RightFoot: '오른발' };
@@ -125,15 +136,23 @@ export const POSTURE_LABEL: Record<string, string> = {
 /** 활성 행동 텍스트 (한글 이름, v0.5a): 가중치 큰 순 최대 3개, "상처 움켜쥐기 1.0 · 피격 반응 0.6". 한글 이름이 없으면 코드 이름 */
 export function activeBehaviorText(state: CharacterStateLite): string {
   const src = state.behavior?.active ?? state.behaviors ?? [];
-  const list = src.filter((b) => b.weight > 0.01).sort((a, b) => b.weight - a.weight).slice(0, 3);
+  // (relax-1) 충격 후 이완은 늘 앞에 (가중치가 늘 1이라 다른 1.0 행동에 밀려 안 보였다)
+  const pri = (b: { name: string }) => (b.name === 'ImpactRelax' ? 1 : 0);
+  const list = src.filter((b) => b.weight > 0.01).sort((a, b) => pri(b) - pri(a) || b.weight - a.weight).slice(0, 3);
   if (!list.length) return '';
-  return list.map((b) => `${('ko' in b && b.ko) || b.name} ${b.weight.toFixed(1)}`).join(' · ');
+  // (relax-1) 충격 후 이완은 가중치 대신 지금 팔다리 강도 배율("충격 후 이완 0.4", phase에 담김)
+  return list.map((b) => `${('ko' in b && b.ko) || b.name} ${b.name === 'ImpactRelax' && 'phase' in b && b.phase ? b.phase : b.weight.toFixed(1)}`).join(' · ');
 }
 
-/** 손-상처 거리 텍스트 (v0.5a): "손-상처 3.2cm" */
+const HOLD_MODE_KO: Record<string, string> = { gesture: '뻗었다 거두기', kneelWait: '꿇은 뒤 쥐기 대기', look: '내려다보기' };
+/** 손-상처 거리 텍스트 (v0.5a): "손-상처 3.2cm". (결정 leg-2) 다리 상처를 쥐지 않으면 판단과 필요·허용 숙임: "내려다보기 (숙임 90+°>45°)" (이유 문장은 로그 info.reach.why) */
 export function clutchText(state: CharacterStateLite): string {
+  const hw = (state.behavior?.active ?? []).find((b) => b.name === 'HoldWound' && b.weight > 0.05);
+  const info = hw?.info as { mode?: string; reach?: { needDeg: number; allowDeg: number; why: string } } | null | undefined;
+  const mode = info?.mode && HOLD_MODE_KO[info.mode] ? `${HOLD_MODE_KO[info.mode]}${info.reach ? ` (숙임 ${info.reach.needDeg > 90 ? '90+' : info.reach.needDeg.toFixed(0)}°>${info.reach.allowDeg.toFixed(0)}°)` : ''}` : '';
   const h = (state.behavior?.hands ?? []).find((x) => x.woundDist !== null && x.weight > 0.05);
-  return h && h.woundDist !== null ? `${h.hand === 'LeftHand' ? '왼손' : '오른손'}-상처 ${(h.woundDist * 100).toFixed(1)}cm` : '';
+  const dist = h && h.woundDist !== null ? `${h.hand === 'LeftHand' ? '왼손' : '오른손'}-상처 ${(h.woundDist * 100).toFixed(1)}cm` : '';
+  return [mode, dist].filter(Boolean).join(' · ');
 }
 
 const FALL_KIND_KO: Record<string, string> = { forward: '앞', backward: '뒤', left: '왼쪽', right: '오른쪽' };

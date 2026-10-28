@@ -14,8 +14,8 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)
 ![Rapier](https://img.shields.io/badge/Rapier-0.21-e0662b)
 ![three.js](https://img.shields.io/badge/three.js-r186-000?logo=threedotjs)
-![Scenarios](https://img.shields.io/badge/시나리오-76%2F79_통과-2ea043)
-![Tests](https://img.shields.io/badge/테스트-167_통과-2ea043)
+![Scenarios](https://img.shields.io/badge/시나리오-78%2F82_통과-2ea043)
+![Tests](https://img.shields.io/badge/테스트-168_통과-2ea043)
 ![Deterministic](https://img.shields.io/badge/결정론-바이트_동일-8957e5)
 
 <br>
@@ -129,7 +129,7 @@ flowchart TB
 
 **정직한 보조 힘.** 몸을 허공에서 잡아 주는 숨은 힘은 없다. 필요한 보조(루트 · 핀 · 겟업)는 명시적으로 켜고 끄며, 사용량을 매 프레임 기록한다. 피격 반응 중 핀 보조는 0이다.
 
-**결정론.** 같은 시드면 Node에서 바이트 단위로 같은 결과가 나온다. 79개 시나리오가 회귀 테스트로 이를 지킨다.
+**결정론.** 같은 시드면 Node에서 바이트 단위로 같은 결과가 나온다. 82개 시나리오가 회귀 테스트로 이를 지킨다.
 
 <br>
 
@@ -155,9 +155,9 @@ flowchart TB
 - [x] **v0.5** 피격 · 넘어짐 · 공중 · 바닥 행동
 - [x] **v0.6 – v0.7** Kimodo 걷기 추종 · 일어서기
 - [x] **v0.8** 지형 · 잡기 · 벽 · 캐릭터 간 충돌 · 프롭
-- [ ] **v0.9** 자동 튜닝 · 체형 다양화 · 퍼징 1만 회 · API 확정 *(진행 중)*
-- [ ] **v1.0** 성능 · LOD · 시뮬레이션 굽기(glTF / BVH) · 앱 완성
-- [ ] **이후** 학습형 추종기 — 모션 레퍼런스를 강화학습으로 따라가 더 사람답게
+- [ ] **v0.9** 자동 튜닝 · 퍼징 1만 회 · API 확정 *(진행 중)*
+- [ ] **v1.0** 앱 완성 · 실시간 성능 · 최종 검토
+- [ ] **언젠가** 학습형 추종기 — 모션 레퍼런스를 강화학습으로 따라가 더 사람답게 (보류)
 
 <br>
 

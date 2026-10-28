@@ -20,6 +20,7 @@
     "ref:compare": "tsx tools/kimodo/refSimilarity.ts",
     "kimodo:pushStudy": "tsx tools/kimodo/pushStudy.ts",
     "bench": "tsx tools/bench.ts",
+    "fuzz": "tsx tools/fuzz.ts",
     "getup:build": "tsx tools/kimodo/buildGetupLibrary.ts"
   },
   "dependencies": {

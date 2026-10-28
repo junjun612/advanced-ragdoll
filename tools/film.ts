@@ -139,7 +139,12 @@ async function main(): Promise<void> {
 
   // --compare: 레퍼런스 클립을 우리 랙돌로 FK → 밀림 시작(수평 COM 가속도 피크)을 sim 충격 시각에 맞추고, 그 순간 COM 수평 위치를 맞춘다
   let cmp: FilmInput['compare'] | null = null;
-  if (args.compare === 'anim') {
+  if (args.compare?.startsWith('log:')) {
+    // (README 결정 settle-3) 다른 sim 로그(고치기 전 등)를 같은 시각 칸에 고스트로: --compare log:<폴더>[=라벨]
+    const [ld, lb] = args.compare.slice(4).split('=');
+    const st = readFileSync(join(resolve(root, ld!), 'log.jsonl'), 'utf8').split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l) as CharacterStateLite);
+    cmp = { name: ld!, label: `회색 = ${lb ?? ld}`, frames: frames.map((f) => near(st, f.time)) };
+  } else if (args.compare === 'anim') {
     // (v0.6) 애니 클립 기준 자세(로그 anim.bodies, 앵커 적용)를 고스트로 — 클립 추종 비교
     const clip = frames.find((f) => f.anim)?.anim?.clip ?? '?';
     cmp = { name: clip, label: `회색 = Kimodo 클립 기준 (${clip}, 앵커 = 디딘 발)`, frames: frames.map((f) => (f.anim ? { ...f, bodies: f.anim.bodies } : null)) };

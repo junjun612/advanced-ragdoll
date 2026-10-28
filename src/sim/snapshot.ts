@@ -38,6 +38,7 @@ import { PinAssist } from './character/pin';
 import { PoseClip } from './character/pose';
 import { Ragdoll } from './character/ragdoll';
 import { ReactionController, ReactionLibrary } from './character/reaction';
+import { SettleController } from './character/settle';
 import { PoweredStates } from './character/states';
 import { Stepping } from './character/stepping';
 import { WalkController } from './character/walk';
@@ -114,7 +115,7 @@ const classList = (): Record<string, { prototype: unknown }> => ({
   BlastStun, Flail, PrepareLanding, Roll, Kneel, Limp, BraceForFall, CatchFall, ProtectHead, BraceAgainstWall, Grab, GrabJoint, HangOnLedge,
   HitReaction, HoldWound, SmoothNoise, InjuredLeg, LookAt, Stagger, Misstep, StairStep, Trip, Tumble, Writhe,
   GetupAssist, GetupController, GetupLibrary, RootBlend, GetupQP, Muscles, DelayLine, PinAssist, PoseClip, Ragdoll,
-  ReactionController, ReactionLibrary, PoweredStates, Stepping, WalkController, WholeBody,
+  ReactionController, ReactionLibrary, SettleController, PoweredStates, Stepping, WalkController, WholeBody,
   FrameLogger, AnimMetrics, BehaviorMetrics, GetupMetrics, MuscleMetrics, QualityMetrics, ReactionMetrics, SummaryBuilder,
 });
 /** Rapier 데이터 클래스 (wasm 객체를 갖지 않는 순수 JS 값): 일반 객체처럼 저장한다 */

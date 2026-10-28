@@ -21,6 +21,7 @@ import { BraceForFall, CatchFall, FallMonitor, ProtectHead, type FallConfig, typ
 import { Kneel, Limp } from './collapse';
 import { AirMonitor, BlastStun, Flail, PrepareLanding, Roll, type AirConfig, type AirSignal } from './air';
 import { Writhe } from './writhe';
+import { ImpactRelax, Lie } from './relax';
 import { Misstep, StairStep, Trip, Tumble, descendingAhead, type TumbleParams } from './terrain';
 import { BraceAgainstWall, Grab, HangOnLedge } from './grab';
 import { DelayLine, senseGrab, senseWall, type GrabSense, type GrabSenseConfig, type WallSense } from '../perception';
@@ -50,6 +51,11 @@ export interface BehaviorsConfig {
   Roll: Record<string, unknown>;
   Writhe: Record<string, unknown>;
   BlastStun: Record<string, unknown>;
+  /** (relax-1) 충격 후 이완: 행동 값과 시작 조건 (몸통·머리 바디가 새로 닿을 때 그 바디의 하강 속도 ≥ ImpactRelax.minSpeed) */
+  ImpactRelax: Record<string, unknown>;
+  relaxStart: { enabled: boolean; bodies: string[]; retriggerGap: number };
+  /** (relax-3) 넘어짐 대비가 몸통으로 착지한 뒤 누움 */
+  Lie: Record<string, unknown>;
   /** 몸부림 시작: 누운 채(발·손·정강이 아닌 바디가 지면에 닿고 COM 높이 < maxComHeight) delay초, COM 속도 < maxSpeed */
   writheStart: { delay: number; maxComHeight: number; maxSpeed: number };
   /** 누운 자세 (착지·구르기 뒤, 몸부림 출발점) */
@@ -129,6 +135,8 @@ export interface BehaviorLogState {
   air: AirSignal | null;
   /** (v0.8b) 잡기·벽 (잡을 곳·벽이 있는 지형에서만) */
   grab?: GrabLog;
+  /** (relax-1) 마지막 몸통·머리 새 접촉: 시각·바디·충돌 |Δv|(m/s)·이완을 걸었는가 (한 번이라도 닿은 뒤에만) */
+  impact?: { t: number; body: string; dv: number; relaxed: boolean };
 }
 
 export const emptyBehaviorLog = (): BehaviorLogState => ({ active: [], layers: {}, strengthMul: {}, wounds: [], hands: [], gaze: null, comDrop: 0, tiltAllowDeg: 0, trunkGainScale: 1, balanceMode: 'on', fall: null, damage: { lowerCap: 1 }, air: null });
@@ -178,7 +186,7 @@ export class BehaviorBlender {
   private make(name: string, params: Record<string, unknown>, t0: number, hitT: number): Behavior {
     const base = (this.cfg as unknown as Record<string, Record<string, unknown>>)[name];
     if (!base || !(name in this.cfg.layers)) throw new Error(`unknown behavior '${name}' (known: ${Object.keys(this.cfg.layers).filter((n) => n !== 'Balance').join(', ')}, LiftFoot)`);
-    const p = { ...base, ...(name === 'PrepareLanding' || name === 'Roll' || name === 'Writhe' || name === 'Tumble' ? { lie: this.cfg.lie } : {}), ...params };
+    const p = { ...base, ...(name === 'PrepareLanding' || name === 'Roll' || name === 'Writhe' || name === 'Tumble' || name === 'Lie' ? { lie: this.cfg.lie } : {}), ...params };
     const b = name === 'HitReaction' ? new HitReaction(p, t0, hitT)
       : name === 'HoldWound' ? new HoldWound(p, t0, hitT)
         : name === 'InjuredLeg' ? new InjuredLeg(p, t0, hitT)
@@ -200,6 +208,8 @@ export class BehaviorBlender {
                               : name === 'Grab' ? new Grab(p, t0, hitT)
                               : name === 'HangOnLedge' ? new HangOnLedge(p, t0, hitT)
                               : name === 'BraceAgainstWall' ? new BraceAgainstWall(p, t0, hitT)
+                              : name === 'ImpactRelax' ? new ImpactRelax(p, t0, hitT)
+                              : name === 'Lie' ? new Lie(p, t0, hitT)
                               : new LookAt(p, t0, hitT);
     this.list.push(b);
     this.order.set(b, this.seq++);
@@ -289,7 +299,7 @@ export class BehaviorBlender {
     this.autoStartWrithe(ctx, t);
     // (v0.8b) 잡기·벽 짚기 (잡을 곳·벽이 있는 지형): 잡는 중·벽을 짚는 중에는 넘어짐 대비를 하지 않는다
     this.autoStartGrab(ctx, t);
-    const airBusy = this.has('Tumble') || this.grabBusy || this.list.some((b) => ((b instanceof Flail || b instanceof Writhe || b instanceof Misstep) && b.stopT === null) || ((b instanceof PrepareLanding || b instanceof Roll) && b.blocksFall));
+    const airBusy = this.has('Tumble') || this.has('Lie') || this.grabBusy || this.list.some((b) => ((b instanceof Flail || b instanceof Writhe || b instanceof Misstep) && b.stopT === null) || ((b instanceof PrepareLanding || b instanceof Roll) && b.blocksFall));
     const f = ctx.fall;
     if (f && !airBusy && f.certainty >= (t < this.braceGuard.until ? this.braceGuard.threshold : this.cfg.fall.threshold) && !this.has('BraceForFall')) {
       this.make('BraceForFall', {}, t + delay, t);
@@ -300,9 +310,55 @@ export class BehaviorBlender {
       }
     }
     const brace = this.list.find((b): b is BraceForFall => b instanceof BraceForFall && b.stopT === null);
-    if (brace && !brace.resting && !this.list.some((b) => b instanceof CatchFall) && (ctx.per.ground.has('LeftHand') || ctx.per.ground.has('RightHand'))) this.make('CatchFall', {}, t, t);
-    // 누움: 머리 보호·손 짚기를 푼다
-    if (brace?.resting) for (const b of this.list) if ((b instanceof ProtectHead || b instanceof CatchFall) && b.stopT === null) b.stop(t);
+    if (brace && !brace.ended && !this.list.some((b) => b instanceof CatchFall) && (ctx.per.ground.has('LeftHand') || ctx.per.ground.has('RightHand'))) this.make('CatchFall', {}, t, t);
+    // (relax-3) 몸통으로 착지했거나 누움 조건: 대비를 끝내고 누움(Lie)으로 넘긴다. 머리 보호는 스스로 팔을 놓고 턱 당기기를 잠깐 더 유지하다 끝난다,
+    // 손 짚기는 그 팔 힘을 빼며 이어진다 (몸부림이 시작되면 끈다)
+    if (brace?.ended) {
+      brace.stop(t);
+      if (!this.has('Lie') && !this.has('Writhe')) this.make('Lie', { supported: brace.trunkT === null }, t, t);
+    }
+    // (relax-1) 충격 후 이완
+    this.autoStartRelax(ctx, t);
+  }
+
+  /** (relax-1) 직전 스텝에 지면에 닿아 있던 바디 (새 접촉 판정) */
+  private prevGround = new Set<string>();
+  private prevVel: Record<string, Vec3> = {};
+  private lastImpact: { t: number; body: string; dv: number; relaxed: boolean } | null = null;
+  /**
+   * (relax-1) 충격 후 이완 자동 시작: relaxStart.bodies(몸통·엉덩이·머리) 중 하나가 새로 지면에 닿고 그 바디의 하강 속도가 ImpactRelax.minSpeed 이상이면
+   * ImpactRelax(즉시, 수동 반응). 이미 있으면 retriggerGap초 뒤의 새 충돌로 다시 떨어뜨린다. 일부러 웅크려 구르는 중(Roll·Tumble, 풀기 전)·
+   * 잡고 매달린 중·늘어짐(이미 힘이 없음)은 제외
+   */
+  private autoStartRelax(ctx: Omit<BehaviorContext, 'base' | 'wounds' | 'busyHands' | 'rng'>, t: number): void {
+    const rs = this.cfg.relaxStart;
+    if (!rs?.enabled) return;
+    const now = new Set<string>(ctx.per.ground);
+    const prev = this.prevGround;
+    this.prevGround = now;
+    // 충돌 세기 = 새로 닿는 순간 그 바디 속력 (m/s)
+    const vel: Record<string, Vec3> = {};
+    for (const b of rs.bodies) vel[b] = bodyPose(ctx.rd, b as BodyName).vel;
+    const pv = this.prevVel;
+    this.prevVel = vel;
+    if (this.has('Limp') || this.tumbling || this.holding.length || this.has('HangOnLedge')) return;
+    if (this.list.some((b) => b instanceof Roll && b.stopT === null && !b.resting)) return;
+    const minSpeed = (this.cfg.ImpactRelax as { minSpeed: number }).minSpeed;
+    let best: { body: string; speed: number } | null = null;
+    let probe: { body: string; speed: number } | null = null;
+    for (const b of rs.bodies) {
+      if (!now.has(b) || prev.has(b) || !pv[b]) continue;
+      // 닿는 순간 그 바디 속력 (직전·지금 스텝 중 큰 쪽): 접촉은 거리 여유(groundContactDist) 안에서 먼저 잡혀 충돌 전 속도가 남아 있을 수도, 이미 막혔을 수도 있다.
+      // 법선 성분만 보면 손·다리로 받아 낸 뒤 엉덩이가 미끄러지며 닿는 넘어짐(0.4 m/s)과 누운 채 뒤척임을 구별하지 못했다 — 넘어지는 몸은 닿을 때 1 m/s 넘게 움직인다
+      const sp = Math.max(length(pv[b]!), length(vel[b]!));
+      if (!probe || sp > probe.speed) probe = { body: b, speed: sp };
+      if (sp >= minSpeed && (!best || sp > best.speed)) best = { body: b, speed: sp };
+    }
+    if (probe) this.lastImpact = { t, body: probe.body, dv: probe.speed, relaxed: !!best };
+    if (!best) return;
+    const cur = this.list.find((b): b is ImpactRelax => b instanceof ImpactRelax && b.stopT === null);
+    if (cur) { if (t - cur.impactT >= rs.retriggerGap) cur.retrigger(t, best.body, best.speed); return; }
+    this.make('ImpactRelax', { body: best.body, speed: best.speed }, t, t);
   }
 
   /**
@@ -322,10 +378,10 @@ export class BehaviorBlender {
       if (!this.flailedThisFlight && ttg >= c.flailMinTime) {
         this.flailedThisFlight = true;
         this.make('Flail', {}, t + delay, t);
-        for (const b of this.list) if ((b instanceof BraceForFall || b instanceof ProtectHead || b instanceof CatchFall || b instanceof Stagger) && b.stopT === null) b.stop(t);
+        for (const b of this.list) if ((b instanceof BraceForFall || b instanceof ProtectHead || b instanceof CatchFall || b instanceof Stagger || b instanceof Lie) && b.stopT === null) b.stop(t);
       }
       if (ttg <= c.prepareLead && !this.list.some((b) => b instanceof PrepareLanding && b.tdT === null && b.stopT === null)) {
-        for (const b of this.list) if ((b instanceof BraceForFall || b instanceof ProtectHead || b instanceof CatchFall || b instanceof PrepareLanding) && b.stopT === null) b.stop(t);
+        for (const b of this.list) if ((b instanceof BraceForFall || b instanceof ProtectHead || b instanceof CatchFall || b instanceof PrepareLanding || b instanceof Lie) && b.stopT === null) b.stop(t);
         this.make('PrepareLanding', {}, t + delay, t);
       }
       if (!a.upright && ttg <= c.rollLead && a.touchdownSpeedH >= c.rollSpeed && !this.has('Roll')) this.make('Roll', {}, t + delay, t);
@@ -379,7 +435,7 @@ export class BehaviorBlender {
     // 잡고 있으면: 넘어짐·공중 행동을 끄고, 모서리에 발이 떠 있으면 매달리기
     const hold = this.holding;
     if (hold.length) {
-      for (const b of this.list) if ((b instanceof BraceForFall || b instanceof ProtectHead || b instanceof CatchFall || b instanceof Flail || b instanceof PrepareLanding || b instanceof Roll || b instanceof Misstep) && b.stopT === null) b.stop(t);
+      for (const b of this.list) if ((b instanceof BraceForFall || b instanceof ProtectHead || b instanceof CatchFall || b instanceof Flail || b instanceof PrepareLanding || b instanceof Roll || b instanceof Misstep || b instanceof Lie) && b.stopT === null) b.stop(t);
       const feet = ctx.per.feet.LeftFoot.contact || ctx.per.feet.RightFoot.contact;
       if (hold.some((g) => g.kind === 'edge') && !feet && !this.has('HangOnLedge')) this.make('HangOnLedge', {}, t, t);
     }
@@ -427,7 +483,7 @@ export class BehaviorBlender {
     const { com } = ctx.rd.com();
     const low = com[1] - ctx.rd.pw.groundHeightAt(com[0], com[2]) < tp.maxComHeight; // 몸이 그 아래 지면 가까이 (모서리 너머로 떨어지는 중은 아님)
     if (body && low && Math.hypot(vel[0], vel[1], vel[2]) >= tp.startSpeed && descendingAhead(ctx, vel, tp.probe, tp.min)) {
-      for (const b of this.list) if ((b instanceof BraceForFall || b instanceof ProtectHead || b instanceof CatchFall || b instanceof Roll || b instanceof PrepareLanding || b instanceof Flail || b instanceof Stagger || b instanceof Trip || b instanceof Misstep) && b.stopT === null) b.stop(t);
+      for (const b of this.list) if ((b instanceof BraceForFall || b instanceof ProtectHead || b instanceof CatchFall || b instanceof Roll || b instanceof PrepareLanding || b instanceof Flail || b instanceof Stagger || b instanceof Trip || b instanceof Misstep || b instanceof Lie) && b.stopT === null) b.stop(t);
       this.make('Tumble', {}, t + this.cfg.reactionDelay, t);
     }
   }
@@ -442,9 +498,10 @@ export class BehaviorBlender {
     if (!lying) { this.lyingSince = null; return; }
     this.lyingSince ??= t;
     if (this.has('Writhe') || this.has('Limp') || this.tumbling || this.list.some((b) => b instanceof Roll && b.stopT === null && !b.resting)) return;
-    if (t - this.lyingSince >= ws.delay && length(vel) < ws.maxSpeed) {
+    // (relax-1) 충격 후 이완이 끝난 뒤에 몸부림 (힘이 빠진 몸이 아직 바닥에 자리 잡는 중에 몸부림 목표를 걸면 몸이 미끄러졌다)
+    if (t - this.lyingSince >= ws.delay && length(vel) < ws.maxSpeed && !this.has('ImpactRelax')) {
       // 누움 단계의 행동(대비·착지·구르기)은 끈다 — 강도가 곱해져 몸부림이 힘을 못 쓴다. 몸부림은 누운 자세에서 출발한다
-      for (const b of this.list) if ((b instanceof BraceForFall || b instanceof PrepareLanding || b instanceof Roll || b instanceof CatchFall || b instanceof ProtectHead || b instanceof Stagger || b instanceof Tumble) && b.stopT === null) b.stop(t);
+      for (const b of this.list) if ((b instanceof BraceForFall || b instanceof PrepareLanding || b instanceof Roll || b instanceof CatchFall || b instanceof ProtectHead || b instanceof Stagger || b instanceof Tumble || b instanceof Lie) && b.stopT === null) b.stop(t);
       this.make('Writhe', {}, t, t);
     }
   }
@@ -484,7 +541,7 @@ export class BehaviorBlender {
   handsInUse(): Set<HandName> {
     const s = new Set<HandName>();
     for (const b of this.list) {
-      if (b instanceof Grab || b instanceof HoldWound) { if (b.hand) s.add(b.hand); }
+      if (b instanceof Grab || (b instanceof HoldWound && b.usesHand)) { if (b.hand) s.add(b.hand); }
       else if (b instanceof BraceAgainstWall) for (const h of b.hands) s.add(h);
       else if (b instanceof HangOnLedge) for (const h of HANDS) s.add(h);
     }
@@ -540,7 +597,8 @@ export class BehaviorBlender {
     let minComHeight: number | null = null;
     const stepping: StepMods = {};
     const busy = new Set<HandName>();
-    for (const b of this.list) if (b instanceof HoldWound && b.hand && b.stopT === null) busy.add(b.hand);
+    // 꿇기를 기다리거나 내려다보기만 하는 HoldWound(결정 leg-2)는 손을 쓰지 않는다
+    for (const b of this.list) if (b instanceof HoldWound && b.hand && b.stopT === null && b.usesHand) busy.add(b.hand);
     const log = emptyBehaviorLog();
     let topGaze: { target: Vec3; weight: number } | null = null;
     for (const b of sorted) {
@@ -617,6 +675,7 @@ export class BehaviorBlender {
     log.fall = fall;
     log.air = air;
     log.damage = { lowerCap: this.lowerCap };
+    if (this.lastImpact) log.impact = this.lastImpact;
     this.lastTiltAllow = tiltAllow;
     this.lastStrength = strengthMul;
     // (v0.8b) 잡기·벽 로그 (잡을 곳·벽이 있는 지형에서만 — 이전 지형 로그는 그대로)

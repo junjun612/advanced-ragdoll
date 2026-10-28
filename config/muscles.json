@@ -23,6 +23,10 @@
     "LeftFoot": { "kpRatio": 0.2, "maxTorque": 220, "gravityComp": 1.0 },
     "RightFoot": { "kpRatio": 0.2, "maxTorque": 220, "gravityComp": 1.0 }
   },
+  "$targetInertialize": "(v0.9 퍼징, README 9f-2) 팔(어깨·팔꿈치·손목) 근육 목표 불연속 관성화: 원래 목표가 한 스텝에 jumpRate(rad/s)·dt보다 크게 바뀌면 튀기 전 출력과의 차이를 blendTime초 동안 5차 곡선으로 0까지 줄인다(겟업·클립 전환 관성화와 같은 방식). 연속으로 움직이는 목표는 그대로 따른다. 행동·IK 목표가 한 스텝에 100~330° 튀면(손목·어깨 비틀기 제한 자르기가 ±쪽을 오감, IK 해 뒤집힘, 행동 전환) 가벼운 손·팔이 근육 PD에 끌려 50 rad/s 넘게 돌아 폭발 판정이 났다. jumpRate 60: 기존 시나리오의 빠른 뻗기(prop_hit 머리로 손 가져가기)가 최대 49 rad/s로 연속, 튐은 99~330 rad/s(한 스텝). 속도 상한 30 rad/s(slerp)로 막으면 빠른 뻗기가 늦어졌다(prop_hit clutchReachTime 0.96 → 1.23초). 다리는 스텝 계층이 디딤 순간 목표를 크게 바꾸므로 넣지 않는다",
+  "targetInertialize": { "jumpRate": 60, "blendTime": 0.25, "joints": ["LeftArm", "RightArm", "LeftForeArm", "RightForeArm", "LeftHand", "RightHand"] },
+  "$forceVelocity": "(v0.9 퍼징, README 9f-4) 근육 힘-속도 관계(Hill, 단축성 수축): 관절 상대 각속도가 [knee, zero] rad/s 사이면 모터가 그 운동 방향으로 미는 축의 힘 상한을 1 → 0으로 선형으로 줄인다(제동·신장성은 그대로). 기존 시나리오 팔 관절 속도 p99.9 = 15~20 rad/s라 knee 15 아래 평소 동작은 바뀌지 않는다. 어깨 zero 25: 팔을 편 채 25 rad/s면 손이 약 15 m/s (폭발 판정 손 선속도 20 m/s 아래). 사람 비투척 팔 최대 각속도 약 15~25 rad/s",
+  "forceVelocity": { "joints": { "LeftArm": [15, 25], "RightArm": [15, 25], "LeftForeArm": [15, 30], "RightForeArm": [15, 30], "LeftHand": [15, 30], "RightHand": [15, 30] } },
   "$activationTime": "strength 1차 저역 통과 시정수(초). SPEC 기본 30 ms.",
   "activationTime": 0.03,
   "$passiveTorqueCap": "모터 maxForce = s·maxTorque + 수동 마찰(config/ragdoll.json jointDamping) × passiveVelCap. s = 0이어도 수동 마찰이 남게 한다(rad/s).",

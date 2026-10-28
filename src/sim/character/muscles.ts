@@ -10,7 +10,7 @@ import type { CharacterDef } from './characterDef';
 import type { JointName, JointTargets } from './pose';
 import type { BalanceCommand } from './balance';
 import { type Vec3, add, cross, length, scale, sub } from '../math/vec3';
-import { type Quat, conjugate, identityQ, multiplyQ, rotate, angleBetweenQ } from '../math/quat';
+import { type Quat, conjugate, identityQ, multiplyQ, rotate, angleBetweenQ, normalizeQ, toRotationVector, fromRotationVector } from '../math/quat';
 
 export interface MuscleJointConfig {
   kpRatio: number;
@@ -28,6 +28,12 @@ export interface MuscleConfig {
   passiveVelCap: number;
   regions: Record<string, JointName[]>;
   fatigue: { enabled: boolean; drainPerSecAtMax: number; recoverPerSec: number; minCap: number };
+  /** (v0.9 퍼징, README 9f-2) 근육 목표 불연속 관성화: 한 스텝 변화가 jumpRate(rad/s)·dt를 넘으면 blendTime초에 이어 준다. 없으면 끔 */
+  targetInertialize?: { jumpRate: number; blendTime: number; joints: JointName[] };
+  /** (v0.9 퍼징, README 9f-4) 힘-속도 관계: 관절별 [knee, zero] rad/s (관절 상대 각속도). 없는 관절은 끔 */
+  forceVelocity?: { joints: Partial<Record<JointName, [number, number]>> };
+  /** (v0.9, README 9f-3) 모터 목표 좌표를 지금 관절 회전에 가까운 사원수 부호로 (false면 v0.8까지처럼 w ≥ 0) */
+  coordsNearCurrent?: boolean;
 }
 
 /** 관절별 근육 출력 (로그 joints[]) */
@@ -62,6 +68,18 @@ export function quatToCoords(r: Readonly<Quat>): Vec3 {
   const q = r[3] < 0 ? [-r[0], -r[1], -r[2]] : [r[0], r[1], r[2]];
   const a = (s: number) => 2 * Math.asin(Math.max(-1, Math.min(1, s)));
   return [a(q[0]!), a(q[1]!), a(q[2]!)];
+}
+
+/**
+ * (v0.9) 관절 좌표계 사원수 → Rapier 관절 좌표, 부호는 ref(지금 관절 회전, w ≥ 0으로 본 것)에 가까운 쪽.
+ * ref와 180° 안이면 좌표가 연속이다. 둘 다 w ≥ 0이고 가까우면 quatToCoords와 같다
+ */
+export function coordsNear(r: Readonly<Quat>, ref: Readonly<Quat>): Vec3 {
+  const sr = ref[3] < 0 ? -1 : 1;
+  const d = sr * (r[0] * ref[0] + r[1] * ref[1] + r[2] * ref[2] + r[3] * ref[3]);
+  const sg = d < 0 ? -1 : 1;
+  const a = (x: number) => 2 * Math.asin(Math.max(-1, Math.min(1, sg * x)));
+  return [a(r[0]), a(r[1]), a(r[2])];
 }
 
 /** rest 자세에서 관절점 기준 서브트리 관성의 trace/3 (kg·m²). trace는 회전에 불변이라 바디 주관성 합 + 평행축 항 2m|r|²로 구한다. */
@@ -103,6 +121,8 @@ interface MJ {
   /** 저역 통과한 strength */
   s: number;
   out: MuscleJointOut;
+  /** (v0.9) 목표 불연속 관성화 상태: 직전 원래 목표·출력, 오프셋(회전 벡터)과 시작 시각, 직전 시각. 근육이 꺼지면 비운다 */
+  inert: { raw: Quat; out: Quat; off: Vec3 | null; t0: number; t: number } | null;
 }
 
 const AXES = [R.JointAxis.AngX, R.JointAxis.AngY, R.JointAxis.AngZ];
@@ -113,6 +133,37 @@ export class Muscles {
   private motorsOn = false;
   /** 직전 스텝 Σ|τ|² (energy 지표용, N²·m²) */
   torqueSq = 0;
+  /** (v0.9) 목표 불연속 관성화를 거는 관절 */
+  private get inertJoints(): ReadonlySet<string> {
+    if (this.inertCache?.cfg !== this.cfg) this.inertCache = { cfg: this.cfg, set: new Set(this.cfg.targetInertialize?.joints ?? []) };
+    return this.inertCache.set;
+  }
+  private inertCache: { cfg: MuscleConfig; set: Set<string> } | null = null;
+
+  /** (v0.9, README 9f-2) 목표 불연속 관성화: 출력 = 목표 ⊗ exp(오프셋 × 5차 감쇠). 근육이 꺼져 있으면(on false) 상태를 비운다 */
+  private inertialize(m: MJ, jt: Quat, t: number, on: boolean): Quat {
+    const c = this.cfg.targetInertialize!;
+    if (!on) { m.inert = null; return jt; }
+    const st = m.inert;
+    if (!st) { m.inert = { raw: jt, out: jt, off: null, t0: t, t }; return jt; }
+    const dtRaw = Math.max(1e-6, t - st.t);
+    if (angleBetweenQ(st.raw, jt) > c.jumpRate * dtRaw) {
+      // 튐: 지금 출력에서 새 목표까지의 차이를 오프셋으로 (목표 쪽 로컬 회전 벡터)
+      st.off = toRotationVector(multiplyQ(conjugate(jt), st.out));
+      st.t0 = t;
+    }
+    let out = jt;
+    if (st.off) {
+      const tau = (t - st.t0) / c.blendTime;
+      if (tau >= 1) st.off = null;
+      else {
+        const h = 1 - tau * tau * tau * (10 - 15 * tau + 6 * tau * tau);
+        out = normalizeQ(multiplyQ(jt, fromRotationVector(scale(st.off, h))));
+      }
+    }
+    st.raw = jt; st.out = out; st.t = t;
+    return out;
+  }
 
   constructor(
     readonly rd: Ragdoll,
@@ -143,6 +194,7 @@ export class Muscles {
         capMul: 1,
         s: active ? 1 : 0,
         out: { errorDeg: 0, torque: 0, saturated: false, strength: active ? 1 : 0, targetCoords: [0, 0, 0] },
+        inert: null,
       };
       this.joints.push(mj);
       this.byName.set(j.name, mj);
@@ -252,14 +304,22 @@ export class Muscles {
       const qpR = pb.rotation(), qcR = cb.rotation();
       const qp: Quat = [qpR.x, qpR.y, qpR.z, qpR.w], qc: Quat = [qcR.x, qcR.y, qcR.z, qcR.w];
       // 목표 (Rapier 관절 좌표)
-      const rTgt = multiplyQ(m.conv, targets?.[m.name] ?? identityQ());
-      let tc = quatToCoords(rTgt);
+      // (v0.9, README 9f-2) 목표 불연속 관성화: 행동·IK 목표가 한 스텝에 크게 튀면(손목·어깨 비틀기 제한 자르기가 ±쪽을 오감, IK 해 뒤집힘, 행동 전환)
+      // 가벼운 손·팔이 근육 PD에 끌려 50 rad/s 넘게 돌았다. 한 스텝 변화가 jumpRate·dt를 넘으면 튀기 전 목표와의 차이(오프셋)를 잡아
+      // blendTime 동안 5차 곡선으로 0까지 줄인다 — 연속으로 움직이는 목표(빠른 뻗기 포함)는 그대로 따른다
+      let jt = targets?.[m.name] ?? identityQ();
+      if (this.inertJoints.has(m.name)) jt = this.inertialize(m, jt, t, active && s > 0);
+      const rTgt = multiplyQ(m.conv, jt);
+      const frame = multiplyQ(qp, j.frameP);
+      const rCur = multiplyQ(conjugate(frame), multiplyQ(qc, j.frameC));
+      // (v0.9, README 9f-3) 목표 좌표는 지금 관절 회전에 가까운 쪽 사원수 부호로: 목표가 rest에서 180° 넘게 돌면(w < 0) w ≥ 0으로 맞춘 좌표가
+      // 한 스텝에 [−34, 92, 78] → [36, −99, −69]처럼 뒤집혀 축별 모터가 반대로 돌렸다(어깨·손 50 rad/s 넘음, 퍼징). 둘 다 같은 회전이다
+      let tc = this.cfg.coordsNearCurrent === false ? quatToCoords(rTgt) : coordsNear(rTgt, rCur);
       m.out.targetCoords = tc;
       // 모터
       const h = j.imp.handle;
       const nAx = m.hinge ? 1 : 3;
       const maxF = s * m.capMul * m.maxTorque + m.passive * this.cfg.passiveVelCap;
-      const frame = multiplyQ(qp, j.frameP);
       // 목표 속도 (v0.4): 균형 계층이 계획한 이번 스텝 끝 상대 각속도(관절 좌표 축). 없으면 0 (v0.3까지)
       const msJ = bal?.motorScaleJ?.[m.name] ?? ms;
       const jv = bal?.jointVel?.[m.name];
@@ -272,16 +332,23 @@ export class Muscles {
         const w0 = rotate(conjugate(frame), [ac0.x - ap0.x, ac0.y - ap0.y, ac0.z - ap0.z]);
         tc = [0, 1, 2].map((i) => cc0[i]! + 0.5 * (w0[i]! + vt[i]!) * dt) as Vec3;
       }
-      for (let i = 0; i < nAx; i++) {
-        raw.jointConfigureMotor(h, AXES[i] as never, tc[i]!, vt[i]!, s * m.kp * msJ, s * m.kd * msJ + m.passive);
-        raw.jointSetMotorMaxForce(h, AXES[i] as never, maxF);
-      }
-      // 추정 토크 (PD 식, 축별 클램프)
-      const rCur = multiplyQ(conjugate(frame), multiplyQ(qc, j.frameC));
       const cc = quatToCoords(rCur);
-      m.out.errorDeg = (angleBetweenQ(rTgt, rCur) * 180) / Math.PI;
       const ap = pb.angvel(), ac = cb.angvel();
       const w = rotate(conjugate(frame), [ac.x - ap.x, ac.y - ap.y, ac.z - ap.z]);
+      // (v0.9, README 9f-4) 힘-속도 관계 (Hill): 관절이 빨리 돌수록 그 방향으로 낼 수 있는 근육 힘이 준다(단축성 수축). 관절 상대 각속도가
+      // knee rad/s를 넘으면 모터가 움직이는 방향으로 미는 축(추정 PD 힘·각속도 같은 부호)의 상한을 선형으로 줄여 zero rad/s에서 0. 제동(신장성)은 그대로.
+      // PD + 토크 상한만으로는 반대쪽 목표(오차 150~180°)로 팔을 휘두를 때 어깨가 40 rad/s 넘게 돌아 손이 20 m/s를 넘었다(퍼징)
+      const fv = s > 0 ? this.cfg.forceVelocity?.joints[m.name] : undefined;
+      const sp = fv ? length(w) : 0;
+      const fvK = fv && sp > fv[0] ? Math.max(0, 1 - (sp - fv[0]) / (fv[1] - fv[0])) : 1;
+      const act = s * m.capMul * m.maxTorque, pas = m.passive * this.cfg.passiveVelCap;
+      for (let i = 0; i < nAx; i++) {
+        raw.jointConfigureMotor(h, AXES[i] as never, tc[i]!, vt[i]!, s * m.kp * msJ, s * m.kd * msJ + m.passive);
+        const conc = fvK < 1 && (m.kp * (tc[i]! - cc[i]!) + m.kd * (vt[i]! - w[i]!)) * w[i]! > 0;
+        raw.jointSetMotorMaxForce(h, AXES[i] as never, conc ? act * fvK + pas : maxF);
+      }
+      // 추정 토크 (PD 식, 축별 클램프)
+      m.out.errorDeg = (angleBetweenQ(rTgt, rCur) * 180) / Math.PI;
       const lim = s * m.capMul * m.maxTorque;
       let sat = false;
       const tj: Vec3 = [0, 0, 0];

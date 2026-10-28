@@ -24,6 +24,7 @@ import type { FreeArm, HandName, HandTarget } from './behaviors/types';
 import type { WalkController } from './walk';
 import type { AnimDriver, AnimRef } from './animDriver';
 import type { TrackingRef } from './reaction';
+import type { SettleRef, SettleLog } from './settle';
 
 /** 애니 추종 걷기 입력 (v0.6): 클립 기준값, 재생기, 핀 보조 렌치 */
 export interface LocoInput { ref: AnimRef; anim: AnimDriver; pinWrench: { f: Vec3; tau: Vec3 }[] | null }
@@ -169,6 +170,8 @@ export interface BalanceState {
   armMom?: Vec3;
   armMomShare?: number;
   armDanger?: number;
+  /** (결정 settle-1) 진정 단계: 진정 정도·단계·진입 시각·DCM 여유·나온 이유 (충격 뒤에만) */
+  settle?: SettleLog;
   groundHeight: number | null;
   groundNormal: Vec3 | null;
 }
@@ -276,6 +279,10 @@ export class Balance {
   standTargets: JointTargets | null = null;
   /** (2026-10-27) 레퍼런스(반응 클립 등)의 관절별 추종 세기·추종 힌트 (Character가 매 스텝 넣는다, README 결정 164). null이면 그대로 */
   trackRef: TrackingRef | null = null;
+  /** 진정 단계 힌트 (README 결정 settle-1): 레퍼런스 쪽(api.ts SettleController)이 매 스텝 넣는다. null = 진정 아님 */
+  settleRef: SettleRef | null = null;
+  /** 진정 단계 로그 (balance.settle로 기록만) */
+  settleLog: SettleLog | null = null;
   /** 스텝 계층 (v0.4, Character가 넣는다). 없으면 v0.3 그대로 */
   stepping: Stepping | null = null;
   /** 이번 스텝의 스텝 명령 (로그·디버그) */
@@ -411,6 +418,7 @@ export class Balance {
     st.groundNormal = per.groundNormal;
     st.comSensed = sensed.com;
     st.loadLeft = lsum > 1e-6 ? this.loads.LeftFoot / lsum : 0.5;
+    if (this.settleLog) st.settle = this.settleLog;
     st.margin = -signedDistanceToPolygon([sensed.com[0], sensed.com[2]], poly);
     // (v0.8a) 지형: COM 높이 기준 지면(닿은 발 평균)을 groundRate m/s 이하로만 따라간다 — 스윙발이 계단·상자 위에 닿는 순간 기준이 한 스텝에
     // 튀면 높이 피드백이 몸을 위로 밀어 두 발이 떴다(걸림·계단에서 몸이 뛰어오름). 평지는 그대로
@@ -684,7 +692,9 @@ export class Balance {
     const asw = asy ? asy.w * (1 - this.armDanger) : 0;
     st.armStyleW = asw;
     st.armDanger = this.armDanger;
-    const styleK = asy ? 1 + asw * (asy.reflexScale - 1) : 1;
+    // 진정 단계 (결정 settle-1): 버틴 뒤에는 작은 흔들림에 팔을 휘두르지 않는다 — 팔 반사·팔 벌림을 진정 정도만큼 끈다
+    const sr = this.settleRef;
+    const styleK = (asy ? 1 + asw * (asy.reflexScale - 1) : 1) * (sr ? 1 + sr.level * (sr.reflexScale - 1) : 1);
     const goalA = Math.min(cfg.wb.armReflex.maxDeg * armGain, cfg.wb.armReflex.degPerMs * this.variation.armReflex * armGain * vArm) * RAD * styleK;
     const kA = 1 - Math.exp(-dt / cfg.wb.armReflex.tau);
     const axisGoal: Vec3 = vl > 1e-4 ? scale(cross(UP, scale(vh, 1 / vl)), goalA) : [0, 0, 0];
@@ -704,7 +714,7 @@ export class Balance {
       }
     }
     // 스텝 중 팔 벌리기 (사람 레퍼런스: 내딛는 동안 팔이 몸에서 떨어진다)
-    const abK = asy ? 1 + asw * (asy.abductScale - 1) : 1;
+    const abK = (asy ? 1 + asw * (asy.abductScale - 1) : 1) * (sr ? 1 + sr.level * (sr.abductScale - 1) : 1);
     if (sc && sc.abductDeg * abK > 0.1) {
       const s2q = rd.body('Spine2').rb.rotation();
       for (const f of FOOT_NAMES) this.preRotate(postureTargets, LEG[f].arm, [s2q.x, s2q.y, s2q.z, s2q.w], fromAxisAngle(fwd, LEG[f].side * sc.abductDeg * abK * RAD * (1 - this.handBusy(beh, LEG[f].arm))));
@@ -739,6 +749,9 @@ export class Balance {
       // 반응 상체 스타일: 팔이 사람 클립 팔 모양을 따른다 (QP가 팔을 각운동량 플라이휠로 쓰지 않게, 손 과제가 걸린 팔 제외)
       const jw = asy?.jointWeight[name];
       if (jw !== undefined && (!/Arm|Hand/.test(name) || this.handBusy(beh, name) < 0.05)) w = Math.max(w, w + asw * (asy!.jointScale?.[name] ?? 1) * (jw - w));
+      // 진정 단계: 팔을 서기 자세에 붙들고(가중치 armWeight) 감쇠를 키운다(armKd) — 손 과제가 걸린 팔 제외
+      const settleArm = !!sr && /Arm|Hand/.test(name) && this.handBusy(beh, name) < 0.05;
+      if (settleArm) w = Math.max(w, w + sr!.level * (sr!.armWeight - w));
       if (w <= 0) continue;
       const j = this.jointsByName.get(name)!;
       const pq = rd.bodies[b.parent]!.rb.rotation(), cq = rd.bodies[b.idx]!.rb.rotation();
@@ -753,7 +766,8 @@ export class Balance {
         const axisW = ang(wst.S[d]!);
         const row = new Float64Array(n);
         row[d] = 1;
-        addRow(row, cfg.wb.posture.kp * dot(e, axisW) - (sc && this.stepping ? (sc.mode === 'settle' || sc.shifting ? this.stepping.cfg.postureKd.settle : this.stepping.cfg.postureKd.step) : cfg.wb.posture.kd) * wst.qd[d]!, w);
+        const kd0 = sc && this.stepping ? (sc.mode === 'settle' || sc.shifting ? this.stepping.cfg.postureKd.settle : this.stepping.cfg.postureKd.step) : cfg.wb.posture.kd;
+        addRow(row, cfg.wb.posture.kp * dot(e, axisW) - (settleArm ? kd0 + sr!.level * (sr!.armKd - kd0) : kd0) * wst.qd[d]!, w);
       }
     }
     // 관절 제한 피하기 (v0.4): QP는 관절 제한을 모른다. 무릎이 0°(완전히 폄)나 발목이 제한(비틀기 ±5° 등)에 닿으면 QP가 더 가려는 가속도를 내고
@@ -861,7 +875,7 @@ export class Balance {
       const hArm = cols.h(wst.qd);
       st.armMomShare = length(hArm) / Math.max(1e-6, length(kG));
       st.armMom = hArm;
-      const wAm = (am?.weight ?? 0) * (this.trackRef ? 1 + this.trackRef.w * (this.trackRef.armMomScale - 1) : 1);
+      const wAm = (am?.weight ?? 0) * (this.trackRef ? 1 + this.trackRef.w * (this.trackRef.armMomScale - 1) : 1) * (this.settleRef ? 1 + this.settleRef.level * (this.settleRef.armMomScale - 1) : 1);
       if (wAm > 0) for (let r = 0; r < 3; r++) addRow(cols.rows[r]!, -am!.kd * hArm[r]!, wAm);
     }
     // 등식 우변: 운동량 (W_g − bias, 접촉 렌치는 QP 안에서), 지지발 (6 × 발)

@@ -9,18 +9,23 @@ import { bodyPose, degQ, gazeAngles } from './kinematics';
 export class InjuredLeg extends Behavior {
   readonly name = 'InjuredLeg';
   readonly foot: FootName;
+  /** 맞은 다리 부위 (UpLeg·Leg·Foot) — 부위별 힘 상한 (결정 leg-4) */
+  readonly part: string;
   constructor(params: Record<string, unknown>, t0: number, hitT: number) {
     super(params, t0, hitT);
     const leg = String(params.leg ?? params.body ?? 'LeftUpLeg');
     this.foot = leg.startsWith('Right') ? 'RightFoot' : 'LeftFoot';
+    this.part = leg.replace(/^(Left|Right)/, '');
   }
   override get immediate(): boolean { return true; }
   update(ctx: BehaviorContext): BehaviorOutput {
-    const p = this.params as { strengthCap: number; loadShift: number; kneeFlexDeg: number; swingPenalty: number; stepScale: number; duration?: number };
+    const p = this.params as { strengthCap: number; capByPart?: Record<string, [number, number, number]>; loadShift: number; kneeFlexDeg: number; swingPenalty: number; stepScale: number; duration?: number };
     if (p.duration !== undefined && ctx.t - this.hitT >= p.duration) this.stop(ctx.t);
     const L = this.foot === 'LeftFoot' ? 'Left' : 'Right';
     const joints: Partial<Record<JointName, JointOut>> = {};
-    for (const j of [`${L}UpLeg`, `${L}Leg`, `${L}Foot`] as JointName[]) joints[j] = { weight: 1, capacity: p.strengthCap };
+    // 힘 상한: 상처 둘레 관절이 가장 약하다 (고관절·무릎·발목, capByPart[맞은 부위] — 발을 맞았는데 고관절까지 0.6이면 디딘 다리가 주저앉았다)
+    const caps = p.capByPart?.[this.part] ?? [p.strengthCap, p.strengthCap, p.strengthCap];
+    ([`${L}UpLeg`, `${L}Leg`, `${L}Foot`] as JointName[]).forEach((j, i) => { joints[j] = { weight: 1, capacity: caps[i]! }; });
     joints[`${L}Leg` as JointName] = { ...joints[`${L}Leg` as JointName]!, add: degQ(p.kneeFlexDeg, 0, 0) };
     // 서 있을 때 성한 발 쪽으로 COM 목표
     const other: FootName = this.foot === 'LeftFoot' ? 'RightFoot' : 'LeftFoot';
@@ -34,7 +39,7 @@ export class InjuredLeg extends Behavior {
     this.phase = '절뚝임';
     return { joints, comShift, stepping: { injuredFoot: this.foot, injuredPenalty: p.swingPenalty, injuredStepScale: p.stepScale } };
   }
-  override info(): Record<string, unknown> { return { foot: this.foot }; }
+  override info(): Record<string, unknown> { return { foot: this.foot, part: this.part }; }
 }
 
 /**

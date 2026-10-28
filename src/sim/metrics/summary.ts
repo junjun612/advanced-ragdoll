@@ -30,6 +30,10 @@ export class SummaryBuilder {
   private first: CharacterState | null = null;
   private last: CharacterState | null = null;
   private exploded = false;
+  /** (v0.9, README 9f-11) 충돌 튐: 횟수, 최대 보이는 회전각(도), 30° 넘은 횟수 */
+  private snaps = 0;
+  private snapMaxDeg = 0;
+  private snapsVisible = 0;
   private explodedTime: number | null = null;
   private fallTime: number | null = null;
   private kneelStart: number | null = null;
@@ -79,6 +83,12 @@ export class SummaryBuilder {
     this.bm.onEvent(e);
     this.gm.onEvent(e);
     this.rm.onEvent(e);
+    if (e.type === 'collisionSnap') {
+      this.snaps++;
+      const deg = e.strength ?? 0;
+      this.snapMaxDeg = Math.max(this.snapMaxDeg, deg);
+      if (deg > simCfg.safety.snapVisibleDeg) this.snapsVisible++;
+    }
     if (e.type === 'step') {
       this.steps++;
       if (e.error !== undefined) this.landErr.push(e.error);
@@ -111,13 +121,12 @@ export class SummaryBuilder {
     this.bm.onState(s);
     this.gm.onState(s);
 
-    // 폭발: 선속도 > 20, 각속도 > 50, NaN
-    let bad = false;
+    // 폭발: NaN, 또는 캐릭터 안전 검사(api.ts _postStep, README 9f-5·9f-11)가 폭발로 본 스텝 — 같은 정의를 여기서 다시 계산하지 않는다
+    let bad = Number(s.debug.exploded) === 1;
     for (const name in s.bodies) {
       const b = s.bodies[name as BodyName];
       const lv = Math.hypot(...b.linVel), av = Math.hypot(...b.angVel);
       if (!Number.isFinite(lv + av + b.pos[0] + b.pos[1] + b.pos[2])) bad = true;
-      if (lv > simCfg.safety.maxLinVel || av > simCfg.safety.maxAngVel) bad = true;
       this.maxAngVel = Math.max(this.maxAngVel, av);
       this.maxLinVel = Math.max(this.maxLinVel, lv);
     }
@@ -212,6 +221,10 @@ export class SummaryBuilder {
         selfPenetration: this.selfPen,
         maxAngVel: this.maxAngVel,
         maxLinVel: this.maxLinVel,
+        // (v0.9, README 9f-11) 충돌 튐 (폭발이 아닌 1~2스텝 속도 초과): 횟수, 30fps 한 프레임에 보이는 최대 회전각(도, 부모 기준), 그 각이 snapVisibleDeg를 넘은 횟수
+        collisionSnaps: this.snaps,
+        collisionSnapMaxDeg: this.snapMaxDeg,
+        collisionSnapsVisible: this.snapsVisible,
         comDisplacement: d,
         finalComHeight: last.com[1],
         ...mm.metrics,

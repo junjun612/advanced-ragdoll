@@ -38,6 +38,8 @@ export interface RunInputs {
   dt?: number;
   /** 성능 측정용 시계 (선택). 결과에는 영향 없음 */
   now?: () => number;
+  /** (v0.9 퍼징) 관측 훅: 캐릭터를 만든 뒤 한 번, 매 스텝 뒤 한 번. 읽기만 한다(결과에 영향 없음) */
+  observe?: { setup?: (world: World) => void; step?: (world: World, step: number) => void };
 }
 
 interface Slot {
@@ -84,6 +86,7 @@ function wire(sl: Slot): void {
   ch.on('hit', (e) => sb.onEvent(e));
   ch.on('setMuscleScale', (e) => sb.onEvent(e));
   ch.on('step', (e) => sb.onEvent(e));
+  ch.on('collisionSnap', (e) => sb.onEvent(e));
   ch.on('hitReacted', (e) => sb.onEvent(e));
   ch.on('walkHandover', (e) => sb.onEvent(e));
   ch.on('walkResume', (e) => sb.onEvent(e));
@@ -115,6 +118,7 @@ export async function runScenario(inp: RunInputs, opts: RunOptions = {}): Promis
       sl.logger.log(s0);
     }
     if (hasProps) st.propLines.push(propLine(world));
+    inp.observe?.setup?.(world);
     return await loop(inp, world, st, opts);
   } finally {
     world.free();
@@ -128,6 +132,7 @@ export async function resumeScenario(inp: RunInputs, cp: RunCheckpoint, opts: Ru
   try {
     const st = extra as RunState;
     for (const sl of st.slots) { wire(sl); opts.listen?.(sl.ch, sl.name); }
+    inp.observe?.setup?.(world);
     return await loop(inp, world, st, opts);
   } finally {
     world.free();
@@ -168,6 +173,7 @@ async function loop(inp: RunInputs, world: World, st: RunState, opts: RunOptions
       if (logStep) sl.logger.log(s);
     }
     if (hasProps && slots[0]!.logger.isLogStep(step)) st.propLines.push(propLine(world));
+    inp.observe?.step?.(world, step);
     checkpoint();
   }
   const t1 = inp.now?.() ?? 0;

@@ -1,0 +1,59 @@
+{
+  "name": "hit_bullet_foot",
+  "milestone": "0.5a",
+  "description": "오른발에 앞에서 총탄 (Δv 0.35, 앱 기본). InjuredLeg는 맞은 부위 둘레가 가장 약하다(발: 고관절 0.9·무릎 0.8·발목 0.6, 결정 leg-4), 다친 무릎은 잠깐 꺾였다 다시 버틴다(다리 피격 힘 빠짐 0.65·0.9, 결정 leg-5). 발은 서서 손이 닿지 않고 늘어뜨린 손이 이미 가장 가까워 손은 두고 상처를 내려다본다(결정 leg-2 look). 이전에는 다리 전체 힘 상한 0.6 + 무릎 힘 빠짐 0.3으로 디딘 다리가 주저앉아 뒤로 넘어졌다(근처 입력 6개 중 3개). 기대값: 다친 다리 고관절 힘 최대 0.7 이상 ※(발을 맞아 고관절까지 약해지지 않음, 근처 입력 8개 0.80~0.81), 몸통 기울기 최대 35° ※(근처 입력 24~27°).",
+  "duration": 5,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Active",
+    "pose": "stand"
+  },
+  "clip": "stand",
+  "assist": {
+    "root": false
+  },
+  "events": [
+    {
+      "t": 1,
+      "type": "hit",
+      "hit": {
+        "type": "bullet",
+        "body": "RightFoot",
+        "direction": [
+          0,
+          0,
+          -1
+        ],
+        "magnitude": 0.35
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "reference": null,
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "assistUsage": {
+        "max": 0
+      },
+      "injuredLegStrengthMax": {
+        "min": 0.7
+      },
+      "trunkTiltMaxAfterHit": {
+        "max": 35
+      }
+    }
+  }
+}

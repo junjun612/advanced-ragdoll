@@ -1,0 +1,13 @@
+{
+ "$comment": "(relax, 2026-10-27) 넘어짐 뒤 이완 이전·이후 비교 영상. 이전 로그 = out/base/<시나리오>(7b1c6c7에서 npm run sim). npx tsx tools/reel.ts --config config/reel_relax_before.json --out out/reel_relax_before, reel_relax_after도 같게 → --hstack out/reel_relax_before out/reel_relax_after --out out/reel_relax",
+ "width": 560,
+ "height": 400,
+ "fps": 30,
+ "titleSec": 0,
+ "smoothCamera": 0.15,
+ "scenes": [
+  { "scenario": "push_back_large", "from": 1.0, "to": 3.8, "camera": "side", "tag": "이전", "caption": "뒤로 크게 밀려 넘어짐", "dir": "out/base/push_back_large" },
+  { "scenario": "push_side_large", "from": 1.0, "to": 3.8, "camera": "front", "tag": "이전", "caption": "옆으로 크게 밀려 넘어짐", "dir": "out/base/push_side_large" },
+  { "scenario": "push_front_large", "from": 1.0, "to": 4.0, "camera": "side", "tag": "이전", "caption": "앞으로 크게 밀려 넘어짐", "dir": "out/base/push_front_large" }
+ ]
+}

@@ -172,7 +172,7 @@ export class FallMonitor {
  * IK 관절 목표 변화 속도 제한: 이전 목표에서 최대 maxRate rad/s만큼만 따라간다.
  * 넘어지며 몸이 크게 돌 때 2관절 IK 해가 팔꿈치 평면·어깨 비틀기를 뒤집으면(±180°) 팔이 한 스텝에 휙 돌아 폭발 판정이 났다
  */
-export function rateLimited(prev: Map<JointName, Quat>, jn: JointName, q0: Quat, maxRate: number, dt: number, def?: CharacterDef): Quat {
+export function rateLimited(prev: Map<JointName, Quat>, jn: JointName, q0: Quat, maxRate: number, dt: number, def?: CharacterDef, clampMid = false): Quat {
   const p = prev.get(jn);
   // 관절 제한 안으로 먼저 자른다 (제한 밖 목표 — 예: 손목 비틀기 ±123° — 는 좌표 표현이 ±180°에서 뒤집혀 손이 한 스텝에 튀었다)
   const q = def ? clampTarget(def, jn, q0) : q0;
@@ -180,7 +180,8 @@ export function rateLimited(prev: Map<JointName, Quat>, jn: JointName, q0: Quat,
   if (p) {
     const ang = angleBetweenQ(p, q);
     const mx = maxRate * dt;
-    if (ang > mx) out = slerp(p, q, mx / ang);
+    // (relax-7) 사이 값도 제한 안으로: 비틀기가 ±180° 근처에서 뒤집힌 목표로 가는 짧은 길이 제한 밖을 지나면 모터 좌표가 반대편으로 튀어 손이 휙 돌았다(getup_interrupted). 넘어짐 대비·머리 보호만 켬(clampMid) — 잡기에 켜면 팔 힘을 뺀 손이 난간대를 놓지 않았다(api.test rail_grab)
+    if (ang > mx) out = def && clampMid ? clampTarget(def, jn, slerp(p, q, mx / ang)) : slerp(p, q, mx / ang);
   }
   prev.set(jn, out);
   return out;
@@ -228,6 +229,15 @@ export interface BraceParams {
   /** 착지 뒤 다리 대비 자세를 풀고 힘을 restStrength로 내리는 시간 (초) */
   legRelax: number;
   palmLocal: Vec3;
+  /**
+   * (relax-4) 뒤로 넘어질 때 두 팔을 뒤·옆으로 벌려 바닥을 짚는다(없으면 예전처럼 팔 없음 — ProtectHead가 머리를 감쌈).
+   * 뻗는 방향 = 넘어지는 방향에서 그 팔 쪽으로 spreadDeg, 아래로 downDeg. 예측 착지까지 lead초 남았을 때부터(ProtectHead가 팔을 놓는 때와 같음)
+   */
+  backward?: { spreadDeg: number; downDeg: number; lead: number; minTime?: number; armStrength?: number; handWeight?: number };
+  /** (relax-5) 두 발이 다 떨어지면(공중) 다리 대비 자세 가중치·강도를 이 값으로 tau초에 — 다리를 굽힌 채 허공에 굳게 들지 않게 */
+  air?: { legWeight: number; legStrength: number; tau: number };
+  /** (relax-3) 이 바디가 닿으면 몸통 착지 = 대비 끝 (블렌더가 Lie로 넘김) */
+  landBodies?: string[];
 }
 
 /**
@@ -246,6 +256,12 @@ export class BraceForFall extends Behavior {
   landedT: number | null = null;
   private stillSince: number | null = null;
   restT: number | null = null;
+  /** (relax-3) 몸통 착지 시각 (landBodies 중 하나가 처음 닿음) */
+  trunkT: number | null = null;
+  /** (relax-5) 공중 다리 풀림 정도 0~1 (저역 통과) */
+  private airK = 0;
+  /** (relax-4) 뒤로 넘어질 때 팔을 뻗기 시작한 시각 */
+  private armT: number | null = null;
   constructor(params: Record<string, unknown>, t0: number, hitT: number) {
     super(params, t0, hitT);
     this.p = params as unknown as BraceParams;
@@ -257,10 +273,11 @@ export class BraceForFall extends Behavior {
     if (!this.kind && f) {
       this.kind = f.kind;
       this.dir = f.dir;
-      // 뒤로 넘어지면 손을 뻗지 않는다(ProtectHead가 머리를 감싼다), 옆이면 넘어지는 쪽 손만
-      this.arms = this.kind === 'forward' ? [...HANDS] : this.kind === 'left' ? ['LeftHand'] : this.kind === 'right' ? ['RightHand'] : [];
+      // 앞이면 두 손, 옆이면 넘어지는 쪽 손. 뒤: backward 설정이 있으면 두 손을 뒤·옆으로(바닥 짚기), 없으면 팔 없음(ProtectHead가 머리를 감싼다)
+      this.arms = this.kind === 'forward' ? [...HANDS] : this.kind === 'left' ? ['LeftHand'] : this.kind === 'right' ? ['RightHand'] : p.backward ? [...HANDS] : [];
       if (p.keepClutch) this.arms = this.arms.filter((h) => !ctx.busyHands.has(h));
     }
+    if (this.trunkT === null && p.landBodies && t >= this.startT && p.landBodies.some((b) => ctx.per.ground.has(b as never))) this.trunkT = t;
     const kind = this.kind ?? 'forward';
     const ks = p.poses[kind];
     // 손 착지점 따라가기 (넘어지는 동안 예측이 바뀌면 천천히)
@@ -273,19 +290,28 @@ export class BraceForFall extends Behavior {
     if (this.landedT !== null && this.restT === null) {
       const sp = length(ctx.rd.com().vel);
       if (sp < p.restSpeed) { this.stillSince ??= t; if (t - this.stillSince >= p.restHold) this.restT = t; } else this.stillSince = null;
-      if (t - this.landedT >= p.restDelay) this.restT = t;
+      // (relax-3) 손으로 짚고 버티는 중이면(손 접촉) 시간으로 넘기지 않는다 — 몸통이 닿거나 멈출 때까지 짚은 팔을 유지 (시간으로 넘기면 짚은 팔이 풀려 얼굴이 떨어졌다)
+      const handsDown = !!p.landBodies && (ctx.per.ground.has('LeftHand') || ctx.per.ground.has('RightHand'));
+      if (t - this.landedT >= p.restDelay && !handsDown) this.restT = t;
     }
     const joints: Partial<Record<JointName, JointOut>> = {};
-    if (this.restT !== null) {
-      const k = smoothstep((t - this.restT) / p.restTime);
-      for (const b of ctx.def.bodies) if (b.joint) joints[b.name as JointName] = { weight: 1, strength: 1 + (p.restStrength - 1) * k };
-      this.phase = '누움';
+    // (relax-3) 몸통으로 착지했거나 누움 조건이 되면 대비를 끝낸다: 블렌더가 이 행동을 끄고 Lie(착지 자세 → 누운 자세, 강도는 지금 값에서 내림)로 넘긴다.
+    // 끝나며 빠지는 동안 목표·강도를 내지 않는다 — 예전에는 서기 포즈 목표(기본 자세)를 강도 1부터 붙들어 팔을 몸통 옆에 붙인 판자처럼 누워 굳었다
+    if (this.restT !== null || this.trunkT !== null) {
+      this.phase = '착지 (대비 끝)';
       return { joints, balanceMode: 'off', stepAllowed: false };
     }
     // 착지하면 다리는 바로 풀어 준다(legRelax초) — 굽힌 다리를 붙든 채 뒤로 구르면 다리가 허공으로 솟았다
     const lr = this.landedT === null ? 0 : smoothstep((t - this.landedT) / p.legRelax);
+    // (relax-5) 두 발이 다 떨어지면(공중) 다리 대비 자세를 풀어 준다 — 주저앉는 자세(고관절·무릎 굽힘)는 발로 바닥을 딛고 있을 때 COM을 낮추는 것이다.
+    // 발이 뜬 뒤에도 같은 강도로 붙들면 굽힌 다리를 허공에 든 채 굳었다
+    if (p.air) {
+      const feet = ctx.per.feet.LeftFoot.contact || ctx.per.feet.RightFoot.contact;
+      this.airK += ((feet ? 0 : 1) - this.airK) * (1 - Math.exp(-ctx.dt / Math.max(1e-3, p.air.tau)));
+    }
     const ls0 = ks.legStrength ?? p.legStrength;
-    const lw = 1 - lr, ls = ls0 + (p.restStrength - ls0) * lr;
+    const aw = p.air ? 1 + (p.air.legWeight - 1) * this.airK : 1, lsA = p.air ? ls0 + (p.air.legStrength - ls0) * this.airK : ls0;
+    const lw = aw * (1 - lr), ls = lsA + (p.restStrength - lsA) * lr;
     for (const j of LEGS.knee) joints[j] = { add: degQ(ks.kneeFlex, 0, 0), weight: lw, strength: ls };
     for (const j of LEGS.hip) joints[j] = { add: degQ(ks.hipFlex, 0, 0), weight: lw, strength: ls };
     for (const j of LEGS.ankle) joints[j] = { add: degQ(ks.ankleFlex, 0, 0), weight: lw, strength: ls };
@@ -296,13 +322,25 @@ export class BraceForFall extends Behavior {
     const s2 = bodyPose(ctx.rd, 'Spine2');
     // 착지한 뒤에는 팔 IK를 더 풀지 않고 마지막 목표를 유지한다(CatchFall이 팔꿈치를 굽힌다) — 누운 채 착지점을 계속 겨누면 IK 해가 뒤집혀 손목이 튀었다
     if (this.landedT !== null) {
-      for (const h of this.arms) for (const jn of ARM_JOINTS[h]) { const q = this.prevT.get(jn); if (q) joints[jn] = { target: q, weight: 1, strength: p.armStrength }; }
+      for (const h of this.arms) for (const jn of ARM_JOINTS[h]) { const q = this.prevT.get(jn); if (q) joints[jn] = { target: q, ...this.armOut(kind, jn) }; }
     } else for (const h of this.arms) {
       const ch = armChain(ctx.def, h);
       const S = add(s2.pos, rotate(s2.rot, ch.shoulderInSpine2));
       const lp = this.land[h] ?? add(S, this.dir);
+      // (relax-4) 뒤로 넘어짐: 예측 착지 lead초 전부터(그 전에는 ProtectHead가 손을 머리 쪽으로 반쯤 올린다) 넘어지는 방향에서 그 팔 쪽으로 벌리고 아래로 —
+      // 사람은 뒤로 넘어질 때 팔을 뒤·옆으로 뻗어 바닥을 짚는다(손목 골절이 많은 이유, FOOSH)
+      let want: Vec3;
+      if (kind === 'backward' && p.backward) {
+        const B = p.backward;
+        if (this.armT === null && ((t >= this.startT + (B.minTime ?? 0) && (!f || f.timeToImpact <= B.lead)) || NON_FOOT_GROUND(ctx))) this.armT = t;
+        if (this.armT === null) continue;
+        const sd = rotate(s2.rot, [ch.side, 0, 0]);
+        const lat = normalize(sub([sd[0], 0, sd[2]], scale(this.dir, sd[0] * this.dir[0] + sd[2] * this.dir[2])));
+        const sp = (B.spreadDeg * Math.PI) / 180, dn = (B.downDeg * Math.PI) / 180;
+        const hz = normalize(add(scale(this.dir, Math.cos(sp)), scale(lat, Math.sin(sp))));
+        want = normalize(add(scale(hz, Math.cos(dn)), [0, -Math.sin(dn), 0]));
+      } else want = normalize(sub(lp, S));
       // 뻗는 방향은 각속도 aimSpeed rad/s 이하로 따라간다 (몸이 돌며 착지점이 어깨 아래로 지나갈 때 팔이 휙 뒤집히지 않게)
-      const want = normalize(sub(lp, S));
       const prev = this.aim[h];
       let aim = want;
       if (prev) {
@@ -318,15 +356,28 @@ export class BraceForFall extends Behavior {
       const palm = add(W, rotate(q, sub(p.palmLocal, ch.wristInHand)));
       const pole = rotate(s2.rot, [p.elbowPole[0] * ch.side, p.elbowPole[1], p.elbowPole[2]]);
       const sol = solveArm(ctx.def, ch, s2.rot, s2.pos, palm, q, p.palmLocal, pole);
-      for (const [jn, tq] of Object.entries(sol.targets)) joints[jn as JointName] = { target: rateLimited(this.prevT, jn as JointName, tq, p.maxTargetRate, ctx.dt, ctx.def), weight: 1, strength: p.armStrength };
+      for (const [jn, tq] of Object.entries(sol.targets)) joints[jn as JointName] = { target: rateLimited(this.prevT, jn as JointName, tq, p.maxTargetRate, ctx.dt, ctx.def, true), ...this.armOut(kind, jn as JointName) };
     }
     this.phase = this.landedT === null ? `${FALL_KIND_KO[kind]}으로 넘어짐 대비` : '착지';
     return { joints, balanceMode: 'off', stepAllowed: false };
   }
 
   override info(): Record<string, unknown> {
-    return { kind: this.kind, arms: this.arms, land: this.land, landedT: this.landedT, restT: this.restT };
+    return { kind: this.kind, arms: this.arms, land: this.land, landedT: this.landedT, restT: this.restT, trunkT: this.trunkT, armT: this.armT, airLeg: this.airK };
   }
+
+  /**
+   * 팔 관절 가중치·강도. (relax-4) 뒤로 짚는 팔은 강도 backward.armStrength, 손목은 가중치 backward.handWeight — 몸이 비틀린 채 뒤로 넘어질 때
+   * 손바닥을 바닥으로 돌리는 손목 목표를 강하게 따르면 손이 45 rad/s로 휙 돌아 폭발 판정이 났다(getup_random_x20 시드 1002·1016)
+   */
+  private armOut(kind: FallKind, jn: JointName): { weight: number; strength: number } {
+    const B = this.p.backward;
+    if (kind !== 'backward' || !B) return { weight: 1, strength: this.p.armStrength };
+    return { weight: /Hand$/.test(jn) ? (B.handWeight ?? 1) : 1, strength: B.armStrength ?? this.p.armStrength };
+  }
+
+  /** (relax-3) 대비가 끝났는가 (몸통 착지 또는 누움 조건) — 블렌더가 끄고 Lie로 넘긴다 */
+  get ended(): boolean { return this.restT !== null || this.trunkT !== null; }
 
   /** 누움 단계인가 (블렌더가 ProtectHead·CatchFall을 끈다) */
   get resting(): boolean {
@@ -342,6 +393,11 @@ export interface ProtectHeadParams {
   armStrength: number;
   palmLocal: Vec3;
   maxTargetRate: number;
+  /**
+   * (relax-2) 반쯤 감싸기: 팔 목표 가중치(1 = 손바닥을 머리에 붙임). 놓기: 몸통 착지(landBodies) 또는 뒤로 넘어질 때 예측 착지 releaseLead초 전
+   * (그때부터 BraceForFall이 팔을 뒤·옆으로 뻗는다)부터 releaseTime초에 팔을 놓는다. 턱 당기기는 착지 뒤 chinHold초 유지하고 chinRelease초에 풀며 끝
+   */
+  guardWeight?: number; releaseLead?: number; minGuard?: number; releaseTime?: number; chinHold?: number; chinRelease?: number; landBodies?: string[];
 }
 
 /** 머리 보호: 턱을 당기고(목 굽힘), 옆으로 넘어지면 머리를 위쪽으로 기울이고, 손(hands)을 머리 옆·앞으로 가져가 감싼다 */
@@ -357,14 +413,24 @@ export class ProtectHead extends Behavior {
     this.hands = (params.hands as HandName[] | undefined) ?? [...HANDS];
     this.kind = (params.kind as FallKind | undefined) ?? 'backward';
   }
+  /** (relax-2) 몸통 착지 시각, 팔을 놓기 시작한 시각 */
+  landT: number | null = null;
+  releaseT: number | null = null;
   update(ctx: BehaviorContext): BehaviorOutput {
-    const p = this.p;
+    const p = this.p, t = ctx.t;
     const joints: Partial<Record<JointName, JointOut>> = {};
+    if (this.landT === null && t >= this.startT && p.landBodies?.some((b) => ctx.per.ground.has(b as never))) this.landT = t;
+    if (this.releaseT === null && t >= this.startT && (this.landT !== null || (this.kind === 'backward' && p.releaseLead !== undefined && t >= this.startT + (p.minGuard ?? 0) && ctx.fall && ctx.fall.timeToImpact <= p.releaseLead))) this.releaseT = t;
+    const armW = (p.guardWeight ?? 1) * (this.releaseT === null ? 1 : 1 - smoothstep((t - this.releaseT) / (p.releaseTime ?? 0.15)));
+    const chinW = this.landT === null ? 1 : 1 - smoothstep((t - this.landT - (p.chinHold ?? 0)) / (p.chinRelease ?? 0.3));
+    if (this.landT !== null && chinW <= 0 && this.stopT === null) this.stop(t);
     // 옆으로 넘어지면 머리를 위쪽(넘어지는 반대)으로: side+ = 오른쪽(−X)으로 굽힘 → 왼쪽으로 넘어지면 +
     const side = this.kind === 'left' ? p.headSideDeg : this.kind === 'right' ? -p.headSideDeg : 0;
-    joints.Head = { add: degQ(p.chinTuckDeg, 0, side), weight: 1 };
-    joints.Spine = { add: degQ(p.spineFlexDeg * 0.5, 0, 0), weight: 1 };
-    joints.Spine2 = { add: degQ(p.spineFlexDeg * 0.5, 0, 0), weight: 1 };
+    joints.Head = { add: degQ(p.chinTuckDeg, 0, side), weight: chinW };
+    joints.Spine = { add: degQ(p.spineFlexDeg * 0.5, 0, 0), weight: chinW };
+    joints.Spine2 = { add: degQ(p.spineFlexDeg * 0.5, 0, 0), weight: chinW };
+    this.phase = this.landT !== null ? '턱 당기기 (착지)' : this.hands.length ? (this.releaseT !== null ? '팔 놓기' : '머리 반쯤 감싸기') : '턱 당기기';
+    if (armW <= 1e-4) return { joints };
     const s2 = bodyPose(ctx.rd, 'Spine2'), head = bodyPose(ctx.rd, 'Head');
     for (const h of this.hands) {
       const ch = armChain(ctx.def, h);
@@ -373,12 +439,11 @@ export class ProtectHead extends Behavior {
       const q = handRotation(ch, inward, rotate(head.rot, [0, 1, 0]));
       const pole = rotate(s2.rot, [p.elbowPole[0] * ch.side, p.elbowPole[1], p.elbowPole[2]]);
       const sol = solveArm(ctx.def, ch, s2.rot, s2.pos, palm, q, p.palmLocal, pole);
-      for (const [jn, tq] of Object.entries(sol.targets)) joints[jn as JointName] = { target: rateLimited(this.prevT, jn as JointName, tq, p.maxTargetRate, ctx.dt, ctx.def), weight: 1, strength: p.armStrength };
+      for (const [jn, tq] of Object.entries(sol.targets)) joints[jn as JointName] = { target: rateLimited(this.prevT, jn as JointName, tq, p.maxTargetRate, ctx.dt, ctx.def, true), weight: armW, strength: 1 + (p.armStrength - 1) * (armW / (p.guardWeight ?? 1)) };
     }
-    this.phase = this.hands.length ? '머리 감싸기' : '턱 당기기';
     return { joints };
   }
-  override info(): Record<string, unknown> { return { hands: this.hands, kind: this.kind }; }
+  override info(): Record<string, unknown> { return { hands: this.hands, kind: this.kind, landT: this.landT, releaseT: this.releaseT }; }
 }
 
 export interface CatchFallParams {

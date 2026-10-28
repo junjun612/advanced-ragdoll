@@ -12,6 +12,8 @@ import animDriverCfg from '../../config/animDriver.json';
 import getupCfg from '../../config/getup.json';
 import reactionCfg from '../../config/reaction.json';
 import { ReactionController, ReactionLibrary, styleTrackingRef, type ReactionConfig } from './character/reaction';
+import settleCfg from '../../config/settle.json';
+import { SettleController, type SettleConfig } from './character/settle';
 import { GETUP_LIBRARY } from './character/getupClips.generated';
 import { GetupAssist, GetupController, GetupLibrary, RootBlend, type GetupConfig, type GetupLibraryData, type GetupLog } from './character/getup';
 import { classifyFeature, poseFeature, POSTURE_KO } from './character/getupFeatures';
@@ -39,7 +41,7 @@ import { POSES } from './character/poseLibrary';
 import type { BodyName, CharacterDef } from './character/characterDef';
 import { classifyPosture, type JudgeConfig } from './metrics/posture';
 import { type Vec3, add, sub, length, normalize, scale, angleBetween } from './math/vec3';
-import { fromAxisAngle, fromTo, multiplyQ, rotate, slerp as slerpQ, conjugate as conjugateQ } from './math/quat';
+import { fromAxisAngle, fromTo, multiplyQ, rotate, slerp as slerpQ, conjugate as conjugateQ, angleBetweenQ, type Quat } from './math/quat';
 import { signedDistanceToPolygon, type Vec2 } from './math/geometry';
 import type { BodyState, CharacterState, JointName, JointState, SimEvent, StateName } from './types';
 import { ContactSensor, INTERACTION, Prop, type PropDef, type SensedHit, type StepContact } from './interaction';
@@ -65,7 +67,7 @@ export interface HitInfo {
 }
 
 export type CharacterEvent = 'hit' | 'exploded' | 'fell' | 'setMuscleScale' | 'setAssist' | 'setBalance' | 'step' | 'stepStart' | 'stagger' | 'trigger' | 'footReplace' | 'hitReacted' | 'behaviorStart' | 'behaviorStop' | 'lookAt' | 'setState' | 'walkHandover' | 'walkResume'
-  | 'reactionStart' | 'reactionEnd'
+  | 'reactionStart' | 'reactionEnd' | 'collisionSnap'
   | 'getupReady' | 'getupStart' | 'getupBalance' | 'getupDone' | 'getupFail' | 'getupCancel' | 'getupGiveUp' | 'setGetup' | 'voidStep'
   // (v0.9, SPEC 7.2) 알림 전용 이벤트: 리스너에만 보내고 world.events(로그)에는 남기지 않는다 (README 결정 9a-4)
   | 'gotUp' | 'grabbed' | 'released';
@@ -135,6 +137,8 @@ export interface CharacterOpts {
   name?: string;
   /** (2026-10-27) 반응 클립 추종 설정 바꾸기. 없으면 config/reaction.json */
   reactionConfig?: ReactionConfig;
+  /** (2026-10-27, 결정 settle-1) 진정 단계 설정 바꾸기. 없으면 config/settle.json */
+  settleConfig?: SettleConfig;
 }
 
 /** config/animDriver.json (v0.6) */
@@ -420,6 +424,8 @@ export class Character {
   private readonly standBlend = new Inertializer();
   /** (2026-10-27) 반응 클립 추종 */
   readonly reaction: ReactionController;
+  /** 진정 단계 (README 결정 settle-1): 버틴 뒤 팔을 내리고 상체를 세운다 */
+  readonly settle: SettleController;
   private reactionLib: ReactionLibrary | null = null;
   private readonly reactionNames: string[];
   private readonly baseWalkCfg: WalkConfig;
@@ -436,6 +442,11 @@ export class Character {
   private animOverrideSource: 'clip' | 'pose' | '' = '';
   private animOverridePose: PoseClip | null = null;
   private exploded = false;
+  /** (README 9f-11) 안전 검사: 이번 스텝 바깥 충격 여부, 직전 스텝 운동 에너지·바디별 부모 기준 회전, 진행 중인 속도 초과 구간 */
+  private extImpulseNow = false;
+  private prevKE = 0;
+  private prevRel: Quat[] = [];
+  private overRun: { n: number; start: number; ke0: number; keMax: number; allow: number; body: number; desc: string; preRel: Quat; ended: boolean } | null = null;
   private lastGood: { t: Vec3; r: [number, number, number, number] }[] = [];
   private cache: { step: number; state: CharacterState } | null = null;
   private colliderIdx = new Map<number, number>();
@@ -542,6 +553,7 @@ export class Character {
     const rcfg = opts.reactionConfig ?? (reactionCfg as unknown as ReactionConfig);
     this.reactionNames = Object.keys(lib).filter((k) => k.startsWith(rcfg.clipPrefix)).sort();
     this.reaction = new ReactionController(rcfg, null, this.animCfg.walk);
+    this.settle = new SettleController(opts.settleConfig ?? (settleCfg as unknown as SettleConfig));
     if (animSpawn && animAnchor) {
       this.anim.play(animSpawn, world.time, { anchor: animAnchor, startTime: 0, blendTime: 0 });
       if (this.states.name === 'Animated') this.setBodiesKinematic(true);
@@ -1093,6 +1105,8 @@ export class Character {
       } else if (p.body && p.impulse) applyJ(p.body, p.impulse, p.point);
     }
     const hitNow = this.pending.some((p) => !!p.hit || !!p.impulse);
+    // (README 9f-11) 이번 스텝에 바깥 충격(피격·나눠 가하는 밀기)을 넣었는가 — 폭발 판정의 에너지 증가에서 뺀다
+    this.extImpulseNow = hitNow || this.ongoing.length > 0;
     this.pending = [];
     // (v0.8c) 부딪힌 상대 돌아보기: 시선 목표를 상대 머리로 갱신
     if (this.lookOther) this.updateLookOther(t);
@@ -1120,10 +1134,32 @@ export class Character {
         b.rb.setNextKinematicRotation({ x: tf.rot[0], y: tf.rot[1], z: tf.rot[2], w: tf.rot[3] });
       });
     }
+    // (README 결정 settle-1) 진정 단계: 충격 뒤 DCM이 다각형 안에 넉넉하고 넘어짐 확실도가 낮은 상태가 이어지면 '버텼다' → 팔을 서기 자세로 내리고 상체를 세운다.
+    // 판단 입력은 직전 스텝의 균형(DCM 여유)·넘어짐 확실도 값. 반응 걸음·새 충격·크게 흔들림이면 바로 나온다
+    const idleTargets = clipTargets;
+    if (this.settle.cfg.enabled) {
+      const v = this.rd.com().vel;
+      const sst = this.stepping.state;
+      const walkingNow = !!ref && this.animCfg.walk.enabled && this.walk.engaged && !this.isReactionClip(ref.clip);
+      const blocked = this.behaviors.list.some((b) => this.reaction.cfg.blockBehaviors.includes(b.name) && b.stopT === null);
+      this.settle.update({
+        t, dt: this.world.dt, hitNow,
+        eligible: this.stateName === 'Active' && this.balance.state.enabled && !walkingNow && this.getup.phase === 'monitor' && !blocked,
+        cpMargin: this.balance.state.cpMargin ?? 0, fall: this.behaviors.state.fall?.certainty ?? 0, speed: Math.hypot(v[0], v[2]),
+        reactiveStep: sst.state === 'lift' || (sst.state === 'step' && sst.kind !== 'closing'),
+      });
+      // 진정 정도가 1로 endStyleHold초: 반응 상체 스타일을 놓는다 (나오기 blendOut — 그 뒤는 서기(Idle) 자세 목표)
+      const st = this.reaction.style;
+      if (st && st.outT === null && this.settle.styleDone(t)) { st.outT = t; this.reaction.log = { ...this.reaction.log, reason: 'settled' }; }
+    }
     // (2026-10-27) 반응 상체 스타일: 클립의 척추·머리·팔 목표를 우리 걸음에 맞춰 (README 결정 160)
     if (this.reaction.style) clipTargets = this.applyStyle(t, clipTargets);
+    // 진정 단계 레퍼런스: 팔 → 서기(Idle) 자세 팔, 척추·머리 → 서기 자세(천천히)
+    if (this.settle.level > 0) clipTargets = this.settle.apply(clipTargets, idleTargets);
     // 레퍼런스 → 추종기 경계 (README 결정 164): 관절 목표(clipTargets)와 관절별 추종 세기만 넘긴다
     this.balance.trackRef = this.reaction.style && this.reaction.style.w > 0 ? styleTrackingRef(this.reaction.cfg.style!, this.reaction.style.clip, this.reaction.style.w, this.reaction.style.armK) : null;
+    this.balance.settleRef = this.settle.ref();
+    this.balance.settleLog = this.settle.log;
     // 4~5. 행동 (v0.5a): 클립 목표 위에 레이어·가중치 블렌드 → 관절 목표, 강도 배율, 손 IK 목표, COM 낮추기, 스텝 수정
     const ss = this.stepping.state;
     const blend = this.behaviors.update({ t, dt: this.world.dt, rd: this.rd, def: this.def, per, bodyIdx: (n) => this.rd.body(n).idx, stepping: { busy: this.stepping.busy, state: ss.state, stepCount: ss.stepCount, target: ss.target, swing: ss.phase === 'swing' && ss.swingFoot && ss.target ? { foot: ss.swingFoot, target: ss.target } : null } }, clipTargets, this.stateName === 'Active');
@@ -1133,6 +1169,7 @@ export class Character {
       t,
       joints: refJoints ? { ...refJoints } : null,
       tracking: this.balance.trackRef,
+      ...(this.balance.settleRef ? { settle: this.balance.settleRef } : {}),
       clip: ref ? { name: ref.clip, tau: ref.tau } : null,
       behavior: this.behaviors.engaged ? { active: this.behaviors.list.filter((b) => b.stopT === null).map((b) => b.name), strengthMul: { ...blend.strengthMul }, balanceMode: blend.balanceMode, hands: { ...blend.hands } } : null,
     };
@@ -1631,18 +1668,27 @@ export class Character {
   _postStep(): void {
     let nan = false;
     let worst = '';
-    for (const b of this.rd.bodies) {
+    let over = '', overBody = -1;
+    const dt = this.world.dt;
+    this.rd.bodies.forEach((b, i) => {
+      if (nan) return;
       const p = b.rb.translation(), q = b.rb.rotation(), lv = b.rb.linvel(), av = b.rb.angvel();
       const vals = [p.x, p.y, p.z, q.x, q.y, q.z, q.w, lv.x, lv.y, lv.z, av.x, av.y, av.z];
       if (vals.some((x) => !Number.isFinite(x))) {
         nan = true;
         worst = `${b.name} NaN`;
-        break;
+        return;
       }
+      // (v0.9, README 9f-5) 폭발 = 솔버가 보고한 속도와 이번 스텝 실제 자세 변화(차분 속도)가 둘 다 기준을 넘음.
+      // 접촉이 시작되는 스텝에 보고 각속도만 한 스텝 튀고(위팔 107.7 rad/s) 실제로는 8.8 rad/s만 돈 뒤 다음 스텝 10.9로 돌아오는 경우가 있었다(퍼징)
+      const g = this.lastGood[i]!;
       const l = Math.hypot(lv.x, lv.y, lv.z), a = Math.hypot(av.x, av.y, av.z);
-      if (!worst && l > simCfg.safety.maxLinVel) worst = `${b.name} linVel ${l.toFixed(2)}`;
-      if (!worst && a > simCfg.safety.maxAngVel) worst = `${b.name} angVel ${a.toFixed(2)}`;
-    }
+      const fl = Math.hypot(p.x - g.t[0], p.y - g.t[1], p.z - g.t[2]) / dt;
+      const fa = (2 * Math.acos(Math.min(1, Math.abs(q.x * g.r[0] + q.y * g.r[1] + q.z * g.r[2] + q.w * g.r[3])))) / dt;
+      if (!over && Math.min(l, fl) > simCfg.safety.maxLinVel) { over = `${b.name} linVel ${l.toFixed(2)} (차분 ${fl.toFixed(2)})`; overBody = i; }
+      if (!over && Math.min(a, fa) > simCfg.safety.maxAngVel) { over = `${b.name} angVel ${a.toFixed(2)} (차분 ${fa.toFixed(2)})`; overBody = i; }
+    });
+    if (!nan) worst = this.classifyOver(over, overBody);
     if (nan) {
       // 마지막 정상 자세로 되돌리고 속도를 0으로
       this.rd.bodies.forEach((b, i) => {
@@ -1662,6 +1708,60 @@ export class Character {
         this.emit({ t: this.world.time, type: 'exploded', detail: worst });
       }
     }
+  }
+
+  /**
+   * (v0.9, README 9f-11) 속도 초과(보고·차분 둘 다 기준 초과) 구간을 폭발과 충돌 튐으로 나눈다.
+   * 폭발 = explodeSteps 스텝 연속 초과, 또는 초과 중 캐릭터 운동 에너지가 구간 직전보다 energyGrowth 넘게 늘어남(바깥 충격을 넣은 스텝 제외).
+   * 그보다 짧게 끝나면 충돌 튐: 구간 직전부터 snapWindowSteps 스텝(렌더 한 프레임) 동안 그 바디가 부모 기준으로 돈 각을 재어 'collisionSnap' 이벤트(strength = 도)로 남긴다.
+   * 돌려주는 값 = 폭발이면 상세, 아니면 ''.
+   */
+  private classifyOver(over: string, overBody: number): string {
+    const sc = simCfg.safety;
+    const step = this.world.physics.steps;
+    const rel = this.rd.bodies.map((b) => {
+      const q = b.rb.rotation(), qc: Quat = [q.x, q.y, q.z, q.w];
+      if (b.parentIdx < 0) return qc;
+      const p = this.rd.bodies[b.parentIdx]!.rb.rotation();
+      return multiplyQ(conjugateQ([p.x, p.y, p.z, p.w]), qc);
+    });
+    let ke = 0, M = 0;
+    const P: Vec3 = [0, 0, 0];
+    for (const b of this.rd.bodies) {
+      const v = b.rb.linvel(), w = b.rb.angvel(), m = b.rb.mass(), I = b.rb.principalInertia();
+      ke += 0.5 * m * (v.x * v.x + v.y * v.y + v.z * v.z) + 0.5 * ((I.x + I.y + I.z) / 3) * (w.x * w.x + w.y * w.y + w.z * w.z);
+      M += m; P[0] += m * v.x; P[1] += m * v.y; P[2] += m * v.z;
+    }
+    // 이 스텝에 물리적으로 들어올 수 있는 에너지 상한: 중력 일률 M·g·|v_COM| + 근육 최대 일률 (J)
+    const gN = Math.hypot(...(simCfg.gravity as Vec3));
+    const inflow = (M * gN * (Math.hypot(P[0], P[1], P[2]) / Math.max(1e-9, M)) + sc.musclePowerW) * this.world.dt;
+    let worst = '';
+    const run = this.overRun;
+    const finish = (r: NonNullable<typeof run>) => {
+      const deg = (angleBetweenQ(r.preRel, rel[r.body]!) * 180) / Math.PI;
+      this.emit({ t: this.world.time, type: 'collisionSnap', body: this.rd.bodies[r.body]!.name, strength: Math.round(deg * 10) / 10, detail: `${r.desc} · ${r.n}스텝 · 운동 에너지 ×${r.ke0 > 0 ? (r.keMax / r.ke0).toFixed(2) : '-'}` });
+      this.overRun = null;
+    };
+    if (over) {
+      if (run && run.ended) finish(run);
+      const r = this.overRun ?? (this.overRun = { n: 0, start: step, ke0: this.prevKE, keMax: 0, allow: 0, body: overBody, desc: over, preRel: this.prevRel[overBody] ?? rel[overBody]!, ended: false });
+      r.n++;
+      r.keMax = Math.max(r.keMax, ke);
+      r.allow += inflow;
+      // 바깥 충격(피격·폭발)을 넣은 스텝은 에너지 기준을 그 뒤 값으로 다시 잡는다 — 폭풍에 날아간 팔의 운동 에너지는 입력이지 솔버가 만든 것이 아니다
+      if (this.extImpulseNow) { r.ke0 = Math.max(r.ke0, ke); r.allow = 0; }
+      const grow = !this.extImpulseNow && r.ke0 > 0 && ke > r.ke0 * (1 + sc.energyGrowth) + r.allow;
+      if (r.n >= sc.explodeSteps || grow) {
+        worst = `${over} (${r.n}스텝 연속${grow ? `, 운동 에너지 ×${(ke / r.ke0).toFixed(2)}` : ''})`;
+        this.overRun = null;
+      }
+    } else if (run) {
+      run.ended = true;
+      if (step - run.start + 1 >= sc.snapWindowSteps) finish(run);
+    }
+    this.prevKE = ke;
+    this.prevRel = rel;
+    return worst;
   }
 
   private saveGood(): void {

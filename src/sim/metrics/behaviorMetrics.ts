@@ -31,6 +31,10 @@
 // - grabbed: 잡기 관절을 만든 적 있으면 1, gripTime: 기준 피격 → 첫 잡음 (초), grabSlipMax: 잡은 동안 손바닥 점과 앵커(잡은 순간 손바닥 점) 거리 최대 (m),
 //   grabForceMax: 잡기 관절 추정 힘 최대 (N), grabHoldTime: 한 손 이상 잡고 있던 시간 (초), hangTime: HangOnLedge 가중치 > 0.5 시간 (초)
 // - wallBraced: 벽 짚기 중 손·어깨가 벽에 닿았으면 1, wallContactLead: 피격 → 첫 벽 접촉 (초), wallContactSpeed: 그때 손바닥(어깨는 COM 수평) 속도 (m/s), wallPushOff: 밀어내기를 시작했으면 1
+// (relax-6) 착지 후 경직 (※ 정의, README 결정 relax-6):
+// - postImpactRigidTime: 몸통·머리(rigidBodies)가 처음 지면에 닿은 뒤 rigidWindow초(일어서기 시작 전까지) 동안, 관절 상대 각속도 크기 평균 < rigidSpeedDegS이고
+//   관절 강도 평균 ≥ rigidStrength인 시간 합 (초) — 힘을 준 채 멈춰 굳어 있는 시간. 사람 기준 rigidHumanMax
+// - postImpactStrengthMin: 그 뒤 0.5초 안 관절 강도 평균 최소 (충격 후 이완 깊이), trunkContactT: 첫 몸통 접촉 시각
 import behaviorsCfg from '../../../config/behaviors.json';
 import type { CharacterState, SimEvent, Vec3, BodyName } from '../types';
 import { rotate } from '../math/quat';
@@ -48,6 +52,8 @@ export interface BehaviorJudge {
   /** v0.5c */
   flailGrace: number;
   writheWindow: number;
+  /** (relax-6) 착지 후 경직 */
+  rigidBodies?: string[]; rigidWindow?: number; rigidSpeedDegS?: number; rigidStrength?: number;
 }
 
 const yawOf = (q: readonly [number, number, number, number]): number => { const f = rotate(q as never, [0, 0, 1]); return Math.atan2(f[0], f[2]); };
@@ -105,6 +111,7 @@ export class BehaviorMetrics {
   private misstep = false;
   private rollDeg = 0;
   private writhe: { t0: number; comMax: number; sum: number; n: number; last: number } | null = null;
+  private rigid: { t0: number; time: number; sMin: number; done: boolean } | null = null;
 
   constructor(readonly j: BehaviorJudge) {}
 
@@ -122,7 +129,24 @@ export class BehaviorMetrics {
 
   onState(s: CharacterState): void {
     const t = s.time;
+    const dtp0 = t - this.lastT;
     this.lastT = t;
+    // (relax-6) 착지 후 경직
+    const rb = this.j.rigidBodies;
+    if (rb && !this.rigid && s.contacts.some((c) => rb.includes(c.body))) this.rigid = { t0: t, time: 0, sMin: Infinity, done: false };
+    if (this.rigid && !this.rigid.done) {
+      const r = this.rigid;
+      if (t - r.t0 > (this.j.rigidWindow ?? 3) || s.state === 'GettingUp') r.done = true;
+      else {
+        let sp = 0, st = 0, n = 0;
+        for (const k in s.joints) { const js = s.joints[k as keyof typeof s.joints]; sp += Math.hypot(...js.relAngVelDegS); st += js.strength; n++; }
+        if (n) {
+          sp /= n; st /= n;
+          if (t - r.t0 <= 0.5) r.sMin = Math.min(r.sMin, st);
+          if (sp < (this.j.rigidSpeedDegS ?? 15) && st >= (this.j.rigidStrength ?? 0.45) && dtp0 > 0) r.time += dtp0;
+        }
+      }
+    }
     const b = s.behavior;
     if (b && b.active.length) this.any = true;
     const inj = b?.active.find((x) => x.name === 'InjuredLeg');
@@ -340,6 +364,11 @@ export class BehaviorMetrics {
       out.writheComSpeedMax = w.comMax;
       out.writheJointSpeedMean = mean;
       out.writheSpeedInRange = mean >= r[0] && mean <= r[1] ? 1 : 0;
+    }
+    if (this.rigid) {
+      out.trunkContactT = this.rigid.t0;
+      out.postImpactRigidTime = this.rigid.time;
+      if (Number.isFinite(this.rigid.sMin)) out.postImpactStrengthMin = this.rigid.sMin;
     }
     if (this.limp && this.limp.knee !== null) out.limpKneeLeadTime = (this.limp.drop ?? this.lastT) - this.limp.knee;
     else if (this.limp) out.limpKneeLeadTime = -1;

@@ -1,0 +1,20 @@
+{
+  "$comment": "진정 단계 (2026-10-27, README 결정 settle-1~, 정의 docs/ALGORITHMS.md '진정 단계'). 밀리거나 맞은 뒤 '이제 버텼다'를 판단해 팔 반사·팔 벌림을 끄고 팔을 서기(Idle) 자세로 내리고(팔 자세 과제 가중치·감쇠 ↑, 팔 각운동량 비용 ↑) 척추·머리를 서기 자세로 천천히 세운다. 균형은 발목·고관절(접촉력·몸통)이 맡는다. 숨은 힘 없음(핀 0). 길이 m, 시간 초, 속도 m/s.",
+  "enabled": true,
+  "$armedFor": "마지막 충격 뒤 이 시간 안에서만 쓴다 (충격 없는 서기·걷기·일어서기 장면은 바뀌지 않음)",
+  "armedFor": 10.0,
+  "minAfterHit": 0.15,
+  "$enter": "들어가기: 감지 DCM이 지지 다각형 안 margin 넘게 + 넘어짐 확실도 < fall + COM 수평 속도 < speed + 반응 걸음 중 아님, 이 상태가 time초 이어짐",
+  "enter": { "margin": 0.015, "fall": 0.05, "speed": 0.4, "time": 0.1 },
+  "$exit": "나오기(바로 release초에): DCM 여유 < margin, 넘어짐 확실도 > fall, COM 수평 속도 > speed, 반응 걸음 시작, 새 충격, Active 아님·걷기 추종·넘어짐/바닥 행동. 들어가기와 사이에 히스테리시스",
+  "exit": { "margin": -0.03, "fall": 0.2, "speed": 0.6 },
+  "rise": 0.4,
+  "release": 0.08,
+  "spineRise": 0.9,
+  "armJoints": ["LeftArm", "LeftForeArm", "LeftHand", "RightArm", "RightForeArm", "RightHand"],
+  "spineJoints": ["Spine", "Spine2", "Head"],
+  "$tracker": "추종기 힌트 (진정 정도 1일 때, 0~1 사이는 선형): 팔 반사·팔 벌림 배율, 팔 자세 과제 가중치(위팔·전완·손)와 감쇠 kd, 팔 각운동량 비용 배율 (balance.json wb.posture·armMomentum 기준)",
+  "tracker": { "reflexScale": 0.0, "abductScale": 0.0, "armWeight": 10.0, "armKd": 20.0, "armMomScale": 8.0 },
+  "$endStyleHold": "진정 정도가 1이 되고 이만큼 지나면 반응 상체 스타일을 놓는다 (reaction.json style.blendOut) — 그 뒤는 서기(Idle) 자세",
+  "endStyleHold": 0.3
+}

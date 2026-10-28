@@ -21,7 +21,8 @@
     "rail": { "x": 0.42, "height": 0.95, "radius": 0.025, "z0": -3.0, "z1": 3.0, "posts": [-2.7, 2.7], "postRadius": 0.03 },
     "$wall": "(v0.8b) 벽: 평지 + 정면(+Z) 앞 벽 (벽면 z = z, 두께 thickness, 높이 height, 너비 2·halfWidth). 벽은 지면이 아니다(지면 인지·높이 판정에 안 쓴다)",
     "wall": { "z": 0.85, "thickness": 0.2, "height": 2.4, "halfWidth": 2.5 } },
-  "safety": { "maxLinVel": 20, "maxAngVel": 50 },
+  "$safety": "폭발 판정 (README 결정 15, 9f-5, 9f-11): 바디의 보고 속도와 이번 스텝 자세 차분 속도가 둘 다 maxLinVel(m/s)·maxAngVel(rad/s)을 넘는 '속도 초과'가 explodeSteps 스텝 연속이거나, 초과 중 캐릭터 운동 에너지가 구간 직전의 (1 + energyGrowth)배에 그동안 물리적으로 들어올 수 있는 에너지(중력 일률 M·g·|v_COM| + 근육 최대 일률 musclePowerW, 사람 전신 순간 최대 약 3kW)를 더한 것보다 늘면(바깥 충격을 넣은 스텝 제외) 폭발 → Ragdoll. 그보다 짧은 초과는 충돌 튐(collisionSnap): 숨기지 않고 구간 직전부터 snapWindowSteps 스텝(30fps 렌더 한 프레임) 동안 그 바디가 부모 기준으로 돈 각을 이벤트·지표로 남기고, snapVisibleDeg 넘은 것은 '보이는 튐'으로 따로 센다",
+  "safety": { "maxLinVel": 20, "maxAngVel": 50, "explodeSteps": 3, "energyGrowth": 0.25, "musclePowerW": 3000, "snapWindowSteps": 4, "snapVisibleDeg": 30 },
   "judge": {
     "groundContactDist": 0.01,
     "kneelSpine2TiltDeg": 45,
@@ -61,7 +62,13 @@
     "limpSpine2Drop": 0.3,
     "$v05c": "(v0.5c ※) flailGrace: 비행 시작부터 이 시간(초)은 Flail 비율(flailAirCoverage)에서 뺀다 — 자유 낙하 감지(약 0.07초) + 감지 지연 0.08 + 전환. writheWindow: 몸부림 판정 구간(초, SPEC 9.2 ground_writhe '쓰러진 뒤 5초' = 몸부림 시작부터)",
     "flailGrace": 0.25,
-    "writheWindow": 5.0
+    "writheWindow": 5.0,
+    "$rigid": "(relax-6 ※) 착지 후 경직 시간 postImpactRigidTime: 첫 몸통·머리 접촉(rigidBodies) 뒤 rigidWindow초(일어서기 전까지) 동안 관절 상대 각속도 평균 < rigidSpeedDegS °/s이고 관절 강도 평균 ≥ rigidStrength인 시간 합. 사람 기준 rigidHumanMax초 이하(넘어진 사람은 닿는 순간 힘이 풀렸다가 곧 움직이기 시작한다 — 힘을 준 채 멈춰 있는 구간이 거의 없다, 결정 relax-6). rigidStrength 0.4는 몸부림(평균 0.3 남짓)·누움(0.15) 강도보다 위, 30°/s는 넘어지는 동안(100°/s 넘음)에 비해 거의 멈춤",
+    "rigidBodies": ["Hips", "Spine", "Spine2", "Head"],
+    "rigidWindow": 3,
+    "rigidSpeedDegS": 30,
+    "rigidStrength": 0.4,
+    "rigidHumanMax": 0.2
   },
   "qualityJudge": {
     "$comment": "v0.3 품질·균형 지표 정의값 (docs/ALGORITHMS.md v0.3). jerkDt = 저크 표본 간격(초), reactionForce = 반응 시작으로 보는 균형 가상 힘 변화(N), leanTiltDeg = lean_target 기대값(※ SPEC 9.2)의 Spine2 기울기 기준.",

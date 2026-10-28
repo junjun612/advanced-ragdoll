@@ -1,0 +1,60 @@
+{
+  "name": "shot_thigh_while_walking",
+  "milestone": "0.6",
+  "description": "앞으로 걷는 중 3.0초에 오른 허벅지 가운데에 앞에서 총탄 (Δv 0.35, 앱 기본). 허벅지 앞은 걸으며 조금 숙이면 닿으므로(도달 판단 결정 leg-2) 오른손으로 상처를 누르고 절뚝이며(InjuredLeg) 걷기 추종을 이어 간다. 넘어지지 않음, 반응 중 핀 0. 기대값: 손이 상처에 닿기까지 0.6초 이하 ※(shot_while_walking_clutch와 같은 기준, 근처 입력 8개 0.48~0.53초), 누른 채 머문 시간 0.3초 이상 ※(근처 입력 8개 0.40~0.82초 — 걷는 다리가 움직여 손이 미끄러진다, 남은 우려). 근처 입력 8개 중 1개 넘어짐.",
+  "duration": 8,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0,
+    "state": "Animated",
+    "pose": "kimodo_walk_forward"
+  },
+  "clip": null,
+  "events": [
+    {
+      "t": 0.3,
+      "type": "setState",
+      "state": "Active"
+    },
+    {
+      "t": 3,
+      "type": "hit",
+      "hit": {
+        "type": "bullet",
+        "body": "RightUpLeg",
+        "direction": [
+          0,
+          0,
+          -1
+        ],
+        "magnitude": 0.35
+      }
+    }
+  ],
+  "cameras": [
+    "side",
+    "front"
+  ],
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "pinDuringReaction": {
+        "max": 0
+      },
+      "clutchReachTime": {
+        "max": 0.6
+      },
+      "clutchHoldTime": {
+        "min": 0.3
+      }
+    }
+  }
+}
