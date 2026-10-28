@@ -67,8 +67,10 @@ async function main(): Promise<void> {
     const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
     page.on('pageerror', (e) => errors.push(String(e)));
     page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') errors.push(`[${m.type()}] ${m.text()}`); });
-    await page.goto(`http://localhost:${PORT}/`, { timeout: 300_000, waitUntil: 'domcontentloaded' });
+    // 개발 모드(?dev), 접힌 패널 섹션은 모두 펼친다 (표시 방식 버튼 등을 누를 수 있게)
+    await page.goto(`http://localhost:${PORT}/?dev`, { timeout: 300_000, waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => 'ragdollApp' in window, null, { timeout: 400_000 });
+    await page.evaluate(() => document.querySelectorAll<HTMLDetailsElement>('#panel > details').forEach((d) => { d.open = true; }));
     await page.waitForFunction(() => getComputedStyle(document.getElementById('loading')!).display === 'none', null, { timeout: 400_000 });
     const shot = async (file: string) => { await wait(700); await page.screenshot({ path: join(OUT, file) }); report.push(join(OUT, file)); };
 

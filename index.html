@@ -16,10 +16,18 @@
         <div id="assistWarn" class="overlay"></div>
         <div id="pushInfo" class="overlay"></div>
         <div id="legend" class="overlay"></div>
-        <div id="graphBox" class="overlay"><canvas id="graph"></canvas></div>
-        <div id="loading" class="overlay">불러오는 중…</div>
+        <div id="graphBox"><canvas id="graph"></canvas></div>
+        <div id="coach"></div>
+        <div id="dock"></div>
+        <div id="loading"><span class="spinner" aria-hidden="true"></span><span id="loadingText">불러오는 중…</span></div>
       </div>
-      <aside id="panel"><h1 id="appTitle">액티브 랙돌</h1></aside>
+      <aside id="panel">
+        <header id="panelHead">
+          <h1 id="appTitle">액티브 랙돌</h1>
+          <p class="sub">근육과 균형으로 버티는 물리 캐릭터예요. 밀고, 쏘고, 터뜨려 보세요.</p>
+          <div id="modeRow"></div>
+        </header>
+      </aside>
     </div>
     <script type="module" src="/src/app/main.ts"></script>
   </body>

@@ -65,10 +65,11 @@ export function slider(
   return s;
 }
 
-export function buttons(parent: HTMLElement, items: { label: string; onClick: () => void; id?: string; title?: string }[], cls = 'btn-row'): HTMLButtonElement[] {
+export function buttons(parent: HTMLElement, items: { label: string; onClick: () => void; id?: string; title?: string; icon?: string }[], cls = 'btn-row'): HTMLButtonElement[] {
   const row = el('div', { class: cls });
   const out = items.map((it) => {
-    const b = el('button', it.id ? { id: it.id } : {}, it.label);
+    const b = el('button', it.id ? { id: it.id } : {});
+    iconLabel(b, it.label, it.icon);
     if (it.title) b.title = it.title;
     b.addEventListener('click', it.onClick);
     row.append(b);
@@ -78,11 +79,25 @@ export function buttons(parent: HTMLElement, items: { label: string; onClick: ()
   return out;
 }
 
+/** 버튼 안 아이콘(SVG 문자열)과 글. 아이콘은 aria-hidden이라 접근 이름은 글 그대로 */
+export function iconLabel(b: HTMLElement, label: string, icon?: string): HTMLElement {
+  const txt = el('span', { class: 'txt' }, label);
+  if (icon) {
+    const ic = el('span', { class: 'ico', 'aria-hidden': 'true' });
+    ic.innerHTML = icon;
+    b.append(ic);
+  }
+  b.append(txt);
+  return txt;
+}
+
 /** 하나만 고르는 버튼 묶음 */
-export function segmented<T extends string | number>(parent: HTMLElement, items: { label: string; value: T }[], value: T, onChange: (v: T) => void): { set(v: T): void } {
-  const row = el('div', { class: 'seg' });
+export function segmented<T extends string | number>(parent: HTMLElement, items: { label: string; value: T; icon?: string; title?: string }[], value: T, onChange: (v: T) => void, cls = 'seg'): { set(v: T): void } {
+  const row = el('div', { class: cls });
   const bs = items.map((it) => {
-    const b = el('button', {}, it.label);
+    const b = el('button', {});
+    iconLabel(b, it.label, it.icon);
+    if (it.title) b.title = it.title;
     b.addEventListener('click', () => { set(it.value); onChange(it.value); });
     row.append(b);
     return { b, v: it.value };

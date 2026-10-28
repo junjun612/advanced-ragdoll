@@ -16,6 +16,8 @@ export interface AppConfig {
   maxStepsPerFrame: number;
   speeds: number[];
   defaultSpeed: number;
+  /** 패널 추천 장면 버튼 */
+  showcase: { scenario: string; label: string }[];
   pushDefault: 'small' | 'medium' | 'large';
   pushMaxDv: number;
   pushDuration: number;

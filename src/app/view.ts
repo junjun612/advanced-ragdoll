@@ -236,7 +236,8 @@ export class AppView {
     this.tags.forEach((d, i) => {
       const f = frames[i];
       const h = f?.state.bodies.Head;
-      if (!f || !h) { d.style.display = 'none'; return; }
+      // 한 명일 때는 이름표가 필요 없다
+      if (!f || !h || frames.length < 2) { d.style.display = 'none'; return; }
       const v = new THREE.Vector3(h.pos[0], h.pos[1] + 0.25, h.pos[2]).project(this.camera);
       if (v.z > 1) { d.style.display = 'none'; return; }
       d.style.display = '';
@@ -270,10 +271,25 @@ export class AppView {
     this.controls.update();
   }
 
+  /** 화면을 가리는 UI 두께(px). 카메라 투영 중심을 남은 영역의 가운데로 옮긴다 (가린 UI 뒤로 캐릭터가 숨지 않게) */
+  private insets = { top: 0, right: 0, bottom: 0, left: 0 };
+
+  setInsets(ins: Partial<{ top: number; right: number; bottom: number; left: number }>): void {
+    const n = { ...this.insets, ...ins };
+    if (n.top === this.insets.top && n.right === this.insets.right && n.bottom === this.insets.bottom && n.left === this.insets.left) return;
+    this.insets = n;
+    this.resize();
+  }
+
   private resize(): void {
     const w = Math.max(1, this.host.clientWidth), h = Math.max(1, this.host.clientHeight);
     this.renderer.setSize(w, h);
     this.camera.aspect = w / h;
+    // 남은 영역 가운데가 투영 중심이 되게 화면을 민다 (setViewOffset의 x·y가 양수면 내용이 왼쪽·위로 간다)
+    const i = this.insets;
+    const dx = (i.left - i.right) / 2, dy = (i.top - i.bottom) / 2;
+    if (dx || dy) this.camera.setViewOffset(w, h, -dx, -dy, w, h);
+    else this.camera.clearViewOffset();
     this.camera.updateProjectionMatrix();
   }
 
