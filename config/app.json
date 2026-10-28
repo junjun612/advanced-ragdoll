@@ -13,6 +13,8 @@
   "maxFrameDt": 0.1,
   "$maxStepsPerFrame": "렌더 프레임 하나에서 돌 최대 물리 스텝 (= maxFrameDt × 120, 탭이 느리게 그려져도 실시간을 따라가게). 못 따라가면 밀린 시간을 버리고 속도 표시에 실시간 대비 비율을 보인다",
   "maxStepsPerFrame": 12,
+  "$fps": "화면 그리기 프레임 제한 cap (0 = 제한 없음 = 모니터 주사율). 물리는 1/120초 고정 스텝이라 제한해도 결과는 같다. sampleSec = FPS 표시 평균 구간(초)",
+  "fps": { "cap": 60, "sampleSec": 0.5 },
   "speeds": [0.1, 0.25, 0.5, 1.0],
   "defaultSpeed": 1.0,
   "pushDefault": "medium",

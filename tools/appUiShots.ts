@@ -46,6 +46,15 @@ async function main(): Promise<void> {
       await wait(1500);
       const shot = async (name: string, full = false) => { const p = `${OUT}/ui_${tag}_${name}.png`; await page.screenshot({ path: p, fullPage: full }); shots.push(p); };
       await shot('01_first');
+      // FPS 표시·제한, 글자 선택 막힘 확인 (헤드리스 rAF는 60Hz 근처)
+      // tsx가 함수에 이름 도우미(__name)를 붙여 페이지 안에서 깨지므로 rAF 측정은 문자열로 넘긴다
+      const raf = await page.evaluate('new Promise((res) => { let n = 0; const t0 = performance.now(); function f() { n++; if (performance.now() - t0 < 1000) requestAnimationFrame(f); else res(n); } requestAnimationFrame(f); })') as number;
+      const info = await page.evaluate(() => ({
+        fps: document.getElementById('fpsBadge')!.textContent,
+        select: getComputedStyle(document.body).userSelect,
+        viewport: document.querySelector('meta[name=viewport]')!.getAttribute('content'),
+      }));
+      console.log(`${tag}: rAF ${raf}회/초 · FPS 표시 "${info.fps}" · user-select ${info.select} · viewport ${info.viewport}`);
       await scene(page, 'shot_chest_stagger_clutch', 240);
       await shot('02_view_shot', tag === 'mobile' || tag === 'fold_portrait');
       if (tag === 'desktop') {

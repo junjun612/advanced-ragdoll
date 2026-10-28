@@ -70,7 +70,8 @@ const INPUT_KO: { value: InputMode; label: string; hint: string; icon: string }[
 ];
 /** 보기 모드 / 개발 모드의 기본 표시 */
 const SHOW_PRESET: Record<'view' | 'dev', Record<DebugPart, boolean>> = {
-  view: { com: false, support: false, balance: false, impact: true, strength: false, pin: false, jointError: false, debug: false, tags: true },
+  // (사람 지시) 보기 모드도 3D 디버그 요소는 개발 모드와 같이 그린다 — 두 모드의 차이는 패널·상태 글뿐
+  view: { com: true, support: true, balance: false, impact: true, strength: true, pin: true, jointError: false, debug: true, tags: true },
   dev: { com: true, support: true, balance: false, impact: true, strength: true, pin: true, jointError: false, debug: true, tags: true },
 };
 /** 보기 모드 상태 글에 남기는 꼬리표 (지금 무엇을 하는지만, 수치 위주 꼬리표는 개발 모드) */
@@ -344,8 +345,14 @@ async function main(): Promise<void> {
   // ── 표시 ──
   const sView = section(panel, '표시', false);
   segmented<DisplayMode>(sView, [{ label: '캡슐', value: 'capsule' }, { label: 'FBX', value: 'fbx' }, { label: '둘 다', value: 'both' }], view.mode, (m) => view.setMode(m));
+  // FPS 표시 (그리기 제한은 config/app.json fps.cap, 물리는 1/120초 고정)
+  const fpsCap = cfg.fps.cap;
+  const fpsBadge = document.getElementById('fpsBadge')!;
+  let showFps = store.get('ragdoll.showFps') !== '0';
   const dbg = el('div', { class: 'checks' });
   sView.append(dbg);
+  checkbox(dbg, 'FPS 표시', showFps, (v) => { showFps = v; store.set('ragdoll.showFps', v ? '1' : '0'); fpsBadge.style.display = v ? '' : 'none'; });
+  fpsBadge.style.display = showFps ? '' : 'none';
   const showChecks = new Map<DebugPart, HTMLInputElement>();
   const chk = (label: string, part: DebugPart, sw?: string) => {
     const on = SHOW_PRESET[dev ? 'dev' : 'view'][part];
@@ -550,6 +557,14 @@ async function main(): Promise<void> {
   refreshCharSel();
   selectScenario('').catch((e) => console.error(e));
 
+  // 페이지 확대 막기: Ctrl/⌘ + 휠·+/−/0, 사파리 제스처(핀치), 두 손가락 터치 이동. 글자·이미지 끌기 막기
+  window.addEventListener('wheel', (e) => { if (e.ctrlKey || e.metaKey) e.preventDefault(); }, { passive: false });
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && ['+', '=', '-', '_', '0'].includes(e.key)) e.preventDefault();
+  });
+  for (const g of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(g, (e) => e.preventDefault(), { passive: false });
+  document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  document.addEventListener('dragstart', (e) => e.preventDefault());
   window.addEventListener('keydown', (e) => {
     const tag = (e.target as HTMLElement).tagName;
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'BUTTON' || tag === 'TEXTAREA') return;
@@ -580,7 +595,24 @@ async function main(): Promise<void> {
     .catch((err: Error) => { loading.classList.add('error'); loadingText.textContent = `캐릭터 모델 불러오기 실패: ${err.message} (캡슐로 계속)`; console.error(err); });
 
   let prev = performance.now();
+  // FPS: sampleSec마다 그린 프레임 수 평균
+  let fpsCount = 0, fpsT0 = prev;
+  let nextDraw = prev;
   const frame = (now: number) => {
+    // 프레임 제한: 예정 시각(nextDraw)보다 반 간격 넘게 이르면 건너뛴다. 예정 시각을 간격만큼 누적해 144Hz 모니터에서도 평균 cap을 맞추고,
+    // 반 간격 여유로 60Hz 모니터의 rAF 시각 흔들림에 프레임을 버리지 않는다. 많이 밀렸으면 지금부터 다시 센다
+    if (fpsCap > 0) {
+      const interval = 1000 / fpsCap;
+      if (now < nextDraw - interval / 2) { requestAnimationFrame(frame); return; }
+      nextDraw = now - nextDraw > interval ? now + interval : nextDraw + interval;
+    }
+    fpsCount++;
+    if (now - fpsT0 >= cfg.fps.sampleSec * 1000) {
+      const fps = (fpsCount * 1000) / (now - fpsT0);
+      fpsBadge.textContent = `${fps.toFixed(0)} FPS${fpsCap ? ` / ${fpsCap}` : ''}`;
+      fpsBadge.classList.toggle('low', fps < (fpsCap || 60) * 0.8);
+      fpsCount = 0; fpsT0 = now;
+    }
     const realDt = Math.min((now - prev) / 1000, cfg.maxFrameDt);
     prev = now;
     if (playing) host.advance(realDt * speed, () => performance.now());

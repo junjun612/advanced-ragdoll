@@ -16,6 +16,8 @@ export interface AppConfig {
   maxStepsPerFrame: number;
   speeds: number[];
   defaultSpeed: number;
+  /** 그리기 프레임 제한 (0 = 없음) */
+  fps: { cap: number; sampleSec: number };
   /** 패널 추천 장면 버튼 */
   showcase: { scenario: string; label: string }[];
   pushDefault: 'small' | 'medium' | 'large';
