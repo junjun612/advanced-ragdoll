@@ -46,7 +46,8 @@ describe('public API events (v0.9)', () => {
     // 잡은 팔 힘을 잠깐 빼면(setMuscleScale 0 → 2초에 회복) 그 뒤 잡기가 끝날 때(버텨 냄 recovered, 또는 넘어진 뒤 행동 끝) 'released'가 온다.
     // (결정 rom-6) 놓는 시각은 혼돈 궤적에 달려 있다(어깨 끝 저항 끔: 5.08초 버텨 냄, 켬: 5.24초 넘어진 뒤 6.47초) → 장면 길이(6초)에 3초를 더해 끝나기 전에 놓이게 한다
     const sc0 = loadScenario(findScenario('rail_grab'));
-    const inp = loadInputs({ ...sc0, duration: sc0.duration + 3 });
+    // (결정 game-3) 반응 변주를 켜면 시드 1 궤적이 바뀌어 넘어진 채 난간을 14초 넘게 쥔다(rail_grab 알려진 혼돈) — 이 검사는 알림 배선을 보므로 놓는 궤적(변주 끔)에 고정한다
+    const inp = loadInputs({ ...sc0, duration: sc0.duration + 3, variation: false });
     const ev: SimEvent[] = [];
     await runScenario(inp, {
       listen: (ch) => {

@@ -1,0 +1,33 @@
+{
+  "name": "walk_push_return",
+  "milestone": "0.6",
+  "description": "(README 결정 game-1) 게임이 Kimodo 걷기 클립을 키네마틱(Animated)으로 재생하다가 3.0초에 오른쪽에서 가슴을 민다(Δv 0.2, 0.15초 — Animated에서 바로 맞는 걷기 옆 밀림은 0.25부터 근처 입력 3/6 넘어짐, 결정 game-1 알려진 한계) → 그 스텝에 Active로 넘어가 비틀거리며 받고, 같은 순간 게임이 returnToAnimation('kimodo_walk_forward', when 'recovered')를 불러 둔다 → 균형·진정이 끝나 복귀 가능('recovered')이 되면 걷기 클립을 지금 몸에 맞춰(앵커·위상) 관성화로 키네마틱 재생에 돌려받는다. 8.0초에 앞에서 한 번 더(Δv 0.3) 밀고 다시 복귀를 맡긴다. 넘어지지 않음, 반응 중 핀 0, 복귀 2번, 기준(※): 전환 스텝 바디 가속도(속도 불연속/dt)와 전환 뒤 0.1초 바디 가속도 ≤ 250 m/s² — 키네마틱 걷기 클립 자체의 프레임 보간 가속도 p99 245 m/s²보다 크지 않음(관성화라 물리 자세·속도에서 그대로 이어짐).",
+  "duration": 13,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [0, 0, 0],
+    "yaw": 0,
+    "state": "Animated",
+    "pose": "kimodo_walk_forward"
+  },
+  "clip": null,
+  "events": [
+    { "t": 3.0, "type": "hit", "hit": { "type": "push", "body": "Spine2", "direction": [1, 0, 0], "magnitude": 0.2, "duration": 0.15 } },
+    { "t": 3.0, "type": "returnToAnimation", "clip": "kimodo_walk_forward" },
+    { "t": 8.0, "type": "hit", "hit": { "type": "push", "body": "Spine2", "direction": [0, 0, -1], "magnitude": 0.3, "duration": 0.15 } },
+    { "t": 8.0, "type": "returnToAnimation", "clip": "kimodo_walk_forward" }
+  ],
+  "cameras": ["front", "side"],
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "pinDuringReaction": { "max": 0 },
+      "returnDone": { "min": 2 },
+      "returnSwitchAccel": { "max": 250 },
+      "returnPopAccel": { "max": 250 }
+    }
+  }
+}

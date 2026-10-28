@@ -262,6 +262,13 @@ export class SimHost {
     this.interacted = true;
   }
 
+  /** (README 결정 game-1) 게임 애니(걷기 클립 키네마틱)로 돌려받기: when 'recovered'면 복귀 가능 시점까지 기다린다 */
+  returnToAnim(ci: number, when: 'recovered' | 'now'): boolean {
+    const c = this.chars[ci]!;
+    this.interacted = true;
+    return c.ch.returnToAnimation(this.cfg.walk.loop, { when });
+  }
+
   setAnimOverride(w: number): void {
     this.animOverride = w;
     for (const c of this.chars) c.ch.setAnimOverride(w);

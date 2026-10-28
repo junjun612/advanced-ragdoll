@@ -27,7 +27,9 @@ export type ScenarioEvent = { char?: string } & (
   /** v0.5a: 시선 대상 (SPEC 7.2 lookAt, null이면 끄기) */
   | { t: number; type: 'lookAt'; target: Vec3 | null }
   /** v0.7: 일어서기 켜기·끄기 (게임이 막음) */
-  | { t: number; type: 'setGetup'; on: boolean });
+  | { t: number; type: 'setGetup'; on: boolean }
+  /** (README 결정 game-1) 게임 애니 복귀 (Character.returnToAnimation) */
+  | { t: number; type: 'returnToAnimation'; clip: string; blendTime?: number; when?: 'recovered' | 'now' });
 
 /** (v0.8c) 두 번째 이후 캐릭터 (첫 캐릭터는 시나리오 최상위 character/spawn/clip/expect) */
 export interface ExtraCharacter {
@@ -40,6 +42,8 @@ export interface ExtraCharacter {
   balance?: boolean;
   stepping?: boolean;
   getup?: boolean | { enabled?: boolean; probe?: boolean; only?: string };
+  /** (game-3) 반응 변주 (없으면 기본) */
+  variation?: boolean;
   /** 이 캐릭터의 기대값 (없으면 확인 안 함) */
   expect?: Expect;
 }
@@ -88,6 +92,8 @@ export interface Scenario {
    * 객체면 시험 옵션 (CharacterOpts.getup)
    */
   getup?: boolean | { enabled?: boolean; probe?: boolean; only?: string };
+  /** (README 결정 game-3) 첫 캐릭터 반응 변주 켬/끔 (없으면 config/game.json variation.enabled) */
+  variation?: boolean;
   /**
    * (v0.7) 묶음 시나리오: 무작위 쓰러짐(src/sim/getupScenarios.ts) count개를 seedStart부터 돌린다(넘어지지 않은 시드는 건너뜀, 최대 maxTries개).
    * 요약 지표는 묶음 집계(getupSuccessCount 등). 각 실행 로그는 out/<이름>/runs/<시드>/

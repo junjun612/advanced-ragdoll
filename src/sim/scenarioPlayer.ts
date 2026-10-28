@@ -34,10 +34,10 @@ export function scenarioCast(sc: Scenario, inp: CastInputs): CastMember[] {
   const multi = !!sc.characters?.length;
   const cast: CastMember[] = [
     { name: multi ? sc.primaryName ?? 'A' : undefined, def: inp.character, config: inp.characterConfig, spawn: sc.spawn, clip: sc.clip, expect: sc.expect,
-      opts: { rootAssist: sc.assist?.root, balance: sc.balance, stepping: sc.stepping, getup: getupOf(sc, sc.getup), ...inp.characterOpts } },
+      opts: { rootAssist: sc.assist?.root, balance: sc.balance, stepping: sc.stepping, getup: getupOf(sc, sc.getup), ...(sc.variation !== undefined ? { variation: sc.variation } : {}), ...inp.characterOpts } },
     ...(sc.characters ?? []).map((c, i) => ({
       name: c.name, def: inp.extraCharacters?.[i]?.def ?? inp.character, config: inp.extraCharacters?.[i]?.config ?? inp.characterConfig, spawn: c.spawn, clip: c.clip, expect: c.expect,
-      opts: { rootAssist: c.assist?.root, balance: c.balance, stepping: c.stepping, getup: getupOf(sc, c.getup) } as CharacterOpts,
+      opts: { rootAssist: c.assist?.root, balance: c.balance, stepping: c.stepping, getup: getupOf(sc, c.getup), ...(c.variation !== undefined ? { variation: c.variation } : {}) } as CharacterOpts,
     })),
   ];
   const names = cast.map((s) => s.name);
@@ -72,6 +72,7 @@ export function applyScenarioEvent(world: World, byName: CharacterByName, e: Sce
   else if (e.type === 'setStepping') ch.setStepping(e.on);
   else if (e.type === 'lookAt') ch.lookAt(e.target);
   else if (e.type === 'setGetup') ch.setGetup(e.on);
+  else if (e.type === 'returnToAnimation') ch.returnToAnimation(e.clip, { blendTime: e.blendTime, when: e.when });
   else throw new Error(`unknown scenario event type '${(e as { type: string }).type}'`);
 }
 

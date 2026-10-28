@@ -1,6 +1,5 @@
 {
   "name": "hit_melee_side",
-  "knownIssue": "결정 tone-6(9f-7): 시드 1 혼돈 — 정착 상체 감쇠(tone-4) 뒤 3초 안 회복 판정을 못 함. 근처 입력 24시드 18 → 18/24 같음(넘어짐 1 → 2)",
   "milestone": "0.5a",
   "description": "왼쪽 옆구리를 근접 타격 (Δv 0.6, 오른쪽(−X)으로, Spine2 + 인접 바디에 분산). 비틀거림(Stagger) 뒤 회복.",
   "duration": 5,

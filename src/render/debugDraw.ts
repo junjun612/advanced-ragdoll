@@ -33,7 +33,7 @@ export function balanceText(state: CharacterStateLite): string {
   if (!b) return '';
   if (!b.enabled) return STRATEGY_LABEL.off!;
   const w = b.hipWeight > 0.05 && b.hipWeight < 0.95 ? ` ${b.hipWeight.toFixed(1)}` : '';
-  return `${STRATEGY_LABEL[b.strategy] ?? b.strategy}${w} · 여유 ${(b.margin * 100).toFixed(1)}cm${settleText(state) ? ` · ${settleText(state)}` : ''}${romText(state) ? ` · ${romText(state)}` : ''}${toneText(state) ? ` · ${toneText(state)}` : ''}`;
+  return `${STRATEGY_LABEL[b.strategy] ?? b.strategy}${w} · 여유 ${(b.margin * 100).toFixed(1)}cm${settleText(state) ? ` · ${settleText(state)}` : ''}${romText(state) ? ` · ${romText(state)}` : ''}${toneText(state) ? ` · ${toneText(state)}` : ''}${b.land && b.land > 0.05 ? ` · 착지 받기 ${b.land.toFixed(1)}` : ''}`;
 }
 
 /** (결정 tone-1) 근긴장: "공동수축 0.8 · 신장 반사 Spine2 0.4 (감쇠 ×3.4)". 꺼져 있거나 0이면 '' */
@@ -91,15 +91,28 @@ const MODE_KO: Record<string, string> = { stance: '지지', landing: '착지 대
 const HANDOVER_KO: Record<string, string> = { void: '헛디딤', trip: '걸림', balanceOff: '균형 꺼짐', noContact: '접촉 없음', low: '낮음' };
 
 /** 애니 추종 텍스트 (v0.6): "걷기 추종 · 왼발 지지 · 오른발 스윙 · 핀 0.40" / "추종 넘김 (dcm 0.31)" / "키네마틱 재생". 클립이 없으면 '' */
+const RET_BLOCK_KO: Record<string, string> = { react: '반응 중', reaction: '반응 클립', stepping: '걸음 중', moving: '움직임', feet: '두 발 아님', margin: '균형 여유', 'walk dcm': '걸음 오차', getup: '일어서기' };
+/** (README 결정 game-1) 게임 애니 복귀 텍스트: "애니 복귀 대기 (걸음 중)" / "애니로 복귀 중 0.3/0.5초" */
+export function returnText(state: CharacterStateLite): string {
+  const r = state.returnAnim;
+  if (!r) return '';
+  if (r.phase === 'wait') { const b = r.blockedBy.split(' ')[0] === 'behavior' ? `행동 ${r.blockedBy.slice(9)}` : r.blockedBy.startsWith('posture') ? '서 있지 않음' : RET_BLOCK_KO[r.blockedBy] ?? r.blockedBy; return `애니 복귀 대기${b ? ` (${b})` : ' (곧)'}`; }
+  if (r.phase === 'pin') return '애니 복귀 · 핀 블렌드';
+  if (r.phase === 'kinematic' && r.kinT !== null) return `애니로 복귀 중 ${Math.max(0, state.time - r.kinT).toFixed(1)}/${(r.blendTime - r.pinTime).toFixed(1)}초`;
+  return '';
+}
+
 export function walkText(state: CharacterStateLite): string {
   if (!state.anim) return '';
   const pin = state.pin && state.pin.strength > 0.005 ? ` · 핀 ${state.pin.strength.toFixed(2)}` : '';
-  if (state.state === 'Animated') return `키네마틱 재생${state.states?.transition ? ' (전환 중)' : ''}`;
+  const rt = returnText(state);
+  if (state.state === 'Animated') return rt || `키네마틱 재생${state.states?.transition ? ' (전환 중)' : ''}`;
+  if (rt) return `${rt}${pin}`;
   const w = state.walk;
   if (!w) return `클립 추종${pin}`;
   if (!w.engaged) return `추종 넘김${w.handover ? ` (${HANDOVER_KO[w.handover] ?? w.handover})` : ''}${pin}`;
   const f = (n: string) => `${FOOT_KO[n] ?? n} ${MODE_KO[w.feet[n]?.mode ?? ''] ?? ''}`;
-  return `클립 추종 · ${f('LeftFoot')} · ${f('RightFoot')}${pin}`;
+  return `클립 추종 · ${f('LeftFoot')} · ${f('RightFoot')}${w.phaseState ? ` · 위상 몸 따라 ×${w.rate.toFixed(2)}` : ''}${pin}`;
 }
 
 const REACT_DIR_KO: Record<string, string> = { back: '뒤', front: '앞', left: '왼쪽', right: '오른쪽', backleft: '왼쪽 뒤', backright: '오른쪽 뒤', frontleft: '왼쪽 앞', frontright: '오른쪽 앞' };

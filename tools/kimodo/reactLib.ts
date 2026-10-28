@@ -32,7 +32,19 @@ export const REACT_STR: Record<string, { dv: number; tau: number; label: string 
 const PUSH_FRAME = 30;
 const PATH_DT = [0, 3, 6, 9, 12, 15, 18, 24, 30, 39, 48, 60, 75, 89];
 
-export function reactSpec(dir: string, str: string, seeds: number[]): ClipSpec {
+/**
+ * 프롬프트 묶음 (결정 clip-*): '' = 원래(결정 161, 루트 경로 문구 그대로), 나머지는 가슴·어깨를 손으로 민 외란에 맞춘 문구.
+ * 루트 경로(지수 감속)는 같다 — 세기·시간은 경로가, 반응 모양(몸통이 얼마나 꺾이는지, 걸음)은 문구가 정한다.
+ * {dir} = 힘 방향 문구, {step} = 밀린 쪽 걸음 문구
+ */
+export const REACT_SETS: Record<string, string> = {
+  '': 'a person standing still is suddenly pushed {dir}, and recovers their balance',
+  shove: 'a person standing still is suddenly shoved {dir}, staggers {step} with one or two quick steps, and then stands still',
+  upright: 'a person standing still is suddenly shoved {dir}; they keep their torso upright and take one or two quick steps {step} to catch their balance, then stand still with arms relaxed',
+};
+const STEP_WORD: Record<string, string> = { back: 'backward', front: 'forward', left: 'to their left', right: 'to their right', backleft: 'diagonally backward', backright: 'diagonally backward', frontleft: 'diagonally forward', frontright: 'diagonally forward' };
+
+export function reactSpec(dir: string, str: string, seeds: number[], set = ''): ClipSpec {
   const d = REACT_DIRS[dir]!, s = REACT_STR[str]!;
   const D = s.dv * s.tau;
   const pts: [number, number][] = [[0, 0]];
@@ -43,8 +55,8 @@ export function reactSpec(dir: string, str: string, seeds: number[]): ClipSpec {
     frames.push(PUSH_FRAME + k);
   }
   return {
-    clip: `react_${dir}_${str}`, label: `${dir} ${s.label} (순간 밀림 → 감속 ${Math.round(D * 100)}cm)`,
-    text: `a person standing still is suddenly pushed ${d.text}, and recovers their balance`,
+    clip: `react_${set ? set + '_' : ''}${dir}_${str}`, label: `${set ? set + ' ' : ''}${dir} ${s.label} (순간 밀림 → 감속 ${Math.round(D * 100)}cm)`,
+    text: REACT_SETS[set]!.replace('{dir}', d.text).replace('{step}', STEP_WORD[dir]!),
     duration_s: 4, models: ['rp12'], seeds, startPose: 'stand', rootMotion: 'kept',
     holdStartFrames: [24, 30], rootPath: { points: pts, frames },
     expect: { dir: d.move, endStillSpeed: 0.3 }, weights: { startPoseDeg: 0, endPoseDeg: 1.0 }, top: 3, filmCamera: Math.abs(d.move[0]) > 0.9 ? 'front' : 'side',
@@ -57,18 +69,21 @@ async function main(): Promise<void> {
   const dirs = opt('--dirs', Object.keys(REACT_DIRS).join(',')).split(',');
   const strs = opt('--str', Object.keys(REACT_STR).join(',')).split(',');
   const sr = opt('--seeds', '1-6');
+  const set = opt('--set', '');
+  if (!(set in REACT_SETS)) throw new Error(`--set ${set}: ${Object.keys(REACT_SETS).join(', ')}`);
+  const pre = `react_${set ? set + '_' : ''}`;
   const seeds = sr.includes('-') ? (() => { const [a, b] = sr.split('-').map(Number); return Array.from({ length: b! - a! + 1 }, (_, i) => a! + i); })() : sr.split(',').map(Number);
   const specDir = join(ROOT, 'tools', 'kimodo', 'specs', 'react_lib');
   mkdirSync(specDir, { recursive: true });
   if (argv[0] === 'list') {
     for (const d of dirs) for (const s of strs) for (const sd of seeds) {
-      const p = join(ROOT, 'assets', 'kimodo', `react_${d}_${s}`, `rp12_s${sd}`, 'clip.json');
+      const p = join(ROOT, 'assets', 'kimodo', `${pre}${d}_${s}`, `rp12_s${sd}`, 'clip.json');
       if (existsSync(p)) console.log(p);
     }
     return;
   }
   for (const d of dirs) for (const s of strs) {
-    const spec = reactSpec(d, s, seeds);
+    const spec = reactSpec(d, s, seeds, set);
     const sp = join(specDir, `${spec.clip}.json`);
     writeFileSync(sp, JSON.stringify(spec, null, 2));
     console.log(`== ${spec.clip}: ${spec.label}`);

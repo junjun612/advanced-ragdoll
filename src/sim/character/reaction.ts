@@ -220,18 +220,28 @@ export class ReactionLibrary {
    * style 모드 클립 고르기: 밀린 방향(충격 뒤 COM 속도 방향, 골반 yaw 기준)과 세기(충격 뒤 COM 속도 최대)가 가장 가까운 클립.
    * 같으면 이름 순(결정론)
    */
-  chooseStyle(velW: Readonly<Vec3>, peakSpeed: number, pelvisYaw: number, walking: boolean, c: StyleConfig): { meta: ReactionMeta; cost: number; dirCos: number } | null {
+  chooseStyle(velW: Readonly<Vec3>, peakSpeed: number, pelvisYaw: number, walking: boolean, c: StyleConfig, pick?: { tol: number; u: number }): { meta: ReactionMeta; cost: number; dirCos: number } | null {
     const vl = rotY(-pelvisYaw, velW);
     const n = Math.hypot(vl[0], vl[2]);
     if (n < 1e-6) return null;
     const d: [number, number] = [vl[0] / n, vl[2] / n];
     let best: { meta: ReactionMeta; cost: number; dirCos: number } | null = null;
+    const all: { meta: ReactionMeta; cost: number; dirCos: number }[] = [];
     for (const m of this.meta) {
       if ((m.from === 'walk') !== walking) continue;
       // 클립 방향은 클립 0프레임 골반 정면(+Z) 기준 (Kimodo 클립은 stand 키프레임으로 정면 +Z에서 시작)
       const cos = d[0] * m.dir[0] + d[1] * m.dir[1];
       const cost = c.cost.dir * (1 - cos) + c.cost.dv * (m.dvPeak * c.cost.dvScale - peakSpeed) ** 2;
       if (!best || cost < best.cost - 1e-12) best = { meta: m, cost, dirCos: cos };
+      all.push({ meta: m, cost, dirCos: cos });
+    }
+    // (README 결정 game-3) 반응 변주: 최저 비용 클립과 같은 묶음(방향·세기가 같고 Kimodo 시드만 다른 클립, 이름 끝 _s숫자만 다름) 중
+    // 비용이 최저 + tol 안인 것을 u로 고른다 (라이브러리 순서, 결정론). 다른 방향·세기 클립까지 고르면 버티기가 나빠졌다(근처 16시드 19 → 11/32)
+    if (pick && best) {
+      const fam = (n: string) => n.replace(/_s\d+$/, '');
+      const bf = fam(best.meta.name);
+      const near = all.filter((x) => x.cost <= best!.cost + pick.tol && fam(x.meta.name) === bf);
+      return near[Math.min(near.length - 1, Math.floor(pick.u * near.length))]!;
     }
     return best;
   }

@@ -76,6 +76,8 @@
   "settle": { "stillSpeed": 0.1, "closeSagittal": 0.16, "closeWidthTol": 0.1, "shiftFraction": 0.6, "shiftTime": 0.4, "shiftTol": 0.04, "shiftMaxSpeed": 0.2, "shiftLoad": 0.2, "closeDuration": 0.3, "closeApex": 0.04, "standTime": 0.4, "maxClosing": 1, "comGoalTau": 0.12, "shiftKDcm": 6, "stepMode": false, "freezeLegs": true, "trunkGains": true, "armPostureWeight": 1.5, "recenter": true, "recenterSpeed": 0.04, "recenterFreeze": true, "placeSpeed": 1.6, "placeApex": 0.05, "placeMaxSpeed": 0.3 },
 
   "$stagger": "maxSteps 스텝 뒤에도 다시 스텝이 필요하면 Stagger(v0.5a) 훅 이벤트를 남긴다. Stagger가 생기기 전에는 hardMaxSteps까지 같은 방식으로 계속 내딛는다.",
+  "$land": "(2026-10-28, README 결정 land-3) 반응 착지 직후 받기: 착지 뒤 time초(+ fade초에 걸쳐 0) 원하는 CMP를 지지 다각형 안 cmpInside m로(착지발 수평 제동을 힘선 원뿔 |F_h| ≤ F_v·d/h 안으로), COM 둘레 각운동량 목표 k̇ = −kL·k, QP 각 가중치 wAng. 세기 × smoothstep((|k| − Lgate[0]) / (Lgate[1] − Lgate[0])) — 몸통을 넘길 각운동량이 없으면 제동을 그대로 둔다(push_twice 넘어짐 14 → 26/48이던 것을 막음). 새 충격 뒤에는 다음 착지까지 끈다. 남은 속도는 다음 걸음이 받는다",
+  "land": { "time": 0.3, "fade": 0.15, "cmpInside": 0.02, "kL": 6, "wAng": 20, "Lgate": [8, 16] },
   "$trunk": "스텝 중(스텝·정착) 몸통(Spine2, 감지 지연)·골반(Hips, 즉시) 방향 과제 이득과 각운동량 가중치. 가슴을 밀리면 큰 각운동량(약 25 kg·m²/s)이 생기는데, 서기 이득으로는 몸통이 50° 넘게 접힌다. 사람처럼 몸통을 세우고 각운동량은 스윙 다리·팔이 받게 한다.",
   "trunk": { "torso": { "kp": 40, "kd": 16, "weight": 40 }, "pelvis": { "kp": 80, "kd": 18, "weight": 5 }, "wAng": 0.05, "wLin": 1, "wLinVertical": 1, "armAccelReg": 5, "handAccelReg": 100, "yawKp": 60, "yawKd": 16, "yawWeight": 20 },
   "$motorPlanJoints": "스텝 중(스텝·정착·들기) 근육 모터 목표 = QP 계획의 끝 상태로 둘 관절 (README 결정 55). 다리는 계획대로 정확히 움직여야 하고, 팔·몸통은 v0.3처럼 포즈 모터(수동 임피던스)를 남겨 플라이휠처럼 휘두르지 않게 한다.",

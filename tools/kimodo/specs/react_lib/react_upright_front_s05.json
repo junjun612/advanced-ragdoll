@@ -1,0 +1,117 @@
+{
+  "clip": "react_upright_front_s05",
+  "label": "upright front Δv 0.5 (순간 밀림 → 감속 28cm)",
+  "text": "a person standing still is suddenly shoved in the back from behind, pushing them forward; they keep their torso upright and take one or two quick steps forward to catch their balance, then stand still with arms relaxed",
+  "duration_s": 4,
+  "models": [
+    "rp12"
+  ],
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "startPose": "stand",
+  "rootMotion": "kept",
+  "holdStartFrames": [
+    24,
+    30
+  ],
+  "rootPath": {
+    "points": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0.04571794752932534
+      ],
+      [
+        0,
+        0.08383541969030836
+      ],
+      [
+        0,
+        0.11561597333417739
+      ],
+      [
+        0,
+        0.14211310267279803
+      ],
+      [
+        0,
+        0.16420516157948842
+      ],
+      [
+        0,
+        0.18262448015923036
+      ],
+      [
+        0,
+        0.21078571824999884
+      ],
+      [
+        0,
+        0.23036183192499177
+      ],
+      [
+        0,
+        0.2491286873789797
+      ],
+      [
+        0,
+        0.26000554916120533
+      ],
+      [
+        0,
+        0.2677543052760266
+      ],
+      [
+        0,
+        0.2720807797229564
+      ],
+      [
+        0,
+        0.2737503897487095
+      ]
+    ],
+    "frames": [
+      0,
+      30,
+      33,
+      36,
+      39,
+      42,
+      45,
+      48,
+      54,
+      60,
+      69,
+      78,
+      90,
+      105,
+      119
+    ]
+  },
+  "expect": {
+    "dir": [
+      0,
+      1
+    ],
+    "endStillSpeed": 0.3
+  },
+  "weights": {
+    "startPoseDeg": 0,
+    "endPoseDeg": 1
+  },
+  "top": 3,
+  "filmCamera": "side"
+}

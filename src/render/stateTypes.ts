@@ -59,6 +59,8 @@ export interface CharacterStateLite {
     angularMomentum?: Vec3;
     /** (README 결정 settle-1) 진정 단계: 진정 정도 0~1, 단계, 진입 시각, DCM 여유, 나온 이유 */
     settle?: { level: number; phase: string; since: number | null; margin: number; reason: string };
+    /** (결정 land-3) 착지 받기 세기 */
+    land?: number;
   };
   /** 스텝 계층 (v0.4): 상태, 스윙발, 착지 기록 */
   stepping?: {
@@ -96,9 +98,11 @@ export interface CharacterStateLite {
   /** (v0.6) 렌더 블렌드 (표시 = slerp(anim, 물리, w)) */
   render?: { w: number } | null;
   /** (v0.6) 애니 추종 걷기 */
-  walk?: { engaged: boolean; clip: string; rate: number; feet: Record<string, { mode: string; contact: string; s: number; target: Vec3 | null }>; dcmError: Vec2; handover: string | null } | null;
+  walk?: { engaged: boolean; clip: string; rate: number; feet: Record<string, { mode: string; contact: string; s: number; target: Vec3 | null }>; dcmError: Vec2; handover: string | null; phaseState?: boolean } | null;
   /** (v0.6) 상태 머신 */
   states?: { name: string; transition: string | null; blendPin: number; renderW: number } | null;
+  /** (README 결정 game-1) 게임 애니 복귀 진행 */
+  returnAnim?: { phase: string; clip: string; kinT: number | null; blendTime: number; pinTime: number; blockedBy: string };
   /** 이후 마일스톤 훅: 스텝 목표(xz), 잡기 대상(월드) */
   stepTargets?: Vec2[];
   grabTarget?: Vec3 | null;

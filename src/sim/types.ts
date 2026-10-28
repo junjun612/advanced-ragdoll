@@ -83,6 +83,8 @@ export interface CharacterState {
   assist: { root: number; getup: number; pin: number; animOverride?: number };
   /** (app-2) 애니 강제 비율 (setAnimOverride를 쓴 캐릭터만): 비율, 사용량(N), 레퍼런스 출처(clip = 애니 클립, pose = 서기 포즈), 바디별 핀 세기 */
   animOverride?: { weight: number; usage: number; source: 'clip' | 'pose' | ''; bodies: Partial<Record<string, number>> };
+  /** (README 결정 game-1) 게임 애니 복귀 진행 (returnToAnimation을 부른 캐릭터만) */
+  returnAnim?: ReturnAnimLog;
   /** 균형 계층 (v0.3): 전략, 여유, 가상 힘, CoP 등 (docs/ALGORITHMS.md v0.3) */
   balance: BalanceState;
   /** 스텝 계층 (v0.4): 상태, 착지 목표, 착지 기록 (docs/ALGORITHMS.md v0.4) */
@@ -193,4 +195,22 @@ export interface Summary {
   expectations: { passed: boolean; failures: string[] };
   /** (v0.8c) 여러 캐릭터 시나리오: 두 번째 이후 캐릭터의 요약 (이름 → 요약, 각자 expectations) */
   others?: Record<string, Summary>;
+}
+
+/** (README 결정 game-1) 게임 애니 복귀 진행 로그 (getState().returnAnim) */
+export interface ReturnAnimLog {
+  /** wait = 복귀 가능 시점 기다림, pin = 핀 블렌드(Active), kinematic = 키네마틱 관성화, done = 끝(게임 애니), cancel = 취소 */
+  phase: 'wait' | 'pin' | 'kinematic' | 'done' | 'cancel';
+  clip: string;
+  /** 부른 시각, 전환 시작 시각, 키네마틱으로 바꾼 시각 (s) */
+  requestT: number;
+  startT: number | null;
+  kinT: number | null;
+  blendTime: number;
+  pinTime: number;
+  /** 키네마틱으로 바꾸는 순간 물리 자세와 애니 출력의 차이: 바디 위치 최대 (m)·회전 최대 (도) — 관성화로 지운다 */
+  residualPos: number;
+  residualDeg: number;
+  /** 기다리는 동안 복귀를 막는 이유 ('' = 복귀 가능) */
+  blockedBy: string;
 }

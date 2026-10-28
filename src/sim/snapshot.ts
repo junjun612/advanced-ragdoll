@@ -73,7 +73,9 @@ import presenceCfg from '../../config/presence.json';
 /** 스냅샷 형식 이름·판 (형식을 바꾸면 판을 올린다) */
 export const SNAPSHOT_FORMAT = 'advanced-ragdoll/world-snapshot';
 // 3: (결정 tone-7) Character.tone(ToneController), Muscles 관절 stretch
-export const SNAPSHOT_VERSION = 3;
+// 4: (결정 game-1·3) Character 복귀(ret·recovery)·반응 변주(varRng·variation), Stepping.varBias
+// 5: (결정 land-3·5) Stepping.lastHitT, WalkController.stateUntil
+export const SNAPSHOT_VERSION = 5;
 
 /** 값 인코딩: JSON 원시값 그대로, 그 밖은 표지 하나짜리 객체 */
 export type Enc =

@@ -15,6 +15,7 @@ import { ReactionController, ReactionLibrary, styleTrackingRef, type ReactionCon
 import settleCfg from '../../config/settle.json';
 import { SettleController, type SettleConfig } from './character/settle';
 import presenceCfg from '../../config/presence.json';
+import gameCfg from '../../config/game.json';
 import { HandPoseController, type HandPoseConfig } from './character/handPose';
 import { BreathController, type BreathConfig } from './character/breath';
 import { ToneController, type ToneConfig } from './character/tone';
@@ -50,7 +51,7 @@ import { classifyPosture, type JudgeConfig } from './metrics/posture';
 import { type Vec3, add, sub, length, normalize, scale, angleBetween } from './math/vec3';
 import { fromAxisAngle, fromTo, multiplyQ, rotate, slerp as slerpQ, conjugate as conjugateQ, angleBetweenQ, type Quat } from './math/quat';
 import { signedDistanceToPolygon, type Vec2 } from './math/geometry';
-import type { BodyState, CharacterState, JointName, JointState, SimEvent, StateName } from './types';
+import type { BodyState, CharacterState, JointName, JointState, ReturnAnimLog, SimEvent, StateName } from './types';
 import { ContactSensor, INTERACTION, Prop, type PropDef, type SensedHit, type StepContact } from './interaction';
 import type { LookAt } from './character/behaviors/simple';
 import { saveWorld, restoreWorld, type WorldSnapshot } from './snapshot';
@@ -77,10 +78,33 @@ export type CharacterEvent = 'hit' | 'exploded' | 'fell' | 'setMuscleScale' | 's
   | 'reactionStart' | 'reactionEnd' | 'collisionSnap'
   | 'getupReady' | 'getupStart' | 'getupBalance' | 'getupDone' | 'getupFail' | 'getupCancel' | 'getupGiveUp' | 'setGetup' | 'voidStep'
   // (v0.9, SPEC 7.2) 알림 전용 이벤트: 리스너에만 보내고 world.events(로그)에는 남기지 않는다 (README 결정 9a-4)
-  | 'gotUp' | 'grabbed' | 'released';
+  | 'gotUp' | 'grabbed' | 'released'
+  // (README 결정 game-1) 게임 애니 복귀: recovered = 복귀 가능 시점(알림 전용), returnStart/returnDone/returnCancel = returnToAnimation 진행(로그에 남음)
+  | 'recovered' | 'returnStart' | 'returnDone' | 'returnCancel';
 
 /** (v0.9) 알림 전용 이벤트 (world.events에 남지 않음) */
-export const NOTIFY_ONLY_EVENTS: readonly CharacterEvent[] = ['fell', 'gotUp', 'grabbed', 'released'];
+export const NOTIFY_ONLY_EVENTS: readonly CharacterEvent[] = ['fell', 'gotUp', 'grabbed', 'released', 'recovered'];
+
+/** (README 결정 game-1) config/game.json */
+export interface GameConfig {
+  recovered: { holdTime: number; standSpeed: number; standCpMargin: number; walkDcmError: number; allowBehaviors: string[] };
+  returnToAnim: { blendTime: number; pinFrac: number; minKinematicBlend: number };
+  variation: { enabled: boolean; clipCostTol: number; legBias: number; armScale: number; delayJitter: number };
+}
+const GAME = gameCfg as unknown as GameConfig;
+
+/** (game-1) returnToAnimation 옵션 */
+export interface ReturnOpts {
+  /** 전체 전환 시간 (s, 기본 config/game.json returnToAnim.blendTime). 앞 pinFrac은 핀 블렌드, 나머지는 키네마틱 관성화 */
+  blendTime?: number;
+  /** 'recovered'(기본): 복귀 가능 시점까지 기다렸다가 돌아간다. 'now': 바로 (반응 중이면 핀 없이 관성화만) */
+  when?: 'recovered' | 'now';
+  /** 클립 시작 시각 (s). 없으면 루프 클립은 지금 발 접촉·다리 자세에 가장 가까운 위상, 아니면 0 */
+  startTime?: number;
+  /** 클립이 향할 방향 yaw (rad). 없으면 지금 골반 방향 (걷던 클립을 이어 갈 때는 그 클립 방향) */
+  yaw?: number;
+}
+
 
 // (v0.9) 앱·도구가 src/sim/api.ts 하나만 import하도록 공개 타입을 다시 내보낸다 (docs/API.md)
 export type { BodyName, CharacterDef } from './character/characterDef';
@@ -88,7 +112,7 @@ export type { RagdollConfig } from './character/ragdoll';
 export type { MuscleConfig } from './character/muscles';
 export type { PropDef, PropState } from './interaction';
 export type { Scenario, ScenarioEvent } from './scenario';
-export type { CharacterState, JointName, SimEvent, StateName, Vec3 } from './types';
+export type { CharacterState, JointName, ReturnAnimLog, SimEvent, StateName, Vec3 } from './types';
 export type { TerrainName } from './world';
 export type { WorldSnapshot } from './snapshot';
 export type { ReferenceFrame, Tracker, TrackerCommand, TrackingRef } from './tracker';
@@ -146,7 +170,10 @@ export interface CharacterOpts {
   reactionConfig?: ReactionConfig;
   /** (2026-10-27, 결정 settle-1) 진정 단계 설정 바꾸기. 없으면 config/settle.json */
   settleConfig?: SettleConfig;
+  /** (README 결정 game-3) 반응 변주 켬/끔. 없으면 config/game.json variation.enabled */
+  variation?: boolean;
 }
+
 
 /** config/animDriver.json (v0.6) */
 export interface AnimConfig {
@@ -476,8 +503,17 @@ export class Character {
   private lastSensed: SensedHit & { t: number } | null = null;
   /** (v0.8c) 접촉 피격으로 걷기 추종을 놓을 이유 (다음 균형 갱신 뒤 적용) */
   private contactHandover: { why: string; t: number; now: boolean } | null = null;
+  /** (game-3) 반응 변주: 켬 여부, 하위 스트림, 이번 피격에 뽑은 값 (clipU = 반응 클립 후보 고르기 [0,1), arm = 팔 모양 세기 배율, delay = 감지 지연 ±) */
+  private readonly variationOn: boolean;
+  private readonly varRng: Prng | null;
+  private variation: { n: number; clipU: number; arm: number; delay: number; legBias: number } | null = null;
+  /** (game-1) 복귀 가능 판정: 무장(바깥 충격·넘어짐·일어서기 뒤), 조건을 만족한 시작 시각, 마지막 판정, 막는 이유 */
+  private recovery: { armed: boolean; since: number | null; ok: boolean; blockedBy: string; step: number } = { armed: false, since: null, ok: false, blockedBy: '', step: -1 };
+  /** (game-1) 게임 애니 복귀 진행 (returnToAnimation). null = 한 번도 부르지 않음 */
+  private ret: (ReturnAnimLog & { when: 'recovered' | 'now'; startTime?: number; yaw?: number; go: boolean }) | null = null;
 
   constructor(readonly world: World, readonly def: CharacterDef, cfg: RagdollConfig, spawn: SpawnOpts, opts: CharacterOpts = {}) {
+    const pres = presenceCfg;
     this.poses = opts.poses ?? POSES;
     this.name = opts.name;
     // (v0.8c) 두 번째 이후 캐릭터는 자기 하위 스트림 (첫 캐릭터는 이전과 같은 스트림 → 혼자인 시나리오 결과 그대로)
@@ -567,10 +603,13 @@ export class Character {
     this.reactionNames = Object.keys(lib).filter((k) => k.startsWith(rcfg.clipPrefix)).sort();
     this.reaction = new ReactionController(rcfg, null, this.animCfg.walk);
     this.settle = new SettleController(opts.settleConfig ?? (settleCfg as unknown as SettleConfig));
-    this.handPose = new HandPoseController(presenceCfg.handPose as unknown as HandPoseConfig);
-    this.breath = new BreathController(presenceCfg.breath as unknown as BreathConfig, rng.fork('breath'));
+    this.handPose = new HandPoseController(pres.handPose as unknown as HandPoseConfig);
+    this.breath = new BreathController(pres.breath as unknown as BreathConfig, rng.fork('breath'));
     this.tone = new ToneController((this.muscles.cfg as unknown as { tone?: ToneConfig }).tone ?? ({ enabled: false } as ToneConfig));
-    this.behaviors.presence = { reaction: presenceCfg.reaction, gaze: presenceCfg.gaze } as unknown as PresenceBehaviorConfig;
+    this.behaviors.presence = { reaction: pres.reaction, gaze: pres.gaze } as unknown as PresenceBehaviorConfig;
+    // (game-3) 반응 변주: 캐릭터별 하위 스트림 (fork는 부모 상태를 쓰지 않는다 → 끄면 이전 결과 그대로)
+    this.variationOn = opts.variation ?? GAME.variation.enabled;
+    this.varRng = this.variationOn ? rng.fork('variation') : null;
     this.behaviors.lastRd = this.rd;
     if (animSpawn && animAnchor) {
       this.anim.play(animSpawn, world.time, { anchor: animAnchor, startTime: 0, blendTime: 0 });
@@ -849,15 +888,16 @@ export class Character {
       ja = Math.max(ja, Math.hypot(w[0] - av0.x, w[1] - av0.y, w[2] - av0.z));
     });
     this.switchJump = { t, lin: jl, ang: ja, hit };
-    // 걷기 추종은 새로 시작 (앵커는 그대로: 키네마틱 재생과 같은 기준)
+    // 걷기 추종은 새로 시작 (앵커는 그대로: 키네마틱 재생과 같은 기준). (결정 land-5) 전환 뒤 상태 기반 위상
     this.walk.reset();
+    if (hit) this.walk.noteDisturbance(t);
     this.walk.engaged = true;
   }
 
   /** 지금 몸에 맞춘 클립 앵커: yaw = 골반 정면, xz = 클립 tau의 두 발 중점 ↔ 실제 두 발 중점, y = 지면 */
-  private anchorFor(clipName: string, tau: number): Xform {
+  private anchorFor(clipName: string, tau: number, yawOverride?: number): Xform {
     const hq = this.rd.body('Hips').rb.rotation();
-    const yaw = yawOfQ([hq.x, hq.y, hq.z, hq.w]);
+    const yaw = yawOverride ?? yawOfQ([hq.x, hq.y, hq.z, hq.w]);
     const clip = this.anim.getClip(clipName);
     const p = clip.poseAt(tau);
     const fk = forwardKinematics(this.def, p.joints, p.root);
@@ -955,6 +995,8 @@ export class Character {
     if (this.name !== undefined) e = { ...e, char: this.name };
     this.world.events.push(e);
     for (const cb of this.listeners.get(e.type as CharacterEvent) ?? []) cb(e);
+    // (game-1) 걷기 추종을 놓음·일어섬 → 복귀 가능 판정 무장
+    if (e.type === 'walkHandover' || e.type === 'getupDone') this.recovery.armed = true;
     // (v0.9) SPEC 7.2 이름 gotUp = 일어서기 성공 (getupDone과 같은 순간, 알림 전용)
     if (e.type === 'getupDone') this.notify({ ...e, type: 'gotUp' });
   }
@@ -974,6 +1016,14 @@ export class Character {
   _notifyEvents(): void {
     const t = this.world.time;
     const ns = this.notifyState;
+    // (game-1) 복귀 가능 시점: 듣는 사람이 있거나 'recovered'를 기다리는 복귀가 있을 때만 판정한다 (없으면 시뮬레이션·로그 그대로)
+    const waiting = this.ret?.phase === 'wait' && this.ret.when === 'recovered';
+    if (this.listeners.has('recovered') || waiting) {
+      this.evalRecovery(t);
+      const rc = this.recovery;
+      if (rc.ok && rc.armed) { rc.armed = false; this.notify({ t, type: 'recovered', detail: this.anim.clip && this.walk.engaged ? `walking ${this.anim.clip.name}` : 'standing' }); }
+      if (this.ret && waiting) { this.ret.blockedBy = rc.blockedBy; if (rc.ok) this.ret.go = true; }
+    }
     if (this.listeners.has('fell')) {
       const s = this.getState();
       if (s.posture === 'down' && !ns.down) {
@@ -1018,6 +1068,199 @@ export class Character {
   /** (app-2) 애니 강제 비율 */
   getAnimOverride(): number {
     return this.animOverrideW;
+  }
+
+  // ── 게임 애니 복귀 (README 결정 game-1, docs/API.md '게임에 넣기', config/game.json) ──
+  /**
+   * 반응이 끝난 몸을 게임 애니(키네마틱 Animated)로 돌려준다. clip = 애니 클립 이름(Kimodo 등, 게임이 이어서 재생할 것).
+   * when 'recovered'(기본)이면 복귀 가능 시점('recovered')까지 기다렸다가, 'now'면 다음 스텝에 시작한다.
+   * 전환: 클립을 지금 몸에 맞춰(앵커·위상) 재생하고 출력을 지금 자세에서 관성화 → 핀 블렌드(pinFrac × blendTime, assist.pin) → 키네마틱 + 남은 차이 관성화.
+   * 전환 중 맞으면 취소하고 반응한다(when 'recovered'면 다시 기다린다). 돌려주는 값: 받아들였는가 (폭발·사망이면 false)
+   */
+  returnToAnimation(clip: string, opts: ReturnOpts = {}): boolean {
+    if (!this.animLib[clip]) throw new Error(`returnToAnimation: unknown anim clip '${clip}'`);
+    const t = this.world.time;
+    if (this.exploded || this.behaviors.dead) return false;
+    const rc = GAME.returnToAnim;
+    const bt = Math.max(0, opts.blendTime ?? rc.blendTime);
+    const when = opts.when ?? 'recovered';
+    this.ret = { phase: 'wait', clip, requestT: t, startT: null, kinT: null, blendTime: bt, pinTime: bt * rc.pinFrac, residualPos: 0, residualDeg: 0, blockedBy: '', when, go: when === 'now', ...(opts.startTime !== undefined ? { startTime: opts.startTime } : {}), ...(opts.yaw !== undefined ? { yaw: opts.yaw } : {}) };
+    this.recovery.since = null;
+    this.emit({ t, type: 'returnStart', detail: `${clip} when=${when} blend=${bt.toFixed(2)}` });
+    // 이미 게임 애니(이번 스텝에 들어온 피격이 없을 때): 새 클립을 지금 출력에서 관성화로 이어 재생한다.
+    // 피격이 대기 중이면 다음 스텝에 Active로 바뀌므로 반응 뒤 복귀로 기다린다
+    if (this.stateName === 'Animated' && !this.pending.length) {
+      const tau = opts.startTime ?? 0;
+      this.anim.play(clip, t, { anchor: this.anchorFor(clip, tau, opts.yaw), startTime: tau, blendTime: bt });
+      this.ret.phase = 'done'; this.ret.startT = t; this.ret.kinT = t;
+      this.emit({ t, type: 'returnDone', detail: `${clip} (already Animated)` });
+    }
+    return true;
+  }
+
+  /** (game-1) 기다리는·진행 중인 복귀를 취소한다 (핀 블렌드 중이면 Active로 남는다) */
+  cancelReturn(): void {
+    const r = this.ret;
+    if (!r || r.phase === 'done' || r.phase === 'cancel') return;
+    if (r.phase === 'pin' && this.states.trans?.to === 'Animated') this.states.trans = null;
+    r.phase = 'cancel';
+    this.emit({ t: this.world.time, type: 'returnCancel', detail: 'api' });
+  }
+
+  /**
+   * (game-1) 복귀 가능 판정 (config/game.json recovered): recovered = 조건이 holdTime초 이어짐, blockedBy = 막는 이유('' = 지금 조건 만족).
+   * 'recovered' 이벤트와 같은 판정이다. 한 스텝에 한 번 계산한다
+   */
+  recoveryStatus(): { recovered: boolean; blockedBy: string } {
+    this.evalRecovery(this.world.time);
+    return { recovered: this.recovery.ok, blockedBy: this.recovery.blockedBy };
+  }
+
+  /** (game-1) 지금 게임 애니로 돌려받아도 되는가 (= recoveryStatus().recovered) */
+  canReturnToAnimation(): boolean {
+    return this.recoveryStatus().recovered;
+  }
+
+  /** (game-1) 복귀 가능 조건 판정 (스텝 끝, 같은 스텝이면 다시 하지 않음) */
+  private evalRecovery(t: number): void {
+    const step = this.world.physics.steps;
+    const rc = this.recovery;
+    if (rc.step === step) return;
+    rc.step = step;
+    const R = GAME.recovered;
+    const s = this.getState();
+    let why = '';
+    if (this.stateName !== 'Active') why = `state ${this.stateName}`;
+    else if (this.exploded || this.behaviors.dead) why = 'dead';
+    else if (this.getup.phase !== 'monitor') why = 'getup';
+    else if (s.posture !== 'standing') why = `posture ${s.posture}`;
+    else if (t < this.reactUntil) why = 'react';
+    else if (this.reaction.active) why = 'reaction';
+    else {
+      // 켜져 있거나 아직 꺼져 가는 행동 (핀 블렌드 중 '반응 중 핀 0' 지표와 같은 기준)
+      const b = this.behaviors.state.active.find((x) => x.weight > 0.01 && !R.allowBehaviors.includes(x.name)) ?? this.behaviors.list.find((x) => x.stopT === null && !R.allowBehaviors.includes(x.name));
+      if (b) why = `behavior ${b.name}`;
+      else if (this.stepping.busy) why = 'stepping';
+      else {
+        const c = this.anim.clip;
+        const walking = !!c && c.loop && this.walk.engaged && !this.isReactionClip(c.name);
+        if (walking) {
+          const e = this.walk.state.dcmError;
+          if (Math.hypot(e[0], e[1]) > R.walkDcmError) why = 'walk dcm';
+        } else if (c && this.walk.engaged && !c.loop) why = `clip ${c.name}`;
+        else if (Math.hypot(s.comVel[0], s.comVel[2]) > R.standSpeed) why = 'moving';
+        else if (s.stance !== 'double') why = 'feet';
+        else if ((this.balance.state.cpMargin ?? 0) < R.standCpMargin) why = 'margin';
+      }
+    }
+    rc.blockedBy = why;
+    if (why) { rc.since = null; rc.ok = false; return; }
+    rc.since ??= t;
+    rc.ok = t - rc.since >= R.holdTime - 1e-9;
+  }
+
+  /** (game-1) 키네마틱으로 바꾸고 남은 차이(물리 자세 ↔ 애니 출력)를 관성화로 지운다 */
+  private enterKinematic(t: number, viaPin: boolean): void {
+    const r = this.ret!;
+    if (!viaPin) {
+      this.states.lastSwitch = { t, from: this.states.name, to: 'Animated', hit: false };
+      this.states.name = 'Animated';
+      this.states.trans = null;
+    }
+    this.setBodiesKinematic(true);
+    // 남은 차이 (로그): 애니 출력 바디 vs 지금 물리 바디
+    const out = this.anim.bodiesAt(t, this.anim.tau);
+    let dp = 0, dq = 0, worstP = '', worstQ = '';
+    this.rd.bodies.forEach((b, i) => {
+      const p = b.rb.translation(), q = b.rb.rotation(), o = out[i]!;
+      const ep = Math.hypot(p.x - o.pos[0], p.y - o.pos[1], p.z - o.pos[2]), eq = angleBetweenQ([q.x, q.y, q.z, q.w], o.rot) * DEG;
+      if (ep > dp) { dp = ep; worstP = b.name; }
+      if (eq > dq) { dq = eq; worstQ = b.name; }
+    });
+    r.residualPos = dp; r.residualDeg = dq;
+    const hips = this.rd.body('Hips').rb;
+    const hp = hips.translation(), hq = hips.rotation(), hv = hips.linvel(), hw = hips.angvel();
+    // 재생 속도는 원래대로 (걷기 추종이 위상을 맞추려 바꿔 둔 것) — 속도 차이도 관성화가 받는다
+    this.anim.rate = 1;
+    this.anim.blendFromBody(t, { joints: this.currentJoints(), vel: this.currentJointVel(), root: { pos: [hp.x, hp.y, hp.z], rot: [hq.x, hq.y, hq.z, hq.w] }, rootVel: { lin: [hv.x, hv.y, hv.z], ang: [hw.x, hw.y, hw.z] } }, Math.max(GAME.returnToAnim.minKinematicBlend, r.blendTime - (viaPin ? r.pinTime : 0)));
+    this.stepping.handover(t, null);
+    this.recovery.armed = false;
+    r.phase = 'kinematic';
+    r.kinT = t;
+    this.emit({ t, type: 'setState', detail: `Animated (return ${r.clip}, residual ${(dp * 100).toFixed(1)}cm ${worstP} ${dq.toFixed(1)}° ${worstQ})` });
+  }
+
+  /** (game-1) 복귀 시작: 클립을 지금 몸에 맞춰 재생, 출력을 지금 자세에서 관성화, 핀 블렌드 또는 바로 키네마틱 */
+  private startReturn(t: number): void {
+    const r = this.ret!;
+    r.go = false;
+    if (this.stateName === 'GettingUp' || this.exploded || this.behaviors.dead) { r.phase = r.when === 'recovered' ? 'wait' : 'cancel'; return; }
+    const per = this.perception();
+    const cur = this.anim.clip;
+    const same = !!cur && cur.name === r.clip && this.stateName === 'Active' && this.walk.engaged && r.startTime === undefined && r.yaw === undefined;
+    const joints = this.currentJoints();
+    const jointVel = this.currentJointVel();
+    if (!same) {
+      const clip = this.anim.getClip(r.clip);
+      const hq = this.rd.body('Hips').rb.rotation();
+      const yaw = r.yaw ?? yawOfQ([hq.x, hq.y, hq.z, hq.w]);
+      const fp = (n: FootName): Vec3 => { const p = this.rd.body(n).rb.translation(); return [p.x, p.y, p.z]; };
+      const tau = r.startTime ?? (clip.loop ? this.anim.matchPhase(r.clip, { contact: { LeftFoot: per.feet.LeftFoot.contact, RightFoot: per.feet.RightFoot.contact }, footPos: { LeftFoot: fp('LeftFoot'), RightFoot: fp('RightFoot') }, joints, comVel: this.rd.com().vel, yaw }).tau : 0);
+      this.anim.play(r.clip, t, { anchor: this.anchorFor(r.clip, tau, r.yaw), startTime: tau, blendTime: 0 });
+      this.clip = null;
+      this.getupIdleHold = false;
+      this.resumeTo = null;
+      this.handoverT = null;
+      if (this.stateName === 'Active') { this.walk.reset(); this.walk.engaged = true; }
+    }
+    // 애니 출력(관절 + 루트)을 지금 몸 자세에서 시작해 blendTime초에 클립으로 관성화: 핀이 끄는 목표가 지금 자세에서 출발한다(당김 튐 없음)
+    {
+      const hips = this.rd.body('Hips').rb;
+      const hp = hips.translation(), hr = hips.rotation(), hv = hips.linvel(), hw = hips.angvel();
+      this.anim.blendFromBody(t, { joints, vel: jointVel, root: { pos: [hp.x, hp.y, hp.z], rot: [hr.x, hr.y, hr.z, hr.w] }, rootVel: { lin: [hv.x, hv.y, hv.z], ang: [hw.x, hw.y, hw.z] } }, r.blendTime);
+    }
+    r.startT = t;
+    const reacting = t < this.reactUntil || this.reaction.active || this.behaviors.state.active.some((b) => b.name !== 'LookAt' && b.weight > 0.01);
+    if (this.stateName === 'Active' && r.pinTime > 0 && !reacting && this.animCfg.pin.enabled) {
+      // 핀 블렌드 (SPEC v0.6 허용 범위: Animated ↔ Active 전환 블렌드). 끝나면 states.update가 키네마틱으로 → enterKinematic
+      this.states.request('Animated', t, { hasAnim: true });
+      if (this.states.trans) { this.states.trans.pinTime = r.pinTime; this.states.trans.renderTime = r.pinTime; }
+      r.phase = 'pin';
+    } else this.enterKinematic(t, false);
+  }
+
+  /** (game-1) 매 스텝 (입력 처리 뒤): 전환 중 피격이면 취소, 시작 신호면 시작 */
+  private returnStep(t: number, hitNow: boolean): void {
+    const r = this.ret!;
+    if (hitNow && (r.phase === 'pin' || r.phase === 'kinematic')) {
+      if (r.phase === 'pin' && this.states.trans?.to === 'Animated') this.states.trans = null;
+      r.phase = r.when === 'recovered' ? 'wait' : 'cancel';
+      this.emit({ t, type: 'returnCancel', detail: `hit (${r.when === 'recovered' ? 'wait again' : 'cancel'})` });
+      return;
+    }
+    if (r.phase === 'kinematic' && r.kinT !== null && t - r.kinT >= Math.max(GAME.returnToAnim.minKinematicBlend, r.blendTime - r.pinTime) - 1e-9) {
+      r.phase = 'done';
+      this.emit({ t, type: 'returnDone', detail: `${r.clip} ${(t - r.requestT).toFixed(2)}s` });
+    }
+    if (r.phase === 'wait' && r.go) this.startReturn(t);
+  }
+
+  /** (game-3) 피격마다 반응 변주를 뽑는다 (변주를 끄면 아무것도 안 함). 순서 고정: 클립 고르기, 팔 세기, 지연, 다리 선호 */
+  private drawVariation(): void {
+    const r = this.varRng;
+    if (!r) return;
+    const v = GAME.variation;
+    const clipU = r.float();
+    const arm = 1 + v.armScale * (2 * r.float() - 1);
+    const delay = v.delayJitter * (2 * r.float() - 1);
+    const legBias = v.legBias * (2 * r.float() - 1);
+    this.variation = { n: (this.variation?.n ?? 0) + 1, clipU, arm, delay, legBias };
+    this.stepping.varBias = { LeftFoot: legBias, RightFoot: -legBias };
+  }
+
+  /** (game-3) 마지막 피격에 뽑은 반응 변주 (변주를 끄거나 아직 맞지 않았으면 null) */
+  reactionVariation(): { n: number; clipU: number; arm: number; delay: number; legBias: number } | null {
+    return this.variation ? { ...this.variation } : null;
   }
 
   /** (app-2) 애니 강제 레퍼런스: 클립 기준 자세(Animated 아님) 또는 서기 포즈를 지금 엉덩이 수평 위치·방향에 세운 자세 (속도 0) */
@@ -1097,6 +1340,7 @@ export class Character {
         // (v0.8c) 접촉 감지 피격: 충격량은 물리가 이미 넣었다. 피격 모델은 행동·상처만 정하고 충격은 가하지 않는다
         const res = resolveHit(p.hit, p.hit.dv, this.rd, this.def.totalMass, this.hitModel);
         this.emit({ t, type: 'hit', body: res.body, point: p.sensed.point, direction: res.dir, dv: res.dv, detail: res.type, source: p.sensed.source });
+        this.drawVariation();
         this.behaviors.onHit(res, t);
         this.breath.onHit(res.dv);
         this.tone.onHit(t, res.dv, 'contact');
@@ -1120,6 +1364,7 @@ export class Character {
           }
         });
         this.emit({ t, type: 'hit', body: res.body, point: res.point ?? point, direction: res.dir, dv: res.dv, detail: res.type });
+        this.drawVariation();
         this.behaviors.onHit(res, t);
         this.breath.onHit(res.dv);
         this.tone.onHit(t, res.dv, res.type);
@@ -1130,7 +1375,12 @@ export class Character {
     const hitNow = this.pending.some((p) => !!p.hit || !!p.impulse);
     // (README 9f-11) 이번 스텝에 바깥 충격(피격·나눠 가하는 밀기)을 넣었는가 — 폭발 판정의 에너지 증가에서 뺀다
     this.extImpulseNow = hitNow || this.ongoing.length > 0;
+    // (결정 land-3) 새 충격은 착지 받기 단계를 끝낸다 (다음 착지까지)
+    if (hitNow) this.stepping.lastHitT = t;
     this.pending = [];
+    // (game-1) 복귀 가능 판정 무장(바깥 충격·일어서기), 게임 애니 복귀 진행
+    if (hitNow || this.getup.phase !== 'monitor') this.recovery.armed = true;
+    if (this.ret) this.returnStep(t, hitNow);
     // (v0.8c) 부딪힌 상대 돌아보기: 시선 목표를 상대 머리로 갱신
     if (this.lookOther) this.updateLookOther(t);
     // 2. 인지
@@ -1138,7 +1388,11 @@ export class Character {
     // (v0.7) 일어서기: 판정·시작·균형 복귀·실패·피격 취소
     this.getupStep(t, per, hitNow);
     // 3. 상태 머신 (v0.6): 전환 블렌드 진행 (Active → Animated는 블렌드가 끝나면 키네마틱)
-    if (this.states.update(t) === 'kinematic') this.setBodiesKinematic(true);
+    if (this.states.update(t) === 'kinematic') {
+      // (game-1) 복귀 핀 블렌드가 끝남: 키네마틱 + 남은 차이 관성화
+      if (this.ret?.phase === 'pin') this.enterKinematic(t, true);
+      else this.setBodiesKinematic(true);
+    }
     // (2026-10-27) 반응 클립 추종 시작: 충격 + 감지 지연이 지나면 상태 매칭으로 클립·시각을 골라 애니 추종으로
     if (this.reaction.pendingT !== null || this.reaction.waitLanding) {
       const v = this.rd.com().vel;
@@ -1350,7 +1604,7 @@ export class Character {
     if (walking && !rc.whileWalking) return;
     // 반응 중 다시 맞음: rehit = 'release'이면 상체 스타일을 풀고(나오기) 스텝 계층·팔 균형에 맡긴다 (연속 밀림은 클립 한 개로 대표할 수 없다)
     if (this.reaction.style && rc.rehit === 'release') { const st = this.reaction.style; if (st.outT === null) { st.outT = t; st.outDur = rc.style?.releaseTime ?? rc.style?.blendOut ?? 0.3; } return; }
-    if (rc.startOn === 'landing') { this.reaction.waitLanding = true; this.reaction.pendingT = null; } else this.reaction.pendingT = t + rc.delay;
+    if (rc.startOn === 'landing') { this.reaction.waitLanding = true; this.reaction.pendingT = null; } else this.reaction.pendingT = t + Math.max(0, rc.delay + (this.variation?.delay ?? 0));
     this.reaction.peakSpeed = 0;
     this.reaction.hitT = t;
     this.reaction.log = { ...this.reaction.log, phase: 'wait', reason: '' };
@@ -1381,7 +1635,7 @@ export class Character {
       // 상체 스타일 (README 결정 160): 다리·COM은 스텝 계층, 클립은 척추·머리·팔 목표만 (우리 걸음에 맞춰 시간 늘이기)
       const sc = rc.style!;
       const peak = Math.max(this.reaction.peakSpeed, Math.hypot(vel[0], vel[2]));
-      const ch = this.reactionLib.chooseStyle(vel, peak, yawOfQ(multiplyQ([hq.x, hq.y, hq.z, hq.w], conjugateQ(this.def.bodies[0]!.restRotation))), walking, sc);
+      const ch = this.reactionLib.chooseStyle(vel, peak, yawOfQ(multiplyQ([hq.x, hq.y, hq.z, hq.w], conjugateQ(this.def.bodies[0]!.restRotation))), walking, sc, this.variation ? { tol: GAME.variation.clipCostTol, u: this.variation.clipU } : undefined);
       if (!ch) { this.reaction.log = { ...this.reaction.log, phase: 'done', reason: 'none', vel: vh }; return; }
       const prevW = this.reaction.style?.w ?? 0;
       this.reaction.style = { clip: ch.meta.name, tau: ch.meta.pushTau + (t - (this.reaction.hitT ?? t)), rate: 1, w: prevW, startT: t - prevW * sc.blendIn, outT: null, landings: this.reactionLib.landings(ch.meta.name, sc.landingMinMove), ours: 0, standSince: null, dirCos: ch.dirCos, gate: this.reaction.style?.gate ?? (rc.style!.stepGate ? rc.style!.stepGate.inStep : 1), from: prevW > 0 ? this.reaction.lastOut : null, fromT: t, armK: this.reaction.style?.armK ?? this.styleArmGoal(t) };
@@ -1459,11 +1713,13 @@ export class Character {
     for (const sd of ['Left', 'Right'] as const) st.armK[sd] += (goalK[sd] - st.armK[sd]) * kK;
     const pose = clip.poseAt(st.tau);
     const out: JointTargets = { ...(base ?? {}) };
+    // (game-3) 반응 변주: 팔 모양 세기 배율 (변주를 끄면 1)
+    const armVar = this.variation?.arm ?? 1;
     for (const j of sc.joints) {
       const c = pose.joints[j];
       if (!c) continue;
       const sd = j.startsWith('Left') ? 'Left' : j.startsWith('Right') ? 'Right' : null;
-      out[j] = slerpQ(base?.[j] ?? [0, 0, 0, 1], c, st.w * (sd ? st.armK[sd] : 1));
+      out[j] = slerpQ(base?.[j] ?? [0, 0, 0, 1], c, st.w * (sd ? st.armK[sd] * armVar : 1));
       // 반응 중 다시 맞아 클립이 바뀌었으면 이전 출력에서 blendIn초에 걸쳐 넘어간다
       const fq = st.from?.[j];
       if (fq) out[j] = slerpQ(fq, out[j]!, sm((t - st.fromT) / Math.max(1e-3, sc.blendIn)));
@@ -1525,6 +1781,20 @@ export class Character {
     }
     if (!reason.startsWith('handover')) this.stepping.handover(t, null);
     this.emit({ t, type: 'reactionEnd', detail: reason });
+  }
+
+  /**
+   * (game-1) 지금 관절 상대 각속도 (관절 목표 형식의 왼쪽 곱 각속도: q̇ = ½ω q, q = (P·F_P)⁻¹·C·F_C → ω = (P·F_P)⁻¹ (ω_C − ω_P)).
+   * 관성화 시작 속도 — 0으로 두면 스윙하던 발이 전환 순간 멈췄다(바디 속도 불연속 3.2 m/s)
+   */
+  private currentJointVel(): Partial<Record<JointName, Vec3>> {
+    const out: Partial<Record<JointName, Vec3>> = {};
+    for (const j of this.rd.joints) {
+      const pb = this.rd.bodies[j.parent]!.rb, cb = this.rd.bodies[j.child]!.rb;
+      const pq = pb.rotation(), wp = pb.angvel(), wc = cb.angvel();
+      out[j.name] = rotate(conjugateQ(multiplyQ([pq.x, pq.y, pq.z, pq.w], j.def.frameInParent)), [wc.x - wp.x, wc.y - wp.y, wc.z - wp.z]);
+    }
+    return out;
   }
 
   /** 지금 관절 상대 회전 (정의 관절 좌표계, 목표 형식) */
@@ -1961,6 +2231,7 @@ export class Character {
       joints,
       assist: { root: this.rootAssist.usage, getup: this.getupAssist.usage, pin: this.pin.usage, ...(this.animOverridePin ? { animOverride: this.animOverridePin.usage } : {}) },
       ...(this.animOverridePin ? { animOverride: { weight: this.animOverrideW, usage: this.animOverridePin.usage, source: this.animOverrideSource, bodies: this.animOverridePin.state().bodies } } : {}),
+      ...(this.ret ? { returnAnim: { phase: this.ret.phase, clip: this.ret.clip, requestT: this.ret.requestT, startT: this.ret.startT, kinT: this.ret.kinT, blendTime: this.ret.blendTime, pinTime: this.ret.pinTime, residualPos: this.ret.residualPos, residualDeg: this.ret.residualDeg, blockedBy: this.ret.blockedBy } } : {}),
       ...this.getupState(),
       ...(this.reaction.log.phase !== 'done' || this.reaction.log.reason ? { reaction: this.reaction.log } : {}),
       ...this.animState(),

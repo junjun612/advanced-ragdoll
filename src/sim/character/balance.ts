@@ -76,7 +76,7 @@ export interface BalanceConfig {
   com: { kiH: number; integralLimit: number; kDcm: number; kpV: number; kdV: number; maxHorizontalForce: number; targetOffset: [number, number]; targetTau: number; heightOffset: number; /** (v0.8a) 지형에서 높이 기준 지면이 따라가는 최대 속도 (m/s) */ groundRate?: number };
   qp: Omit<QPConfig, 'weights'> & { copMargin: number };
   loadTau: number;
-  enable: { maxTiltDeg: number; minComHeight: number };
+  enable: { maxTiltDeg: number; minComHeight: number; /** (결정 land-4) 끄는 기울기에 지연 예측 대신 지금 몸통 기울기 */ tiltImmediate?: boolean };
   /** 전신 운동량 제어 (결정 49) */
   wb: {
     angularDamping: number;
@@ -172,6 +172,8 @@ export interface BalanceState {
   armDanger?: number;
   /** (결정 settle-1) 진정 단계: 진정 정도·단계·진입 시각·DCM 여유·나온 이유 (충격 뒤에만) */
   settle?: SettleLog;
+  /** (결정 land-3) 반응 착지 직후 받기 단계 세기 0~1 (켜졌을 때만) */
+  land?: number;
   groundHeight: number | null;
   groundNormal: Vec3 | null;
 }
@@ -447,7 +449,11 @@ export class Balance {
       }
     }
 
-    const tilt = Math.acos(Math.max(-1, Math.min(1, rotate(sensed.rot, UP)[1]))) / RAD;
+    // (결정 land-4) 균형을 끄는 기울기는 tiltImmediate면 지금 몸통 값 — 지연 예측(감지 각속도 × 지연)은 몸통이 빠르게 돌다 멈출 때 20°+ 앞서 나가
+    // 실제 66°인데 86°로 보고 균형을 0.1초 넘게 껐다 (clip-3 ⑤의 실제 원인)
+    const s2q = rd.body('Spine2').rb.rotation();
+    const tiltRot: Quat = cfg.enable.tiltImmediate ? [s2q.x, s2q.y, s2q.z, s2q.w] : sensed.rot;
+    const tilt = Math.acos(Math.max(-1, Math.min(1, rotate(tiltRot, UP)[1]))) / RAD;
     // 스텝 중에는 몸통이 더 기울어도 균형을 유지한다 (사람: 세게 밀리면 몸통 30°+ 기울인 채 내딛는다)
     // 행동이 일부러 몸통을 굽히면(상처 움켜쥐기 등) 그만큼 더 기울어도 균형을 유지한다 (v0.5a)
     const maxTilt = (this.stepping?.busy ? this.stepping.cfg.maxTiltDeg : cfg.enable.maxTiltDeg) + (beh?.tiltAllowDeg ?? 0);
@@ -513,12 +519,23 @@ export class Balance {
       pDes[0] = (sc.dcmGoal.xi[0] - dcm[0] * E) / (1 - E);
       pDes[2] = (sc.dcmGoal.xi[1] - dcm[2] * E) / (1 - E);
     }
+    const wb = this.wb;
+    const wst = wb.state();
+    const mm = wb.massAndMomentum(wst);
+    const lMom = lin(mm.momentum);
+    const kG = sub(ang(mm.momentum), cross(com, lMom)); // COM 둘레 각운동량
+    // (결정 land-3) 받기 단계 세기 = 스텝 계층 세기 × 각운동량 문턱(|k| Lgate[0] → [1]에서 0 → 1): 몸통이 넘어갈 각운동량이 없으면 제동을 그대로 둔다
+    const ldc = this.stepping?.cfg.land;
+    const landW: number = ldc && sc?.landing ? sc.landing * (ldc.Lgate ? smoothstep((length(horiz(kG)) - ldc.Lgate[0]) / Math.max(1e-6, ldc.Lgate[1] - ldc.Lgate[0])) : 1) : 0;
+    if (landW > 0) st.land = landW;
     if (sc && this.stepping) {
       // 스텝 중에는 지지 다각형 밖으로 cmpOutside m 넘는 CMP를 요구하지 않는다: 못 만드는 수평력을 몸통 각운동량(고관절 전략)으로
       // 억지로 만들면 몸통이 50° 넘게 접힌다. 사람은 이때 몸통을 접는 대신 발을 내딛는다
       const pp: Vec2 = [pDes[0], pDes[2]];
       const d = signedDistanceToPolygon(pp, poly);
-      const lim2 = this.stepping.cfg.cmpOutside;
+      const ld = this.stepping.cfg.land;
+      const lw = ld ? landW : 0;
+      const lim2 = ld && lw > 0 ? this.stepping.cfg.cmpOutside + lw * (-ld.cmpInside - this.stepping.cfg.cmpOutside) : this.stepping.cfg.cmpOutside;
       if (d > lim2) {
         let best: Vec2 = poly[0]!, bd = Infinity;
         for (let i = 0; i < poly.length; i++) {
@@ -553,15 +570,12 @@ export class Balance {
     const settled = t - this.onSince >= cfg.delay - 1e-9;
 
     // ── 전신 운동량 제어 (결정 49) ──
-    const wb = this.wb;
-    const wst = wb.state();
-    const mm = wb.massAndMomentum(wst);
-    const lMom = lin(mm.momentum);
-    const kG = sub(ang(mm.momentum), cross(com, lMom)); // COM 둘레 각운동량
     st.linearMomentum = lMom;
     st.angularMomentum = kG;
 
-    const kdotDes = horiz(scale(kG, -cfg.wb.angularDamping));
+    // (결정 land-3) 반응 착지 직후: 각운동량을 되돌리는 쪽으로 (k̇ = −kL·k) — 몸통이 넘어가는 대신 COM이 계속 가고 다음 걸음이 받는다
+    const landKL = this.stepping?.cfg.land?.kL ?? 0;
+    const kdotDes = horiz(scale(kG, -(cfg.wb.angularDamping + landW * (landKL - cfg.wb.angularDamping))));
     st.torsoTorque = kdotDes;
     const points: ContactPoint[] = [];
     // 발끝 지지 (v0.4, 뒤꿈치 들기): 스텝 중 지지 발목이 배굴 제한 가까이 가거나 뒤꿈치가 이미 떴으면 발끝 꼭짓점만 접촉으로 두고
@@ -940,7 +954,7 @@ export class Balance {
     const ptMinN = points.map((pt) => (unloadKey && pt.key.startsWith(unloadKey) ? 0 : cfg.qp.minNormal ?? 0));
     const res = solveWholeBodyQP({
       n, H, g: gvec, A: mm.A, momentumRhs: Wg.map((x, r) => x - mm.hBias[r]!), footRows, footRhs, points, com, Fdes, kdotDes,
-      mu: cfg.qp.mu, wLin: tr ? tr.wLin : cfg.wb.wLin, wAng: tr ? tr.wAng : cfg.wb.wAng, regRho: cfg.qp.regularization, smoothRho: cfg.qp.smoothing, minNormal: cfg.qp.minNormal ?? 0, prevBeta: this.prevBeta,
+      mu: cfg.qp.mu, wLin: tr ? tr.wLin : cfg.wb.wLin, wAng: (tr ? tr.wAng : cfg.wb.wAng) + landW * ((this.stepping?.cfg.land?.wAng ?? 0) - (tr ? tr.wAng : cfg.wb.wAng)), regRho: cfg.qp.regularization, smoothRho: cfg.qp.smoothing, minNormal: cfg.qp.minNormal ?? 0, prevBeta: this.prevBeta,
       pointPenalty: ptPenalty, pointMinNormal: ptMinN,
       wLinAxes: tr && sc?.phase === 'swing' ? [1, tr.wLinVertical, 1] : undefined,
     });

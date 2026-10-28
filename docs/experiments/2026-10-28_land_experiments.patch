@@ -1,0 +1,276 @@
+diff --git a/config/animDriver.json b/config/animDriver.json
+index 8a283dd..55a8b86 100644
+--- a/config/animDriver.json
++++ b/config/animDriver.json
+@@ -55,7 +55,7 @@
+     "swing": { "kp": 250, "kd": 32, "weight": 1000, "rotKp": 300, "rotKd": 35, "rotWeight": 8, "clearance": 0.04, "landDescentSpeed": 0.25, "earlyLandS": 0.75, "earlyLandDist": 0.06, "earlyLiftoff": 0.12, "liftoffLift": 0.03, "liftoffSpeed": 0.4, "landBlendStart": 0.75, "landSlope": 0.0, "landSlopeMax": 0.06 },
+     "stanceFoot": { "rotKp": 200, "rotKd": 28, "rotWeight": 8, "settleGain": 50, "settleKp": 2, "heelUpH": 0.02, "soleContactDist": 0.012 },
+     "footPlacement": { "gain": 0.7, "gainLat": 1.2, "maxFwd": 0.25, "maxBack": 0.25, "maxLat": 0.5, "minWidth": 0.07, "freezeS": 0.7, "lateUntil": 0.92, "lateJump": 0.06, "crossFwd": 0.3, "crossMax": 0.35, "expCapT": 0.35, "pathKeep": [0.0, 0.0] },
+-    "phase": { "mode": "touchdown", "kState": 2.0, "corrTime": 0.3, "minRate": 0.6, "maxRate": 1.4, "waitRate": 0.5, "maxWait": 0.15, "syncWindow": 0.25, "rateTau": 0.08, "reachS": 0.8, "reachDist": 0.08, "reachRate": 0.5, "boostS": 0.5, "boostE0": 0.15, "boostGain": 4.0, "boostMax": 1.4, "lagE0": 0.15, "lagGain": 1.0 },
++    "phase": { "mode": "touchdown", "stateAfterHit": 3.0, "kState": 2.0, "corrTime": 0.3, "minRate": 0.6, "maxRate": 1.4, "waitRate": 0.5, "maxWait": 0.15, "syncWindow": 0.25, "rateTau": 0.08, "reachS": 0.8, "reachDist": 0.08, "reachRate": 0.5, "boostS": 0.5, "boostE0": 0.15, "boostGain": 4.0, "boostMax": 1.4, "lagE0": 0.15, "lagGain": 1.0 },
+     "limitAvoid": { "marginDeg": 6, "kp": 200, "kd": 25, "weight": 200 },
+     "handover": { "dcmError": 0.6, "dcmErrorHard": 1.0, "deferSwingS": 0.5, "maxTiltDeg": 50, "minComHeight": 0.6, "noContactTime": 0.15, "voidDrop": 0.3, "tripNormalY": 0.5 },
+     "motorScale": 0.3
+diff --git a/src/sim/api.ts b/src/sim/api.ts
+index 9c2dbdd..b32c533 100644
+--- a/src/sim/api.ts
++++ b/src/sim/api.ts
+@@ -888,8 +888,9 @@ export class Character {
+       ja = Math.max(ja, Math.hypot(w[0] - av0.x, w[1] - av0.y, w[2] - av0.z));
+     });
+     this.switchJump = { t, lin: jl, ang: ja, hit };
+-    // 걷기 추종은 새로 시작 (앵커는 그대로: 키네마틱 재생과 같은 기준)
++    // 걷기 추종은 새로 시작 (앵커는 그대로: 키네마틱 재생과 같은 기준). (결정 land-5) 전환 뒤 상태 기반 위상
+     this.walk.reset();
++    this.walk.noteDisturbance(t);
+     this.walk.engaged = true;
+   }
+ 
+@@ -1374,6 +1375,8 @@ export class Character {
+     const hitNow = this.pending.some((p) => !!p.hit || !!p.impulse);
+     // (README 9f-11) 이번 스텝에 바깥 충격(피격·나눠 가하는 밀기)을 넣었는가 — 폭발 판정의 에너지 증가에서 뺀다
+     this.extImpulseNow = hitNow || this.ongoing.length > 0;
++    // (결정 land-3) 새 충격은 착지 받기 단계를 끝낸다 (다음 착지까지)
++    if (hitNow) { this.stepping.lastHitT = t; this.walk.noteDisturbance(t); }
+     this.pending = [];
+     // (game-1) 복귀 가능 판정 무장(바깥 충격·일어서기), 게임 애니 복귀 진행
+     if (hitNow || this.getup.phase !== 'monitor') this.recovery.armed = true;
+diff --git a/src/sim/character/balance.ts b/src/sim/character/balance.ts
+index 1a3b929..f61f35a 100644
+--- a/src/sim/character/balance.ts
++++ b/src/sim/character/balance.ts
+@@ -76,7 +76,7 @@ export interface BalanceConfig {
+   com: { kiH: number; integralLimit: number; kDcm: number; kpV: number; kdV: number; maxHorizontalForce: number; targetOffset: [number, number]; targetTau: number; heightOffset: number; /** (v0.8a) 지형에서 높이 기준 지면이 따라가는 최대 속도 (m/s) */ groundRate?: number };
+   qp: Omit<QPConfig, 'weights'> & { copMargin: number };
+   loadTau: number;
+-  enable: { maxTiltDeg: number; minComHeight: number };
++  enable: { maxTiltDeg: number; minComHeight: number; /** (결정 land-4) 켜진 뒤 끄는 기울기 여유(도) */ tiltHystDeg?: number; /** (결정 land-4) 끄는 기울기에 지연 예측 대신 지금 몸통 기울기 */ tiltImmediate?: boolean; /** (결정 land-4) 스텝이 끝난 뒤 스텝 기울기 한계를 유지하는 시간(초) */ stepTiltHold?: number };
+   /** 전신 운동량 제어 (결정 49) */
+   wb: {
+     angularDamping: number;
+@@ -447,10 +447,18 @@ export class Balance {
+       }
+     }
+ 
+-    const tilt = Math.acos(Math.max(-1, Math.min(1, rotate(sensed.rot, UP)[1]))) / RAD;
++    // (결정 land-4) 균형을 끄는 기울기는 tiltImmediate면 지금 몸통 값 — 지연 예측(감지 각속도 × 지연)은 몸통이 빠르게 돌다 멈출 때 20°+ 앞서 나가
++    // 실제 66°인데 86°로 보고 균형을 0.1초 넘게 껐다 (clip-3 ⑤의 실제 원인)
++    const s2q = rd.body('Spine2').rb.rotation();
++    const tiltRot: Quat = cfg.enable.tiltImmediate ? [s2q.x, s2q.y, s2q.z, s2q.w] : sensed.rot;
++    const tilt = Math.acos(Math.max(-1, Math.min(1, rotate(tiltRot, UP)[1]))) / RAD;
+     // 스텝 중에는 몸통이 더 기울어도 균형을 유지한다 (사람: 세게 밀리면 몸통 30°+ 기울인 채 내딛는다)
+     // 행동이 일부러 몸통을 굽히면(상처 움켜쥐기 등) 그만큼 더 기울어도 균형을 유지한다 (v0.5a)
+-    const maxTilt = (this.stepping?.busy ? this.stepping.cfg.maxTiltDeg : cfg.enable.maxTiltDeg) + (beh?.tiltAllowDeg ?? 0);
++    // (결정 land-4) 켜진 균형은 tiltHystDeg만큼 더 기울어야 끈다 — 몸통이 빠르게 도는 동안 예측 감지 기울기가 한계를 몇 프레임 넘나들며 균형이 꺼졌다 켜졌다 했다.
++    // 스텝이 끝나 서기로 돌아온 뒤 stepTiltHold초 동안은 스텝 한계를 그대로 쓴다 (정착 → 서기 전환 순간 50° 한계에 걸려 꺼지던 것)
++    const ec = cfg.enable;
++    const stepLim = !!this.stepping && (this.stepping.busy || t - this.stepBusyT < (ec.stepTiltHold ?? 0));
++    const maxTilt = (stepLim ? this.stepping!.cfg.maxTiltDeg : ec.maxTiltDeg) + (beh?.tiltAllowDeg ?? 0) + (this.wasOn ? ec.tiltHystDeg ?? 0 : 0);
+     let on = this.enabled && active && beh?.balanceMode !== 'off' && stanceFeet.length > 0 && poly.length >= 3 && tilt < maxTilt && h > (beh?.minComHeight ?? this.minComHeightOverride ?? cfg.enable.minComHeight);
+     // 스텝 계층 (v0.4): 같은 감지값으로 상태 머신·착지 계획 → 이번 스텝 명령 (행동이 스텝을 막으면 쉼)
+     const sc = this.stepping && beh?.stepAllowed !== false ? this.stepping.update({ t, dt, com: sensed.com, vel: sensed.vel, omega, per, heading: this.feetHeading(per), balanceOn: on }) : null;
+@@ -513,12 +521,22 @@ export class Balance {
+       pDes[0] = (sc.dcmGoal.xi[0] - dcm[0] * E) / (1 - E);
+       pDes[2] = (sc.dcmGoal.xi[1] - dcm[2] * E) / (1 - E);
+     }
++    const wb = this.wb;
++    const wst = wb.state();
++    const mm = wb.massAndMomentum(wst);
++    const lMom = lin(mm.momentum);
++    const kG = sub(ang(mm.momentum), cross(com, lMom)); // COM 둘레 각운동량
++    // (결정 land-3) 받기 단계 세기 = 스텝 계층 세기 × 각운동량 문턱(|k| Lgate[0] → [1]에서 0 → 1): 몸통이 넘어갈 각운동량이 없으면 제동을 그대로 둔다
++    const ldc = this.stepping?.cfg.land;
++    const landW = ldc && sc?.landing ? sc.landing * (ldc.Lgate ? smoothstep((length(horiz(kG)) - ldc.Lgate[0]) / Math.max(1e-6, ldc.Lgate[1] - ldc.Lgate[0])) : 1) : 0;
+     if (sc && this.stepping) {
+       // 스텝 중에는 지지 다각형 밖으로 cmpOutside m 넘는 CMP를 요구하지 않는다: 못 만드는 수평력을 몸통 각운동량(고관절 전략)으로
+       // 억지로 만들면 몸통이 50° 넘게 접힌다. 사람은 이때 몸통을 접는 대신 발을 내딛는다
+       const pp: Vec2 = [pDes[0], pDes[2]];
+       const d = signedDistanceToPolygon(pp, poly);
+-      const lim2 = this.stepping.cfg.cmpOutside;
++      const ld = this.stepping.cfg.land;
++      const lw = ld && (sc.phase !== 'swing' || ld.swingCmp) ? landW : 0;
++      const lim2 = ld && lw > 0 ? this.stepping.cfg.cmpOutside + lw * (-ld.cmpInside - this.stepping.cfg.cmpOutside) : this.stepping.cfg.cmpOutside;
+       if (d > lim2) {
+         let best: Vec2 = poly[0]!, bd = Infinity;
+         for (let i = 0; i < poly.length; i++) {
+@@ -553,15 +571,12 @@ export class Balance {
+     const settled = t - this.onSince >= cfg.delay - 1e-9;
+ 
+     // ── 전신 운동량 제어 (결정 49) ──
+-    const wb = this.wb;
+-    const wst = wb.state();
+-    const mm = wb.massAndMomentum(wst);
+-    const lMom = lin(mm.momentum);
+-    const kG = sub(ang(mm.momentum), cross(com, lMom)); // COM 둘레 각운동량
+     st.linearMomentum = lMom;
+     st.angularMomentum = kG;
+ 
+-    const kdotDes = horiz(scale(kG, -cfg.wb.angularDamping));
++    // (결정 land-3) 반응 착지 직후: 각운동량을 되돌리는 쪽으로 (k̇ = −kL·k) — 몸통이 넘어가는 대신 COM이 계속 가고 다음 걸음이 받는다
++    const landKL = sc?.phase === 'swing' ? this.stepping?.cfg.land?.swingKL ?? this.stepping?.cfg.land?.kL ?? 0 : this.stepping?.cfg.land?.kL ?? 0;
++    const kdotDes = horiz(scale(kG, -(cfg.wb.angularDamping + landW * (landKL - cfg.wb.angularDamping))));
+     st.torsoTorque = kdotDes;
+     const points: ContactPoint[] = [];
+     // 발끝 지지 (v0.4, 뒤꿈치 들기): 스텝 중 지지 발목이 배굴 제한 가까이 가거나 뒤꿈치가 이미 떴으면 발끝 꼭짓점만 접촉으로 두고
+@@ -940,7 +955,7 @@ export class Balance {
+     const ptMinN = points.map((pt) => (unloadKey && pt.key.startsWith(unloadKey) ? 0 : cfg.qp.minNormal ?? 0));
+     const res = solveWholeBodyQP({
+       n, H, g: gvec, A: mm.A, momentumRhs: Wg.map((x, r) => x - mm.hBias[r]!), footRows, footRhs, points, com, Fdes, kdotDes,
+-      mu: cfg.qp.mu, wLin: tr ? tr.wLin : cfg.wb.wLin, wAng: tr ? tr.wAng : cfg.wb.wAng, regRho: cfg.qp.regularization, smoothRho: cfg.qp.smoothing, minNormal: cfg.qp.minNormal ?? 0, prevBeta: this.prevBeta,
++      mu: cfg.qp.mu, wLin: tr ? tr.wLin : cfg.wb.wLin, wAng: (tr ? tr.wAng : cfg.wb.wAng) + landW * ((this.stepping?.cfg.land?.wAng ?? 0) - (tr ? tr.wAng : cfg.wb.wAng)), regRho: cfg.qp.regularization, smoothRho: cfg.qp.smoothing, minNormal: cfg.qp.minNormal ?? 0, prevBeta: this.prevBeta,
+       pointPenalty: ptPenalty, pointMinNormal: ptMinN,
+       wLinAxes: tr && sc?.phase === 'swing' ? [1, tr.wLinVertical, 1] : undefined,
+     });
+diff --git a/src/sim/character/stepping.ts b/src/sim/character/stepping.ts
+index 3d2caee..ca76da2 100644
+--- a/src/sim/character/stepping.ts
++++ b/src/sim/character/stepping.ts
+@@ -60,13 +60,18 @@ export interface SteppingConfig {
+   touchdownNear: number;
+   minRemaining: number;
+   landDescentSpeed: number;
+-  swing: { kp: number; kd: number; weight: number; rotKp: number; rotKd: number; rotWeight: number; legPostureWeight: number; ikLookahead: number; ankleMarginDeg: number; hStart: number; hEnd: number; plateau?: { rise: number; fall: number } | null };
++  swing: { kp: number; kd: number; weight: number; rotKp: number; rotKd: number; rotWeight: number; legPostureWeight: number; ikLookahead: number; ankleMarginDeg: number; hStart: number; hEnd: number; plateau?: { rise: number; fall: number } | null; /** (결정 land-2) 스윙 기준 도달 한계: 무릎을 이만큼(도) 굽힌 다리 길이 안으로 */ reach?: { kneeMinDeg: number } | null };
+   simbicon: { cd: number; cv: number; maxDeg: number };
+   legCost: { load: number; dir: number; cross: number; reach: number; clamp: number; bias: number; heavyLoad: number; heavyPenalty: number; sameFoot: number };
+   settle: {
+     stillSpeed: number; closeSagittal: number; closeWidthTol: number; shiftFraction: number; shiftTime: number; shiftLoad: number;
+     closeDuration: number; closeApex: number; shiftTol: number; shiftMaxSpeed: number; standTime: number; maxClosing: number; comGoalTau: number; shiftKDcm: number; stepMode: boolean; freezeLegs: boolean; trunkGains: boolean; armPostureWeight: number; recenter: boolean; recenterSpeed: number; recenterFreeze?: boolean; placeSpeed: number; placeApex: number; placeMaxSpeed: number; torsoWeightScale?: number;
+   };
++  /**
++   * (결정 land-3) 반응 착지 직후 받기: 착지 뒤 time초(뒤 fade초에 걸쳐 0으로) 원하는 COM 힘의 CMP를 지지 다각형 안 cmpInside m로(힘선이 COM을 지나거나 COM 뒤로 —
++   * 착지발 수평 제동을 힘선 원뿔 안으로), COM 둘레 각운동량 목표 k̇ = −kL·k, 가중치 wAng. 못 받은 속도는 다음 걸음이 받는다
++   */
++  land?: { time: number; fade: number; cmpInside: number; kL: number; wAng: number; swingFrom?: number; swingW?: number; swingCmp?: boolean; swingKL?: number; swingLateral?: boolean; Lgate?: [number, number]; swingClamp?: number } | null;
+   trunk: { torso: { kp: number; kd: number; weight: number }; pelvis: { kp: number; kd: number; weight: number }; wAng: number; wLin: number; wLinVertical: number; armAccelReg: number; handAccelReg?: number; yawKp: number; yawKd: number; yawWeight: number };
+   motorPlanJoints: JointName[];
+   trunkImmediate: boolean;
+@@ -126,6 +131,8 @@ export interface StepCommand {
+   lungeDrop: number;
+   /** 스텝 계층이 COM 목표 저역 통과·적분을 새로 시작하라고 알림 */
+   resetComTarget: boolean;
++  /** (결정 land-3) 반응 착지 직후 받기 단계 세기 0~1 (착지 뒤 land.time초 동안 1 → 0). 없으면 0 */
++  landing?: number;
+ }
+ 
+ export interface LandingRecord { foot: FootName; t: number; p: Vec2; target: Vec2; error: number; kind: StepKind }
+@@ -663,6 +670,7 @@ export class Stepping {
+     const per = ctx.per;
+     this.lastPer = per;
+     const out = this.state = emptySteppingState();
++    this.reachClip = 0;
+     out.enabled = this.enabled;
+     const xi: Vec2 = [ctx.com[0] + ctx.vel[0] / ctx.omega, ctx.com[2] + ctx.vel[2] / ctx.omega];
+     out.cp = xi;
+@@ -810,6 +818,10 @@ export class Stepping {
+     }
+ 
+     const cmd: StepCommand = { swingFoot: null, phase: null, unloadPenalty: 0, freezeLegs: [], armGain: 1, abductDeg: 0, resetComTarget: false, lungeDrop: 0, mode: this.st === 'settle' && !c.settle.stepMode ? 'settle' : 'step' };
++    if (c.land && this.st === 'settle' && this.landings.length && this.landings[this.landings.length - 1]!.kind === 'reactive' && this.lastHitT < this.landT) {
++      const tIn = ctx.t - this.landT;
++      cmd.landing = (c.land.swingLateral ? this.landLat : 1) * (tIn < c.land.time ? 1 : 1 - smooth((tIn - c.land.time) / Math.max(1e-3, c.land.fade)));
++    }
+     // 런지: 반응 스텝 중·직후(정착) COM 속도에 비례해 낮춘다
+     if (this.st === 'step' && this.step?.kind === 'reactive' || this.st === 'settle' && this.count > 0) cmd.lungeDrop = Math.min(c.lunge.maxDrop, c.lunge.dropPerMs * speed);
+     // (v0.8a) 아래로 내려 딛는 스텝: 지지 다리를 굽혀 COM을 낮춰야 스윙 다리가 아래 디딤면에 닿는다 (사람의 계단 내려가기)
+@@ -948,6 +960,7 @@ export class Stepping {
+           this.step = null;
+           this.st = 'settle';
+           this.landT = ctx.t;
++          this.landLat = Math.abs(dot2(s.plan.dir, h2(rotate(ctx.heading, [1, 0, 0]))));
+           this.stillSince = null;
+           cmd.resetComTarget = true;
+           if (!c.settle.stepMode) cmd.mode = 'settle';
+@@ -993,6 +1006,12 @@ export class Stepping {
+       cmd.swing = this.swingRef(ctx, s, target, sProg, lift);
+       cmd.legTargets = this.legIK(s.foot, add(cmd.swing.p, scale(cmd.swing.v, c.swing.ikLookahead)), cmd.swing.rot, ctx.heading);
+       if (s.kind === 'reactive') cmd.dcmGoal = { xi: s.plan.xiGoal, T: Math.max(s.tLand - ctx.t, c.minRemaining) };
++      // (결정 land-3) 스윙 막바지(swingFrom 뒤)부터 받기 단계를 미리 켠다 (swingW배)
++      if (s.kind === 'reactive' && c.land?.swingFrom !== undefined && this.lastHitT < s.t0) {
++        // 옆 걸음만큼 (swingLateral이면): 옆으로는 보폭이 넓어(maxStepLength) 빨라진 COM을 다음 걸음이 받지만, 뒤 걸음은 짧아(maxStep.back) 못 받는다
++        const latK = (c.land.swingLateral ? Math.abs(dot2(s.plan.dir, h2(rotate(ctx.heading, [1, 0, 0])))) : 1) * (c.land.swingClamp ? 1 - smooth(s.plan.clampDist / c.land.swingClamp) : 1);
++        cmd.landing = (c.land.swingW ?? 1) * latK * smooth((sProg - c.land.swingFrom) / Math.max(1e-3, 1 - c.land.swingFrom));
++      }
+       else cmd.comGoal = s.kind === 'lift' ? stanceC : add2(stanceC, sc2(sub2(h2(target), stanceC), 0.5));
+     }
+     this.fillState(out, { s: Math.max(0, sProg), target, kind: s.kind, foot: s.foot, phase: cmd.phase, crossing: s.plan.crossing, xiGoal: s.plan.xiGoal, T: Number.isFinite(Tsw) ? Tsw : 0 });
+@@ -1133,7 +1152,45 @@ export class Stepping {
+       const ld = this.terrainOn ? c.terrain!.landDescentSpeed : c.landDescentSpeed;
+       y = gTgt + half - 0.008 - ld * (ctx.t - s.tLand); vy = -ld; ay = 0;
+     }
+-    return { p: [ph[0], y, ph[2]], v: [vh[0], vy, vh[2]], a: [ah[0], ay, ah[2]], rot, usePD: { h: true, v: true } };
++    const ref = { p: [ph[0], y, ph[2]] as Vec3, v: [vh[0], vy, vh[2]] as Vec3, a: [ah[0], ay, ah[2]] as Vec3, rot, usePD: { h: true, v: true } };
++    if (s.kind === 'reactive') this.clipReach(s.foot, ref);
++    return ref;
++  }
++
++  /** (결정 land-3) 마지막 바깥 충격 시각 (Character가 넣는다). 그 뒤 착지 전까지는 받기 단계를 쓰지 않는다 — 새 충격은 다시 CMP를 밖으로 써야 받는다 */
++  lastHitT = -Infinity;
++  /** (결정 land-3) 마지막 반응 착지 걸음 방향의 옆 성분 |dir·옆| */
++  private landLat = 1;
++
++  /** (결정 land-2) 이번 스텝 스윙 기준이 다리 도달 한계를 넘었는가(로그용): 넘은 거리 m */
++  reachClip = 0;
++
++  /**
++   * (결정 land-2) 스윙 기준을 지금 고관절에서 닿는 범위 안으로: 발목점이 고관절에서 (무릎 kneeMinDeg 굽힘의 다리 길이)보다 멀면 그 구 위로 당기고,
++   * 바깥으로 향하는 속도·가속도(고관절 속도 대비)를 뺀다. 착지 목표는 착지 때(고관절이 따라온 뒤) 닿는 자리라도 스윙 중간에는 지금 고관절에서 안 닿을 수 있다 —
++   * 그때 발 과제가 다리를 다 편 채 더 뻗으라고 하면 QP가 몸 전체를 넘어지는 쪽으로 돌려(각운동량 −10 → +23) 발을 보냈다(clip-3 ③의 실제 원인, landTrace).
++   * 사람은 다리를 다 펴지 않고 무릎을 조금 굽힌 채 발을 내밀고, 몸이 따라오면 디딘다
++   */
++  private clipReach(foot: FootName, ref: { p: Vec3; v: Vec3; a: Vec3; rot: Quat }): void {
++    this.reachClip = 0;
++    const rc = this.cfg.swing.reach;
++    if (!rc) return;
++    const th = rc.kneeMinDeg * RAD;
++    const R = Math.sqrt(this.lThigh * this.lThigh + this.lShin * this.lShin + 2 * this.lThigh * this.lShin * Math.cos(th));
++    const H = this.hipPoint(foot);
++    const off = rotate(ref.rot, this.ankleInFoot[foot]);
++    const A = add(ref.p, off);
++    const d = sub(A, H), L = length(d);
++    (this as unknown as { dbg: number[] }).dbg = [L, R, length(sub(add(this.bodyPos(foot), rotate(this.bodyRot(foot), this.ankleInFoot[foot])), H))];
++    if (L <= R) return;
++    this.reachClip = L - R;
++    const u = scale(d, 1 / L);
++    ref.p = sub(add(H, scale(u, R)), off);
++    const hv = this.bodyVel(LEGJ[foot].hip);
++    const vr = dot(sub(ref.v, hv), u);
++    if (vr > 0) ref.v = sub(ref.v, scale(u, vr));
++    const ar = dot(ref.a, u);
++    if (ar > 0) ref.a = sub(ref.a, scale(u, ar));
+   }
+ 
+   /** 스윙 다리 2관절 IK: 고관절점은 지금, 발 원점 목표·방향 → 고관절·무릎·발목 관절 목표 */
+diff --git a/src/sim/character/walk.ts b/src/sim/character/walk.ts
+index 0bcb0fe..d81ed06 100644
+--- a/src/sim/character/walk.ts
++++ b/src/sim/character/walk.ts
+@@ -56,7 +56,7 @@ export interface WalkConfig {
+   swing: { kp: number; kd: number; weight: number; rotKp: number; rotKd: number; rotWeight: number; clearance: number; landDescentSpeed: number; earlyLandS: number; earlyLandDist: number; earlyLiftoff: number; liftoffLift: number; liftoffSpeed: number; landBlendStart: number; landSlope: number; landSlopeMax: number };
+   stanceFoot: { rotKp: number; rotKd: number; rotWeight: number; settleGain: number; settleKp: number; heelUpH: number; soleContactDist: number };
+   footPlacement: { gain: number; gainLat: number; maxFwd: number; maxBack: number; maxLat: number; minWidth: number; freezeS: number; lateUntil: number; lateJump: number; crossFwd: number; crossMax: number; expCapT: number; pathKeep: [number, number] };
+-  phase: { baseRate?: number; mode: 'touchdown' | 'state'; kState: number; corrTime: number; minRate: number; maxRate: number; waitRate: number; maxWait: number; syncWindow: number; rateTau: number; reachS: number; reachDist: number; reachRate: number; boostS: number; boostE0: number; boostGain: number; boostMax: number; lagE0: number; lagGain: number; boostAnyClip?: boolean };
++  phase: { baseRate?: number; mode: 'touchdown' | 'state'; kState: number; corrTime: number; minRate: number; maxRate: number; waitRate: number; maxWait: number; syncWindow: number; rateTau: number; reachS: number; reachDist: number; reachRate: number; boostS: number; boostE0: number; boostGain: number; boostMax: number; lagE0: number; lagGain: number; boostAnyClip?: boolean; /** (결정 land-5) 피격·키네마틱 전환 뒤 이 시간(초) 동안은 상태 기반 위상(mode 'state') */ stateAfterHit?: number };
+   limitAvoid: { marginDeg: number; kp: number; kd: number; weight: number };
+   handover: { dcmError: number; dcmErrorHard: number; deferSwingS: number; maxTiltDeg: number; minComHeight: number; noContactTime: number; /** (v0.8a) 스윙 뒤쪽 발 아래 지면이 지지 지면보다 이만큼(m) 넘게 낮으면(낭떠러지) 넘김 */ voidDrop?: number; /** (v0.8a) 스윙발 접촉 법선의 세로 성분이 이 값보다 작으면(장애물 옆면에 걸림) 넘김 */ tripNormalY?: number };
+   motorScale: number;
+@@ -161,6 +161,10 @@ export class WalkController {
+   private anchored: Record<FootName, boolean> = { LeftFoot: true, RightFoot: true };
+   private landingSince: Record<FootName, number | null> = { LeftFoot: null, RightFoot: null };
+   private phaseDebt = 0;
++  /** (결정 land-5) 이 시각까지 상태 기반 위상 (Character가 피격·키네마틱 전환 때 넣는다) */
++  stateUntil = -Infinity;
++  /** (결정 land-5) 피격·전환을 알린다: phase.stateAfterHit초 동안 상태 기반 위상 */
++  noteDisturbance(t: number): void { if (this.cfg.phase.stateAfterHit) this.stateUntil = t + this.cfg.phase.stateAfterHit; }
+   /** 스윙발 수평 추종 오차 (직전 스텝, m) */
+   private swingErr: Record<FootName, number> = { LeftFoot: 0, RightFoot: 0 };
+   private rate = 1;
+@@ -331,7 +335,7 @@ export class WalkController {
+     }
+     // 위상: 착지 오차를 corrTime에 걸쳐 재생 속도로 갚는다. 클립은 착지했는데 발이 아직 떠 있으면 늦춘다(maxWait까지)
+     let rate = 1;
+-    if (cfg.phase.mode === 'state') {
++    if (cfg.phase.mode === 'state' || ctx.t < this.stateUntil) {
+       // 상태 기반 위상(시간 늘리기): 몸이 기준보다 걷는 방향으로 앞서면(DCM 오차) 클립을 빨리, 뒤처지면 느리게 — 기준이 몸의 진행을 따라간다
+       const hy = ctx.anim.anchor.yaw;
+       const vF = ref.comVel[0] * Math.sin(hy) + ref.comVel[2] * Math.cos(hy);

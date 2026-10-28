@@ -457,6 +457,20 @@ export class AnimDriver {
     this.cache = null;
   }
 
+  /**
+   * (README 결정 game-1) 지금 몸(관절 + 루트 = Hips 바디 자세·속도)에서 클립 출력으로 관성화를 시작한다 — 게임 애니 복귀.
+   * 관절만 잇는 blendFromActual과 달리 루트 위치·회전 차이도 지워서, 키네마틱 재생 첫 스텝 자세가 지금 물리 자세와 같다
+   */
+  blendFromBody(t: number, prev: { joints: JointTargets; vel: Partial<Record<JointName, Vec3>>; root: BodyTransform; rootVel: { lin: Vec3; ang: Vec3 } }, blendTime: number): void {
+    if (!this.clip) return;
+    const nx = this.rawRef(this.tau);
+    this.inert.start(t, blendTime, prev, { joints: nx.joints, vel: nx.jointVel, root: nx.bodies[0]!, rootVel: { lin: nx.bodyLin[0]!, ang: nx.bodyAng[0]! } });
+    this.cache = null;
+  }
+
+  /** (game-1) 직전 출력 관절 각속도 (관성화 시작 속도) */
+  lastJointVel(): Partial<Record<JointName, Vec3>> { return this.last?.vel ?? {}; }
+
   advance(dt: number): void { if (this.clip) { this.tau += dt * this.rate; this.cache = null; } }
 
   /** 클립 공간 FK (관성화 없음) */

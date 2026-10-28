@@ -1,0 +1,29 @@
+{
+  "name": "walk_push_animated_side",
+  "milestone": "0.6",
+  "description": "(README 결정 land-5, game-1c) 게임 경로: Kimodo 걷기 클립을 키네마틱(Animated)으로 재생하다가 4.0초에 오른쪽에서 가슴을 민다(Δv 0.25, 0.15초) → 그 스텝에 Active로 넘어가 걷기 추종이 받고, 같은 순간 returnToAnimation('kimodo_walk_forward')을 불러 둔다. 이전에는 전환 과도 응답으로 몸이 클립보다 앞서 나가(앞 DCM 오차 0.1 → 0.4 m) 이 위상에서 넘어졌다(피격 시각 3.0~4.1초 12개 중 넘어짐 7 → 3). 넘어지지 않음, 반응 중 핀 0, 복귀 1번.",
+  "duration": 9,
+  "seed": 1,
+  "terrain": "flat",
+  "character": "xbot",
+  "spawn": {
+    "position": [0, 0, 0],
+    "yaw": 0,
+    "state": "Animated",
+    "pose": "kimodo_walk_forward"
+  },
+  "clip": null,
+  "events": [
+    { "t": 4.0, "type": "hit", "hit": { "type": "push", "body": "Spine2", "direction": [1, 0, 0], "magnitude": 0.25, "duration": 0.15 } },
+    { "t": 4.0, "type": "returnToAnimation", "clip": "kimodo_walk_forward" }
+  ],
+  "cameras": ["front", "side"],
+  "expect": {
+    "exploded": false,
+    "fell": false,
+    "metrics": {
+      "pinDuringReaction": { "max": 0 },
+      "returnDone": { "min": 1 }
+    }
+  }
+}

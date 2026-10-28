@@ -225,6 +225,8 @@ async function main(): Promise<void> {
     { label: '랙돌', onClick: () => { host.chars[selected]!.ch.setState('Ragdoll'); host.interacted = true; } },
     { label: '활성', onClick: () => { host.chars[selected]!.ch.setState('Active'); host.interacted = true; } },
     { label: '캐릭터 추가', id: 'btnAddChar', onClick: () => addCharAhead() },
+    { label: '애니로 복귀', id: 'btnReturn', title: '반응이 끝나면(복귀 가능 시점) 걷기 애니(키네마틱)로 관성화해 돌려받는다 — 게임이 맞은 캐릭터를 다시 애니로 움직이는 흐름', onClick: () => { const ok = host.returnToAnim(selected, 'recovered'); note = `${host.chars[selected]!.label} ${ok ? '반응 끝나면 애니로 복귀' : '복귀 불가(사망·폭발)'}`; } },
+    { label: '지금 애니로', id: 'btnReturnNow', title: '반응 중이어도 바로 애니로 관성화 (핀 없이)', onClick: () => { const ok = host.returnToAnim(selected, 'now'); note = `${host.chars[selected]!.label} ${ok ? '지금 애니로 복귀' : '복귀 불가'}`; } },
   ]);
   sCh.append(el('h4', {}, '애니 강제 비율(핀)'));
   sCh.append(el('div', { class: 'hint' }, 'PuppetMaster 핀 가중치: 바디를 애니 레퍼런스(클립, 없으면 서기 포즈) 쪽으로 핀 힘으로 끈다. 0 = 물리 그대로, 1 = 거의 애니. 피격·넘어짐 중에도 건다 — 시연·비교용 보조 힘이다.'));

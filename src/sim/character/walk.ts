@@ -56,7 +56,7 @@ export interface WalkConfig {
   swing: { kp: number; kd: number; weight: number; rotKp: number; rotKd: number; rotWeight: number; clearance: number; landDescentSpeed: number; earlyLandS: number; earlyLandDist: number; earlyLiftoff: number; liftoffLift: number; liftoffSpeed: number; landBlendStart: number; landSlope: number; landSlopeMax: number };
   stanceFoot: { rotKp: number; rotKd: number; rotWeight: number; settleGain: number; settleKp: number; heelUpH: number; soleContactDist: number };
   footPlacement: { gain: number; gainLat: number; maxFwd: number; maxBack: number; maxLat: number; minWidth: number; freezeS: number; lateUntil: number; lateJump: number; crossFwd: number; crossMax: number; expCapT: number; pathKeep: [number, number] };
-  phase: { baseRate?: number; mode: 'touchdown' | 'state'; kState: number; corrTime: number; minRate: number; maxRate: number; waitRate: number; maxWait: number; syncWindow: number; rateTau: number; reachS: number; reachDist: number; reachRate: number; boostS: number; boostE0: number; boostGain: number; boostMax: number; lagE0: number; lagGain: number; boostAnyClip?: boolean };
+  phase: { baseRate?: number; mode: 'touchdown' | 'state'; kState: number; corrTime: number; minRate: number; maxRate: number; waitRate: number; maxWait: number; syncWindow: number; rateTau: number; reachS: number; reachDist: number; reachRate: number; boostS: number; boostE0: number; boostGain: number; boostMax: number; lagE0: number; lagGain: number; boostAnyClip?: boolean; /** (결정 land-5) 키네마틱 → 동적 전환 뒤 이 시간(초) 동안은 상태 기반 위상(mode 'state') */ stateAfterHit?: number };
   limitAvoid: { marginDeg: number; kp: number; kd: number; weight: number };
   handover: { dcmError: number; dcmErrorHard: number; deferSwingS: number; maxTiltDeg: number; minComHeight: number; noContactTime: number; /** (v0.8a) 스윙 뒤쪽 발 아래 지면이 지지 지면보다 이만큼(m) 넘게 낮으면(낭떠러지) 넘김 */ voidDrop?: number; /** (v0.8a) 스윙발 접촉 법선의 세로 성분이 이 값보다 작으면(장애물 옆면에 걸림) 넘김 */ tripNormalY?: number };
   motorScale: number;
@@ -85,6 +85,8 @@ export interface WalkState {
   landings: { foot: FootName; t: number; p: Vec2; target: Vec2; error: number; phaseErr: number }[];
   /** 마지막 넘김 이유 */
   handover: string | null;
+  /** (결정 land-5) 키네마틱 전환 뒤 상태 기반 위상 구간 */
+  phaseState?: boolean;
   anchor: { yaw: number; pos: Vec3 };
 }
 
@@ -161,6 +163,10 @@ export class WalkController {
   private anchored: Record<FootName, boolean> = { LeftFoot: true, RightFoot: true };
   private landingSince: Record<FootName, number | null> = { LeftFoot: null, RightFoot: null };
   private phaseDebt = 0;
+  /** (결정 land-5) 이 시각까지 상태 기반 위상 (Character가 키네마틱 → 동적 전환 때 넣는다) */
+  stateUntil = -Infinity;
+  /** (결정 land-5) 키네마틱 → 동적 전환을 알린다: phase.stateAfterHit초 동안 상태 기반 위상 */
+  noteDisturbance(t: number): void { if (this.cfg.phase.stateAfterHit) this.stateUntil = t + this.cfg.phase.stateAfterHit; }
   /** 스윙발 수평 추종 오차 (직전 스텝, m) */
   private swingErr: Record<FootName, number> = { LeftFoot: 0, RightFoot: 0 };
   private rate = 1;
@@ -331,7 +337,8 @@ export class WalkController {
     }
     // 위상: 착지 오차를 corrTime에 걸쳐 재생 속도로 갚는다. 클립은 착지했는데 발이 아직 떠 있으면 늦춘다(maxWait까지)
     let rate = 1;
-    if (cfg.phase.mode === 'state') {
+    if (ctx.t < this.stateUntil) ws.phaseState = true;
+    if (cfg.phase.mode === 'state' || ctx.t < this.stateUntil) {
       // 상태 기반 위상(시간 늘리기): 몸이 기준보다 걷는 방향으로 앞서면(DCM 오차) 클립을 빨리, 뒤처지면 느리게 — 기준이 몸의 진행을 따라간다
       const hy = ctx.anim.anchor.yaw;
       const vF = ref.comVel[0] * Math.sin(hy) + ref.comVel[2] * Math.cos(hy);

@@ -10,6 +10,7 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { findScenario, loadScenario, loadInputs, jitterScenario, addRefSimilarity } from './simCommon';
 import { armStats, armAngles, logToArmFrames, type ArmStats } from './armMetrics';
+import { reactLib } from './reactLibEnv';
 import type { CharacterDef } from '../src/sim/character/characterDef';
 import { rotate, conjugate, multiplyQ } from '../src/sim/math/quat';
 
@@ -34,31 +35,6 @@ function cfgs(): Record<string, unknown> {
     o[path.at(-1)!] = JSON.parse(kv.slice(i + 1));
   }
   return c;
-}
-
-/**
- * REACTLIB = 실험용 반응 클립 라이브러리: 쉼표로 나눈 assets/kimodo/<폴더> 또는 <폴더>/<후보> (glob '*' 끝 허용) → react_<폴더>_<후보> 이름의 애니 클립.
- * 없으면 정적 라이브러리(src/sim/character/reactionClips.generated.ts)만.
- */
-function reactLib(): Record<string, never> | undefined {
-  const spec = process.env.REACTLIB;
-  if (!spec) return undefined;
-  const out: Record<string, unknown> = {};
-  const dirs = readdirSync('assets/kimodo');
-  for (const item of spec.split(',').map((s) => s.trim()).filter(Boolean)) {
-    const [d0, c0] = item.split('/');
-    const re = (p: string) => new RegExp('^' + p.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$');
-    for (const d of dirs.filter((x) => re(d0!).test(x))) {
-      const base = join('assets/kimodo', d);
-      for (const c of readdirSync(base).filter((x) => re(c0 ?? 'rp12_s*').test(x))) {
-        const p = join(base, c, 'clip.json');
-        if (!existsSync(p)) continue;
-        const f = JSON.parse(readFileSync(p, 'utf8'));
-        out[`react_${d}_${c}`] = { ...f, name: `react_${d}_${c}` };
-      }
-    }
-  }
-  return out as Record<string, never>;
 }
 
 interface Row { name: string; seed: number; passed: boolean; fell: boolean; steps: number; rec: number | null; land: number | null; arm: ArmStats; refArm: number | null; fails: string; exploded?: boolean; romFrac?: number; romMax?: number; settleTime?: number | null; settleFrac?: number; reactive?: number; closing?: number; stepLens?: number[]; stepEnd?: number | null; drag?: number }

@@ -67,6 +67,12 @@ export interface SteppingConfig {
     stillSpeed: number; closeSagittal: number; closeWidthTol: number; shiftFraction: number; shiftTime: number; shiftLoad: number;
     closeDuration: number; closeApex: number; shiftTol: number; shiftMaxSpeed: number; standTime: number; maxClosing: number; comGoalTau: number; shiftKDcm: number; stepMode: boolean; freezeLegs: boolean; trunkGains: boolean; armPostureWeight: number; recenter: boolean; recenterSpeed: number; recenterFreeze?: boolean; placeSpeed: number; placeApex: number; placeMaxSpeed: number; torsoWeightScale?: number;
   };
+  /**
+   * (결정 land-3) 반응 착지 직후 받기: 착지 뒤 time초(뒤 fade초에 걸쳐 0으로) 원하는 COM 힘의 CMP를 지지 다각형 안 cmpInside m로(착지발 수평 제동을 힘선 원뿔
+   * |F_h| ≤ F_v·d/h 안으로 — 힘선이 COM을 지나거나 COM 뒤로), COM 둘레 각운동량 목표 k̇ = −kL·k, 가중치 wAng. 세기는 |k|가 Lgate[0] → [1] kg·m²/s에서 0 → 1
+   * (몸통을 넘길 각운동량이 없으면 제동을 그대로 둔다). 못 받은 속도는 다음 걸음이 받는다
+   */
+  land?: { time: number; fade: number; cmpInside: number; kL: number; wAng: number; Lgate?: [number, number] } | null;
   trunk: { torso: { kp: number; kd: number; weight: number }; pelvis: { kp: number; kd: number; weight: number }; wAng: number; wLin: number; wLinVertical: number; armAccelReg: number; handAccelReg?: number; yawKp: number; yawKd: number; yawWeight: number };
   motorPlanJoints: JointName[];
   trunkImmediate: boolean;
@@ -126,6 +132,8 @@ export interface StepCommand {
   lungeDrop: number;
   /** 스텝 계층이 COM 목표 저역 통과·적분을 새로 시작하라고 알림 */
   resetComTarget: boolean;
+  /** (결정 land-3) 반응 착지 직후 받기 단계 세기 0~1 (착지 뒤 land.time초 동안 1 → 0). 없으면 0 */
+  landing?: number;
 }
 
 export interface LandingRecord { foot: FootName; t: number; p: Vec2; target: Vec2; error: number; kind: StepKind }
@@ -289,6 +297,8 @@ export class Stepping {
   /** (v0.8a) 이번 스텝의 인지 (지형 디딤에서 스윙발 출발 높이) */
   private lastPer: Perception | null = null;
   private readonly legBias: Record<FootName, number>;
+  /** (README 결정 game-3) 반응 변주: 이번 피격 반응의 다리 선호 (피격마다 Character가 뽑는다, 변주를 끄면 0) */
+  varBias: Record<FootName, number> = { LeftFoot: 0, RightFoot: 0 };
   private readonly footHalf: Vec3;
   private readonly lThigh: number;
   private readonly lShin: number;
@@ -606,7 +616,7 @@ export class Stepping {
       // 하중을 거의 다 받은 발은 빨리 못 든다 (체중 이동에 0.3초 이상) → 크게 벌한다
       const heavy = loadFrac > c.heavyLoad ? c.heavyPenalty : 0;
       const injured = this.mods.injuredFoot === f ? (this.mods.injuredPenalty ?? 0) : 0;
-      const cost = injured + useless + heavy + c.load * loadFrac + c.dir * (1 - dirSide) + c.cross * (plan.crossing ? 1 : 0) + c.reach * (move / this.cfg.maxStepLength) + c.clamp * plan.clampDist + this.legBias[f];
+      const cost = injured + useless + heavy + c.load * loadFrac + c.dir * (1 - dirSide) + c.cross * (plan.crossing ? 1 : 0) + c.reach * (move / this.cfg.maxStepLength) + c.clamp * plan.clampDist + this.legBias[f] + this.varBias[f];
       if (!best || cost < best.cost) best = { cost, plan };
     }
     return best!;
@@ -808,6 +818,10 @@ export class Stepping {
     }
 
     const cmd: StepCommand = { swingFoot: null, phase: null, unloadPenalty: 0, freezeLegs: [], armGain: 1, abductDeg: 0, resetComTarget: false, lungeDrop: 0, mode: this.st === 'settle' && !c.settle.stepMode ? 'settle' : 'step' };
+    if (c.land && this.st === 'settle' && this.landings.length && this.landings[this.landings.length - 1]!.kind === 'reactive' && this.lastHitT < this.landT) {
+      const tIn = ctx.t - this.landT;
+      cmd.landing = (tIn < c.land.time ? 1 : 1 - smooth((tIn - c.land.time) / Math.max(1e-3, c.land.fade)));
+    }
     // 런지: 반응 스텝 중·직후(정착) COM 속도에 비례해 낮춘다
     if (this.st === 'step' && this.step?.kind === 'reactive' || this.st === 'settle' && this.count > 0) cmd.lungeDrop = Math.min(c.lunge.maxDrop, c.lunge.dropPerMs * speed);
     // (v0.8a) 아래로 내려 딛는 스텝: 지지 다리를 굽혀 COM을 낮춰야 스윙 다리가 아래 디딤면에 닿는다 (사람의 계단 내려가기)
@@ -1133,6 +1147,9 @@ export class Stepping {
     }
     return { p: [ph[0], y, ph[2]], v: [vh[0], vy, vh[2]], a: [ah[0], ay, ah[2]], rot, usePD: { h: true, v: true } };
   }
+
+  /** (결정 land-3) 마지막 바깥 충격 시각 (Character가 넣는다). 그 뒤 착지 전까지는 받기 단계를 쓰지 않는다 — 새 충격은 다시 CMP를 밖으로 써야 받는다 */
+  lastHitT = -Infinity;
 
   /** 스윙 다리 2관절 IK: 고관절점은 지금, 발 원점 목표·방향 → 고관절·무릎·발목 관절 목표 */
   legIK(foot: FootName, footPos: Readonly<Vec3>, footRot: Readonly<Quat>, heading: Readonly<Quat>): JointTargets {

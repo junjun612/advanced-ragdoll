@@ -42,6 +42,8 @@ export class AnimMetrics {
   private prevVel: Record<string, Vec3> | null = null;
   private prevAnim: { t: number; rel: Record<string, Quat> } | null = null;
   private animSpeeds: number[] = [];
+  /** (README 결정 game-1) 게임 애니 복귀: 끝난 횟수, 키네마틱 전환 시각, 전환 스텝 바디 속도 불연속 최대 (m/s), 전환 뒤 0.1초 바디 선가속도 최대, 남은 차이 최대 (m) */
+  private ret: { done: number; lastPhase: string; kinT: number | null; jump: number; pop: number; residual: number; jumpAcc: number; any: boolean; pos: Record<string, Vec3> | null; fd: Record<string, Vec3> | null } = { done: 0, lastPhase: '', kinT: null, jump: 0, pop: 0, residual: 0, jumpAcc: 0, any: false, pos: null, fd: null };
   private seamSpeeds: number[] = [];
 
   constructor(readonly reactHold: number) {}
@@ -74,6 +76,26 @@ export class AnimMetrics {
         const p = this.prevVel[n];
         if (p) this.popMax = Math.max(this.popMax, Math.hypot(v[0] - p[0], v[1] - p[1], v[2] - p[2]) / dt);
       }
+    }
+    // (game-1) 게임 애니 복귀 전환의 튐: 바디 원점 위치 차분 속도로 잰다 (동적 바디 linVel은 질량 중심, 키네마틱은 원점 속도라 섞으면 ω×r만큼 튀어 보인다)
+    const ra = s.returnAnim;
+    if (ra) {
+      const R = this.ret;
+      R.any = true;
+      if (ra.phase === 'done' && R.lastPhase !== 'done') R.done++;
+      R.lastPhase = ra.phase;
+      const fd: Record<string, Vec3> = {};
+      if (R.pos) for (const [n, b] of Object.entries(s.bodies)) { const p = R.pos[n]; if (p) fd[n] = [(b.pos[0] - p[0]) / dt, (b.pos[1] - p[1]) / dt, (b.pos[2] - p[2]) / dt]; }
+      const dmax = () => { let m = 0; if (R.fd) for (const [n, v] of Object.entries(fd)) { const p = R.fd[n]; if (p) m = Math.max(m, Math.hypot(v[0] - p[0], v[1] - p[1], v[2] - p[2])); } return m; };
+      if (ra.kinT !== null && ra.kinT !== R.kinT) {
+        R.kinT = ra.kinT;
+        R.residual = Math.max(R.residual, ra.residualPos);
+        const j = dmax();
+        R.jump = Math.max(R.jump, j);
+        R.jumpAcc = Math.max(R.jumpAcc, j / dt);
+      } else if (R.kinT !== null && t > R.kinT + dt * 1.5 && t <= R.kinT + 0.1 + 1e-9) R.pop = Math.max(R.pop, dmax() / dt);
+      R.pos = Object.fromEntries(Object.entries(s.bodies).map(([n, b]) => [n, b.pos]));
+      R.fd = R.pos && Object.keys(fd).length ? fd : null;
     }
     this.prevVel = vel;
     // 클립 기준 자세 각속도 (이음매)
@@ -164,6 +186,14 @@ export class AnimMetrics {
       m.switchVelJumpLin = this.switchJ.lin;
       m.switchVelJumpAng = this.switchJ.ang;
       m.switchPopAccel = this.popMax;
+    }
+    if (this.ret.any) {
+      m.returnDone = this.ret.done;
+      m.returnVelJump = this.ret.jump;
+      // 전환 스텝 바디 가속도 (속도 불연속 / dt): 스윙발은 걷기 클립 자체로 스텝마다 0.7 m/s 넘게 바뀌므로(90 m/s²) 가속도로 클립 자체 값과 견준다
+      m.returnSwitchAccel = this.ret.jumpAcc;
+      m.returnPopAccel = this.ret.pop;
+      m.returnResidualCm = 100 * this.ret.residual;
     }
     if (this.animSpeeds.length) {
       const v = [...this.animSpeeds].sort((a, b) => a - b);

@@ -1,0 +1,12 @@
+{
+  "$comment": "게임 실사용 API (README 결정 game-1~, docs/API.md '게임에 넣기'). 반응이 끝난 뒤 게임 애니(Animated)로 돌려받기, 반응 변주. 길이 m, 시간 초, 속도 m/s.",
+
+  "$recovered": "복귀 가능 시점 'recovered' 이벤트 (Character.on('recovered'), canReturnToAnimation()). 바깥 충격·넘어짐·일어서기가 있었던 뒤(무장) 다음이 모두 holdTime초 이어지면 한 번 알린다: Active, 자세 standing, 폭발·사망·일어서기 아님, 반응 중(reactHold)·반응 클립 아님, allowBehaviors 밖 행동이 켜져 있지 않음, 스텝 계층이 쉼. 걷기 추종 중이면 DCM 오차 ≤ walkDcmError, 서 있으면 두 발이 닿고 COM 수평 속도 ≤ standSpeed, 포착점 여유 ≥ standCpMargin.",
+  "recovered": { "holdTime": 0.4, "standSpeed": 0.15, "standCpMargin": 0.02, "walkDcmError": 0.12, "allowBehaviors": ["LookAt"] },
+
+  "$returnToAnim": "returnToAnimation(clip, opts): Active 몸을 게임 애니(키네마틱 Animated)로 돌려준다. 클립을 지금 몸에 맞춘 앵커(골반 방향, 두 발 중점)·위상(루프 클립은 발 접촉·다리 자세로 맞춤, 걷기 추종 중이던 같은 클립이면 그대로)으로 재생하고, 애니 출력(루트 + 관절, 자세·속도)을 지금 물리 자세·속도에서 시작해 blendTime초에 클립으로 관성화하며 키네마틱으로 바꾼다 — 순간이동·튐 없음. pinFrac > 0이면 앞 pinFrac × blendTime초를 핀 블렌드(SPEC v0.6 허용 범위 Animated ↔ Active 전환 블렌드, assist.pin에 기록, 반응 중에는 건너뜀)로 한 뒤 남은 차이를 minKinematicBlend초 이상 관성화한다. 기본 0: 걷기 추종 QP가 팔 가속도 정규화로 핀을 거슬러 손이 47cm 벌어졌다(결정 game-1). 전환 중 맞으면 취소하고 반응한다(when recovered면 다시 기다린다)",
+  "returnToAnim": { "blendTime": 0.5, "pinFrac": 0.0, "minKinematicBlend": 0.2 },
+
+  "$variation": "반응 변주 (README 결정 game-3): 같은 충격도 캐릭터별 시드 PRNG 하위 스트림('variation')으로 조금씩 다르게. 피격마다 새로 뽑는다. clipCostTol: 반응 클립(상체 스타일) 최저 비용 클립과 같은 묶음(방향·세기 같고 Kimodo 시드만 다름) 중 최저 + clipCostTol 안의 것을 고르게 뽑음 — 기본 0(끔): 다른 후보를 고르면 근처 16시드 버티기 19 → 11~15/32로 나빠졌다(결정 game-3). legBias: 이번 반응의 첫 디딤 발 선호(스텝 다리 비용에 ±legBias). armScale: 반응 클립 팔 모양 세기 배율 1 ± armScale. delayJitter: 반응 클립 감지 지연 ± 초. enabled false면 아무것도 뽑지 않는다(이전 결과와 같음).",
+  "variation": { "enabled": true, "clipCostTol": 0, "legBias": 0.06, "armScale": 0.15, "delayJitter": 0.015 }
+}

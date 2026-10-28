@@ -132,7 +132,7 @@ async function worker(name: string, seed: number): Promise<Row> {
   const mtr: { t: number; s: Record<string, number>; e: Record<string, number>; tone: Record<string, number> }[] = [];
   const r = await runScenario({
     ...loadInputs(sc),
-    characterOpts: { balanceConfig: c.b, steppingConfig: c.s, behaviorsConfig: c.h, hitModelConfig: c.m, animConfig: c.a, poses: c.p, reactionConfig: c.r, settleConfig: c.settle, muscles: c.mu },
+    characterOpts: { balanceConfig: c.b, steppingConfig: c.s, behaviorsConfig: c.h, hitModelConfig: c.m, animConfig: c.a, poses: c.p, reactionConfig: c.r, settleConfig: c.settle, muscles: c.mu, animClips: (await import('./reactLibEnv')).reactLib() },
     observe: {
       step: (w) => {
         const ch = w.characters[0]!;
@@ -359,4 +359,4 @@ else if (argv[0] === 'table') table();
 else if (argv[0] === 'plot') void plot();
 else if (argv[0] === 'bars') void bars();
 else if (argv[0] === 'run') void master();
-else console.log('사용법: tools/toneDiag.ts run|human|table|plot (파일 머리 주석)');
+else if (process.argv[1]?.endsWith('toneDiag.ts')) console.log('사용법: tools/toneDiag.ts run|human|table|plot (파일 머리 주석)');

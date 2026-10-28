@@ -106,10 +106,11 @@ ch.hit({ type: 'bullet', body: 'Spine', point: [0.05, 1.2, 0.1], direction: [0, 
 | `grabbed` | 손이 잡을 곳을 잡음 (난간·모서리·grabbable 프롭) | `body`(손), `point`(잡은 점), `detail` = 종류 |
 | `released` | 잡은 손을 놓음 (힘이 손아귀를 넘음·미끄러짐·버텨 냄·행동 끝) | `body`(손) |
 | `exploded` | 안전 검사 실패(속도 폭주·NaN) → 그 캐릭터를 Ragdoll로 | `detail` |
+| `recovered` | (game-1) 반응이 끝나 게임 애니로 돌려받아도 됨 (9장, 알림 전용) | `detail` = standing / walking 클립 |
 
 `fell`·`gotUp`·`grabbed`·`released`는 알림 전용이라 `world.events`(로그)에 남지 않는다 — 이전 로그와 바이트 동일을 지키려는 것이다(결정 9a-4). 듣는 사람이 없으면 계산도 하지 않는다.
 
-**그 밖의 이벤트** (`world.events`에도 남는다): `hit`, `hitReacted`(반응 강도 `strength` 0~1, 사운드 연동), `stepStart`, `stagger`, `footReplace`, `voidStep`, `behaviorStart`/`behaviorStop`, `trigger`, `setState`, `setMuscleScale`, `setAssist`, `setBalance`, `setGetup`, `lookAt`, `walkHandover`/`walkResume`, `reactionStart`/`reactionEnd`, `getupReady`/`getupStart`/`getupBalance`/`getupDone`/`getupFail`/`getupCancel`/`getupGiveUp`, `propSpawn`.
+**그 밖의 이벤트** (`world.events`에도 남는다): `returnStart`/`returnDone`/`returnCancel`(9장), `hit`, `hitReacted`(반응 강도 `strength` 0~1, 사운드 연동), `stepStart`, `stagger`, `footReplace`, `voidStep`, `behaviorStart`/`behaviorStop`, `trigger`, `setState`, `setMuscleScale`, `setAssist`, `setBalance`, `setGetup`, `lookAt`, `walkHandover`/`walkResume`, `reactionStart`/`reactionEnd`, `getupReady`/`getupStart`/`getupBalance`/`getupDone`/`getupFail`/`getupCancel`/`getupGiveUp`, `propSpawn`.
 
 ## 5. 좌표계·단위·hitScale·보조 힘
 
@@ -177,4 +178,73 @@ restored.step();                              // 원래 월드를 이어 돌린 
 `src/app/`은 `src/sim/api.ts`만 import한다 (타입 포함). 렌더(`src/render/`)는 `getState()` 결과 타입과 수학 타입만 읽는다.
 
 - 시나리오 재생은 러너와 같은 공용 함수 `src/sim/scenarioPlayer.ts`(`scenarioCast`·`addCastMember`·`applyScenarioEvent`·`ScenarioPlayback`)를 쓴다 (README 결정 app-1). 묶음 시나리오는 `src/sim/getupScenarios.ts randomFallScenario`로 첫 시드를 재생한다. 그래서 앱에서 시나리오를 처음부터 재생하면 같은 프레임의 상태가 `npm run sim` 로그와 바이트 단위로 같다 (`tests/app.test.ts`, `npm run app:check`).
-- 대화형 입력: `hit`(밀기·총탄·근접·폭발), `World.addProp`(던지기), `World.addCharacter`(캐릭터 추가), `playClip`(걷기 시작·정지), `lookAt`, `setState`, `setAnimOverride`.
+- 대화형 입력: `hit`(밀기·총탄·근접·폭발), `World.addProp`(던지기), `World.addCharacter`(캐릭터 추가), `playClip`(걷기 시작·정지), `lookAt`, `setState`, `setAnimOverride`, `returnToAnimation`('애니로 복귀' = 반응 끝나면, '지금 애니로' = 바로).
+
+## 9. 게임에 넣기: 반응 뒤 게임 애니로 돌려받기 · 반응 변주 (README 결정 game-1·game-3, 값 `config/game.json`)
+
+게임은 평소 자기 애니로 캐릭터를 움직이고(`Animated`, 키네마틱), 맞으면 액티브 랙돌에 넘기고, 반응이 끝나면 다시 애니로 돌려받는다.
+
+```ts
+const ch = world.addCharacter(def, cfg, { position: [0, 0, 0], yaw: 0, state: 'Animated', pose: 'kimodo_walk_forward' });
+// … 게임 애니로 걷는다 (키네마틱 재생)
+
+ch.hit({ type: 'push', body: 'Spine2', direction: [1, 0, 0], magnitude: 0.25, duration: 0.15 }); // 다음 스텝에 Active로 넘어가 물리로 반응
+ch.returnToAnimation('kimodo_walk_forward');           // 반응이 끝나면(복귀 가능 시점) 걷기 애니로 돌려받기 — 지금 불러 두면 된다
+
+ch.on('recovered', (e) => console.log('복귀 가능', e.t, e.detail)); // 버텼거나 일어선 뒤 균형·진정이 끝남 (알림 전용)
+ch.on('returnDone', (e) => game.resumeAnimation(ch));              // 다시 키네마틱 애니 (게임이 이어서 클립을 바꿔도 된다)
+```
+
+| 멤버 | 설명 |
+|---|---|
+| `returnToAnimation(clip, opts?: { when?: 'recovered' \| 'now'; blendTime?: number; startTime?: number; yaw?: number }): boolean` | 몸을 애니 클립(키네마틱 `Animated`)으로 돌려준다. `when` 기본 `'recovered'`: 복귀 가능 시점까지 기다렸다가. `'now'`: 다음 스텝에 바로(반응 중이어도). 클립은 지금 몸에 맞춘 앵커(골반 방향, 두 발 중점)·위상(루프 클립은 발 접촉·다리 자세가 가장 비슷한 프레임)으로 재생하고, 애니 출력(루트 + 관절, 자세·속도)을 **지금 물리 자세·속도에서 시작해 `blendTime`초(기본 0.5)에 클립으로 관성화**한다 — 전환 순간 튐·순간이동이 없다. 걷기 추종 중이던 같은 클립이면 그 위상·앵커를 그대로 잇는다. 전환 중 맞으면 취소하고 반응한다(`'recovered'`면 다시 기다린다). 이미 `Animated`면 새 클립을 관성화로 이어 재생한다. 사망·폭발이면 `false` |
+| `cancelReturn()` | 기다리는·진행 중인 복귀 취소 |
+| `recoveryStatus(): { recovered: boolean; blockedBy: string }`, `canReturnToAnimation()` | 복귀 가능 판정과 막는 이유(`react` 반응 중, `reaction` 반응 클립, `behavior HoldWound` 행동, `stepping` 걸음 중, `moving`, `walk dcm` 걸음 오차, `posture down` …) |
+| `reactionVariation()` | 마지막 피격에 뽑은 반응 변주 (`{ n, clipU, arm, delay, legBias }`, 끄면 null) |
+
+**복귀 가능 시점 (`recovered`, 알림 전용 — `world.events`에 남지 않음).** 바깥 충격·넘어짐·일어서기 뒤 다음이 모두 `recovered.holdTime`초(0.4) 이어지면 한 번: `Active`, 자세 `standing`, 사망·폭발·일어서기 아님, 반응 유지 시간(`resume.reactHold`)·반응 클립이 끝남, 켜져 있거나 꺼져 가는 행동이 없음(`allowBehaviors` = LookAt 제외), 스텝 계층이 쉼. 걷기 추종 중이면 DCM 오차 ≤ 0.12 m(평소 걷기 p90 0.06), 서 있으면 두 발이 닿고 COM 수평 속도 ≤ 0.15 m/s·포착점 여유 ≥ 2 cm. 듣는 사람이 없고 기다리는 복귀도 없으면 판정하지 않는다(시뮬레이션·로그 그대로).
+
+**로그 이벤트**: `returnStart`(부름), `setState`(`Animated (return …, residual …)` = 키네마틱 전환), `returnDone`(관성화 끝), `returnCancel`. **상태**: `getState().returnAnim` = `{ phase: wait|pin|kinematic|done|cancel, clip, requestT, startT, kinT, blendTime, pinTime, residualPos, residualDeg, blockedBy }` (한 번이라도 부른 캐릭터만). 필름·앱 표시: "애니 복귀 대기 (걸음 오차)" / "애니로 복귀 중 0.2/0.5초".
+
+**보조 힘.** 기본은 핀을 쓰지 않는다(`returnToAnim.pinFrac` 0 — 키네마틱 관성화만, `assist.pin` 0). `pinFrac` > 0이면 전환 앞부분을 핀 블렌드(SPEC v0.6 허용 범위 'Animated ↔ Active 전환 블렌드', `assist.pin`에 기록, 반응 중에는 쓰지 않음)로 하지만, 걷기 추종 QP가 팔 가속도 정규화로 핀을 거슬러 오히려 손이 47 cm 벌어져 기본에서 껐다(결정 game-1).
+
+**시나리오 이벤트**: `{ "t": 3.0, "type": "returnToAnimation", "clip": "kimodo_walk_forward", "when"?: "recovered" | "now", "blendTime"?: 0.5 }`. 데모 `scenarios/0.6/walk_push_return.json`(걷기 → 옆 밀림 → 복귀 → 걷기 → 앞 밀림 → 복귀).
+
+**반응 변주 (game-3).** 같은 충격이라도 피격마다 캐릭터별 시드 PRNG 하위 스트림(`'variation'`)에서 작은 변주를 뽑는다: 반응 클립 고르기(`clipCostTol` 기본 0 = 최저 비용 그대로 — 다른 후보를 고르면 버티기가 나빠져 껐다, 결정 game-3), 팔 모양 세기 ×(1 ± `armScale`), 반응 클립 감지 지연 ± `delayJitter`초, 첫 디딤 발 선호(스텝 다리 비용 ± `legBias`). 결정론은 그대로다(같은 시드·입력 → 같은 결과). 기본 켬(`config/game.json variation.enabled`), 캐릭터마다 `addCharacter(…, { variation: false })`, 시나리오 최상위 `"variation": false`로 끈다. 끄면 이전 결과와 바이트 동일하다.
+
+## 10. 성능: 1명당 비용 (README 결정 game-4, 2026-10-28 측정)
+
+물리 스텝은 1/120초 고정이라 실시간이려면 **스텝당 8.33 ms 안**이어야 한다(렌더·게임 로직 몫은 별도). 캐릭터를 2.5 m 간격 줄로 세워(서로 닿지 않음) 3초 예열 뒤 5초를 잰다. 장면: stand = 서서 Active, 1초에 모두 small 밀기(반응·정착 포함) / walk = Kimodo 걷기 클립을 Active로 추종(전신 QP) / anim = 키네마틱 Animated 걷기(게임 애니 재생 중).
+
+| 장면 | 인원 | Node ms/스텝 | Node ms/명 | 브라우저 ms/스텝 | 브라우저 ms/명 | 브라우저 p95 ms/스텝 |
+|---|---|---|---|---|---|---|
+| stand | 1 | 1.04 | 1.04 | 0.75 | 0.75 | 1.3 |
+| stand | 2 | 2.00 | 1.00 | 1.34 | 0.67 | 2.0 |
+| stand | 4 | 4.06 | 1.02 | 2.74 | 0.69 | 4.2 |
+| stand | 8 | 8.55 | 1.07 | 6.01 | 0.75 | 7.9 |
+| walk | 1 | 1.00 | 1.00 | 0.75 | 0.75 | 1.2 |
+| walk | 2 | 1.87 | 0.94 | 1.42 | 0.71 | 2.2 |
+| walk | 4 | 3.95 | 0.99 | 2.77 | 0.69 | 4.5 |
+| walk | 8 | 8.76 | 1.10 | 5.77 | 0.72 | 8.0 |
+| anim | 1 | 0.50 | 0.50 | 0.27 | 0.27 | 0.4 |
+| anim | 2 | 0.81 | 0.41 | 0.54 | 0.27 | 0.7 |
+| anim | 4 | 1.71 | 0.43 | 1.02 | 0.26 | 1.6 |
+| anim | 8 | 3.75 | 0.47 | 2.13 | 0.27 | 3.0 |
+
+Node 26 (tsx), Chromium 156 (playwright, 앱과 같은 `api.ts` 번들), 같은 PC(다른 작업과 공유 — ±15% 흔들림).
+
+- **비용은 인원에 거의 정비례**한다(한 명 Active ≈ 브라우저 0.7 ms, Node 1.0 ms). 브라우저에서 Active 8명이 평균 6 ms/스텝(p95 8 ms)로 실시간 한계 근처다. 웹 데모는 **Active 동시 4~6명**, 나머지는 Animated(게임 애니)로 두고 맞을 때만 Active로 넘기는 것을 권한다 — 9장 `returnToAnimation`이 그 흐름이다.
+- **Animated도 공짜가 아니다**(브라우저 0.27 ms/명): 키네마틱 재생 중에도 인지·근육·균형 갱신 일부가 돈다. 멀리 있는 캐릭터를 많이 둘 때 줄일 여지가 있다(다음 과제).
+- 렌더 프레임이 느려 한 프레임에 스텝을 여러 번 돌면(`advance`) 비용이 그만큼 곱해진다 — 60 fps면 프레임마다 2스텝.
+
+**비용 큰 부분** (Node `--cpu-prof`, Active 걷기·서기 4명, 자기 시간 비율, `tools/perfProfile.ts`):
+
+| 순위 | 부분 | 몫 | 내용 |
+|---|---|---|---|
+| 1 | Rapier 물리 (wasm) | 21% + JS 바인딩 4% | 충돌·접촉·관절 솔버 |
+| 2 | 전신 QP 풀이 | 16% | `nnls.ts`(solveDense·nnlsNormal 6.7%) + `dense.ts`(LU 분해·풀이 5.2%) + `wbqp.ts`(4.1%) |
+| 3 | 사원수 수학 | 5.7% | `quat.ts multiplyQ` 등 (FK·관절 좌표·관성화) |
+| 4 | 균형 계층 | 5.6% + 전신 동역학 3.5% | `balance.ts update`·`wholeBody.ts`(질량 행렬·야코비안) |
+| 5 | 애니 추종 걷기 | 4.6% | `walk.ts update` (클립 기준값·발 과제) |
+
+(그 밖: 가비지 컬렉터 3.8%, 시작 시 모듈 읽기·컴파일 약 8%는 측정 구간 밖.) 다시 재기: `npx tsx tools/perfChars.ts --warm 3 --measure 5`, `npx tsx tools/perfBrowser.ts --warm 3 --measure 5`, `node --import tsx --cpu-prof --cpu-prof-dir=out/prof tools/perfChars.ts --scenes walk,stand --counts 4` → `npx tsx tools/perfProfile.ts out/prof/<파일>.cpuprofile`.

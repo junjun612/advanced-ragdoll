@@ -1,0 +1,117 @@
+{
+  "clip": "react_upright_backleft_s11",
+  "label": "upright backleft Δv 1.1 (순간 밀림 → 감속 72cm)",
+  "text": "a person standing still is suddenly shoved on the chest from the front-right, pushing them diagonally backward and to their left; they keep their torso upright and take one or two quick steps diagonally backward to catch their balance, then stand still with arms relaxed",
+  "duration_s": 4,
+  "models": [
+    "rp12"
+  ],
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "startPose": "stand",
+  "rootMotion": "kept",
+  "holdStartFrames": [
+    24,
+    30
+  ],
+  "rootPath": {
+    "points": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        0.07209391884857816,
+        -0.07209391884857816
+      ],
+      [
+        0.13390752741698383,
+        -0.13390752741698383
+      ],
+      [
+        0.18690675766098433,
+        -0.18690675766098433
+      ],
+      [
+        0.23234850538467688,
+        -0.23234850538467688
+      ],
+      [
+        0.27131043797647103,
+        -0.27131043797647103
+      ],
+      [
+        0.3047165516787402,
+        -0.3047165516787402
+      ],
+      [
+        0.35791730437888547,
+        -0.35791730437888547
+      ],
+      [
+        0.3970273844874623,
+        -0.3970273844874623
+      ],
+      [
+        0.43715835354343774,
+        -0.43715835354343774
+      ],
+      [
+        0.462453432530324,
+        -0.462453432530324
+      ],
+      [
+        0.4822735996625231,
+        -0.4822735996625231
+      ],
+      [
+        0.4947812516489427,
+        -0.4947812516489427
+      ],
+      [
+        0.5003135824190506,
+        -0.5003135824190506
+      ]
+    ],
+    "frames": [
+      0,
+      30,
+      33,
+      36,
+      39,
+      42,
+      45,
+      48,
+      54,
+      60,
+      69,
+      78,
+      90,
+      105,
+      119
+    ]
+  },
+  "expect": {
+    "dir": [
+      0.7071067811865476,
+      -0.7071067811865476
+    ],
+    "endStillSpeed": 0.3
+  },
+  "weights": {
+    "startPoseDeg": 0,
+    "endPoseDeg": 1
+  },
+  "top": 3,
+  "filmCamera": "side"
+}

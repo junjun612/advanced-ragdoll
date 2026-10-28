@@ -4,6 +4,9 @@ import muscles from '../../config/muscles.json';
 import hitModelCfg from '../../config/hitModel.json';
 import presenceCfg from '../../config/presence.json';
 import steppingCfg from '../../config/stepping.json';
+import gameCfg from '../../config/game.json';
+import balanceCfg from '../../config/balance.json';
+import animCfg from '../../config/animDriver.json';
 import { runScenario } from '../../src/sim/runner';
 import { findScenario, loadScenario, loadInputs, jitterScenario } from '../simCommon';
 
@@ -28,6 +31,14 @@ if (np || flags.has('nb')) pc.breath.enabled = false;
 // (결정 tone-4) nsu: 정착 중 상체 자세 감쇠를 다리와 같게(tone-4 이전). tone: 근긴장(공동수축) 켜기(tone-1, 기본 끔)
 if (flags.has('nsu')) delete (steppingCfg as unknown as { postureKd: { settleUpper?: number } }).postureKd.settleUpper;
 if (flags.has('tone')) (muscles as unknown as { tone: { enabled: boolean } }).tone.enabled = true;
+// (결정 game-3) nv: 반응 변주 끄기(변주 이전 결과)
+if (flags.has('nv')) (gameCfg as unknown as { variation: { enabled: boolean } }).variation.enabled = false;
+// 변주 항목 하나씩 끄기: vl0 다리 선호, vc0 클립 고르기, va0 팔 세기, vd0 지연
+{ const gv = (gameCfg as unknown as { variation: Record<string, number> }).variation; if (flags.has('vl0')) gv.legBias = 0; if (flags.has('vc0')) gv.clipCostTol = 0; if (flags.has('va0')) gv.armScale = 0; if (flags.has('vd0')) gv.delayJitter = 0; }
+// (결정 land-*) 착지 받기(nl3)·몸통 기울기 지금 값(nl4)·피격 뒤 상태 기반 위상(nl5) 끄기, nland = 셋 다(= 이전 master)
+if (flags.has('nland') || flags.has('nl3')) (steppingCfg as unknown as { land?: unknown }).land = null;
+if (flags.has('nland') || flags.has('nl4')) (balanceCfg as unknown as { enable: { tiltImmediate?: boolean } }).enable.tiltImmediate = false;
+if (flags.has('nland') || flags.has('nl5')) (animCfg as unknown as { walk: { phase: { stateAfterHit?: number } } }).walk.phase.stateAfterHit = 0;
 const hand = flags.has('h12') ? 12 : flags.has('h8') ? 8 : null;
 const inputs = (sc: Parameters<typeof loadInputs>[0]) => {
   const i = loadInputs(sc);

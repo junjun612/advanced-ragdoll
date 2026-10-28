@@ -139,3 +139,14 @@
 - 생성: `npx tsx tools/kimodo/reactLib.ts gen` — 방향 8(back·front·left·right·backleft·backright·frontleft·frontright = 밀려 가는 쪽) × 세기 3(s05 Δv 0.5 τ 0.55, s08 0.8 τ 0.6, s11 1.1 τ 0.65) × 시드 1~6 = 144개 (`tools/kimodo/specs/react_lib/`).
 - 고르기: `npx tsx tools/kimodo/reactSelect.ts rank|write --per 2` — 탈락(몸통 최대 > 35°, 팔 들림 p90 > 55°, 끝 COM 속도 > 0.15 m/s), 순위 = 칸 중앙값(팔 들림·팔꿈치·팔 사용·몸통)에서의 거리 + 0.1 × 자동 점수 + (팔 들림 p90 − 25°)/10. 칸마다 2개 = 48개. 전체 표 `assets/kimodo/react_lib_ranking.md`.
 - 관찰: 시드 6은 거의 모든 칸에서 60~70° 숙이며 비틀거림(탈락). COM 최대 속도는 Hips 경로 Δv의 60~85%(Kimodo가 몸통을 늦게 따라옴). 사람 첫 걸음은 밀림 0.3~0.4초 뒤.
+
+## 반응 클립 프롬프트 변형 (`react_upright_*`, `react_shove_*`, 2026-10-28, RP-v1.2만, 결정 clip-1~5)
+
+- 목적: 가슴·어깨를 손으로 민 외란에 맞는 반응(몸통이 크게 꺾이지 않음)이 문구로 나오는지, 반응 클립을 바꾸면 sim의 몸통 휨이 줄어드는지 확인.
+- 루트 경로·키프레임·시드는 원래 라이브러리와 같다(`reactLib.ts gen --set <묶음>`, `REACT_SETS`). 문구:
+  - `upright`: `a person standing still is suddenly shoved <방향 문구>; they keep their torso upright and take one or two quick steps <밀린 쪽> to catch their balance, then stand still with arms relaxed` — 8방향 × 3세기 × 시드 1~6 = 144개
+  - `shove`: `a person standing still is suddenly shoved <방향 문구>, staggers <밀린 쪽> with one or two quick steps, and then stands still` — back·left × s08 × 시드 1~6 = 12개(예비)
+- 원래 문구 144개도 같은 시드로 다시 만들었다(관절 값이 정적 라이브러리와 비트 단위로 같음 — 재현 확인).
+- 측정(`tools/kimodo/clipTone.ts`, toneDiag와 같은 정의): 문구를 바꿔도 몸통 휨 분포는 거의 같다 — back·left s08 몸통 최대 원래 7~23°(라이브러리 2개) / upright 4~28°(시드 6만 57°) / shove 6~34°(시드 6 71°). 엄격 선별(몸통 ≤ 25°·목 ≤ 45°·팔 p90 ≤ 50°)에서 탈락은 원래 49/144, upright 45/144(몸통 42 → 30, 목 4 → 11).
+- 고른 것: 없음(정적 라이브러리 그대로). 원래 + upright 288개에서 엄격 선별 48개(`reactSelect.ts write --sets ,upright --maxTrunk 25 --maxNeck 45 --maxElevP90 50 --out out/clipsel/strict`, 원래 25 · upright 23)는 sim 216짝에서 넘어짐 22 → 17(p = 0.27)·걸음 −0.13 ± 0.08·몸통 −0.9 ± 0.3°로 잡음 수준이고 필름에서 차이가 안 보여 채택하지 않았다(결정 clip-4).
+- 사람 첫 걸음 시각(`tools/onsetEval.ts human`): 라이브러리 48개 이륙 0.23초(p25~p75 0.13~0.33)·착지 0.43초(0.30~0.57), 밀림 조사 medium 0.27·0.40초, hard 0.20·0.40초. 착지까지 몸통 2~7°, 2.5초 최대 13~16°.

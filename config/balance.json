@@ -46,7 +46,8 @@
   "$loadTau": "발 하중 측정 저역 통과 시정수(초, 로그 loadLeft).",
   "loadTau": 0.03,
   "$enable": "균형을 끄는 조건: 상태가 Active가 아님, 발 접촉 없음, Spine2 기울기(감지) > maxTiltDeg, COM 높이(지면 기준) < minComHeight.",
-  "enable": { "maxTiltDeg": 50, "minComHeight": 0.6 },
+  "$enableTiltImmediate": "(2026-10-28, README 결정 land-4) 균형을 끄는 몸통 기울기는 지금 값으로 판단한다. 지연 예측값(감지 각속도 × 지연)은 몸통이 빠르게 돌다 멈출 때 20° 넘게 앞서 나가, 실제 66°(스텝 한계 70°)인데 86°로 보고 정착 중 균형을 0.1초 넘게 껐다(clip-3 ⑤의 실제 원인 — 정착 → 서기 전환이 아니었다). 켜면 꺼짐은 사라지지만 216짝 몸통·넘어짐·걸음 차 0, 통과 −6, 근처 입력 stairs_tumble −1이라 기본은 끔(사람다움 이득 없음)",
+  "enable": { "maxTiltDeg": 50, "minComHeight": 0.6, "tiltImmediate": false },
   "$perception": "지지 다각형·접촉점 = 접촉 중인 발 박스 바닥 꼭짓점 중 지면(레이캐스트)에서 soleContactDist(m) 안인 것 (+ 실제 접촉점). 레이캐스트 길이 rayLength(m).",
   "perception": { "soleContactDist": 0.015, "rayLength": 2.0 }
 }
