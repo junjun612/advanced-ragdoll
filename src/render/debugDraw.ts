@@ -33,7 +33,7 @@ export function balanceText(state: CharacterStateLite): string {
   if (!b) return '';
   if (!b.enabled) return STRATEGY_LABEL.off!;
   const w = b.hipWeight > 0.05 && b.hipWeight < 0.95 ? ` ${b.hipWeight.toFixed(1)}` : '';
-  return `${STRATEGY_LABEL[b.strategy] ?? b.strategy}${w} · 여유 ${(b.margin * 100).toFixed(1)}cm${settleText(state) ? ` · ${settleText(state)}` : ''}${romText(state) ? ` · ${romText(state)}` : ''}${toneText(state) ? ` · ${toneText(state)}` : ''}${b.land && b.land > 0.05 ? ` · 착지 받기 ${b.land.toFixed(1)}` : ''}`;
+  return `${STRATEGY_LABEL[b.strategy] ?? b.strategy}${w} · 여유 ${(b.margin * 100).toFixed(1)}cm${settleText(state) ? ` · ${settleText(state)}` : ''}${romText(state) ? ` · ${romText(state)}` : ''}${toneText(state) ? ` · ${toneText(state)}` : ''}${b.land && b.land > 0.05 ? ` · 착지 받기 ${b.land.toFixed(1)}` : ''}${state.push ? ` · 미는 힘 ${Math.round(state.push.force)} N` : ''}`;
 }
 
 /** (결정 tone-1) 근긴장: "공동수축 0.8 · 신장 반사 Spine2 0.4 (감쇠 ×3.4)". 꺼져 있거나 0이면 '' */

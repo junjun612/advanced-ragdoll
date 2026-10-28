@@ -18,9 +18,11 @@
     "selfShare": 0.5,
     "behaviors": ["HitReaction", "Stagger"]
   },
-  "$push": "밀기: v0.1~v0.4 그대로 (바디 중심 또는 point에 J). 행동 없음 — Balance가 처리.",
+  "$push": "밀기: 바디 중심 또는 point에 J. 행동 없음 — Balance가 처리. (2026-10-28, README 결정 chest-2·4) 접촉 시간: hit.duration이 없으면 defaultDuration초 동안 나눠 가한다(0 = 한 스텝). profile: 나눠 가할 때 스텝별 몫 — rect 고르게(기존), halfSine sin(π(k+½)/n)(손으로 미는 힘 모양). 합은 J 그대로라 Δv 정의·hitScale은 같다. 손 밀기 0.2초 반사인(defaultDuration 0.2, halfSine)은 충격 0.1초 몸통 22 → 5°·넘어짐 14 → 8/96이지만 지금 제어기는 밀리는 동안 첫 걸음을 내디뎌 걸음이 늘고 회복이 늦어 밀기 4시나리오 × 24시드 통과 54 → 32/96(0.05~0.2초 모두 32~38) — 기대값을 사람이 정할 때까지 기본은 끔(chest-4 ※).",
   "push": {
-    "behaviors": []
+    "behaviors": [],
+    "defaultDuration": 0,
+    "profile": "rect"
   },
   "$explosion": "폭발 (v0.5c, SPEC 7.2·v0.5 피격 모델): hit.point = 폭발 중심(월드), magnitude = 중심에서 refDist(1m) 거리의 전신 COM Δv(m/s). 바디마다 Δv_i = (COM 거리의 Δv)^(1−perBodyFalloff) × (바디 거리의 Δv)^perBodyFalloff, 거리의 Δv = magnitude × refDist / max(minDist, 거리), 방향 = 중심 → 바디(방사형; 지면 폭발은 지면을 따라 수평). perBodyFalloff를 1로 두면 1.5m 앞 지면 폭발에서 정강이가 머리보다 1.5배 세게 밀려 몸이 폭발 쪽으로 엎어지며 날아가 손·무릎으로 착지했다(사람이 폭풍에 '발이 들려' 뒤로 넘어가는 모습과 반대). heightGain: 수평 성분에 1 + heightGain × (바디 높이 − COM 높이)(최소 0.2)를 곱한다 — 발은 지면 마찰에 붙잡히고 상체가 폭풍을 더 받아 상체가 뒤로 젖혀지며 발이 들린다. 위 성분만 높이에 따라 다르게 주면 서 있는 몸의 긴 축 방향이라 회전 없이 막대처럼 곧게 떠올랐다(README 결정 98). 중심이 지면에서 groundBlastHeight m 안이면 지면 반사로 위 성분 groundLift × Δv_i × max(0, 1 − 바디 높이/liftFadeHeight)를 더한다(낮은 바디일수록 — 다리가 들려 몸이 뒤로 젖혀지며 날아간다). 전체를 한 배율로 맞춰 전신 COM Δv 크기 = magnitude × refDist / max(minDist, 중심→COM 거리)(7.2 정의). 한 스텝에 가한다(폭풍 압력은 수 ms). behaviors: 켜는 행동(공중이면 행동 계층이 Flail·PrepareLanding·Roll을 스스로 켠다). deathDv: 폭발 종류의 사망 임계값(COM Δv) — 폭발 Δv는 '날아가는 속도'라 밀기·총탄의 2.5 m/s를 쓰면 몸이 뜨는 폭발은 모두 즉사가 된다(README 결정 98).",
   "explosion": {

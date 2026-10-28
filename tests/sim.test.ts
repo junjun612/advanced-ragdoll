@@ -59,7 +59,8 @@ describe('sim core v0.1', () => {
     const ch = w.addCharacter(character, ragdoll, { position: [0, 3, 0], yaw: 0 });
     w.step();
     const v0 = ch.getState().comVel;
-    ch.hit({ type: 'push', body: 'Spine2', direction: [0, 0, 2], magnitude: 'large' });
+    // duration 0 = 한 스텝 충격 (기본은 hitModel push.defaultDuration 동안 나눠 가함, 결정 chest-2)
+    ch.hit({ type: 'push', body: 'Spine2', direction: [0, 0, 2], magnitude: 'large', duration: 0 });
     w.step();
     const v1 = ch.getState().comVel;
     const dv = hitScale.large;
@@ -72,6 +73,24 @@ describe('sim core v0.1', () => {
     const v2 = ch.getState().comVel;
     expect(v2[0] - v1[0]).toBeCloseTo(0.4, 3);
     expect(w.events.filter((e) => e.type === 'hit')).toHaveLength(2);
+    w.free();
+  });
+
+  it('push with duration: spread over steps (hitModel push.profile), total COM Δv unchanged, push log while in contact (결정 chest-2)', async () => {
+    const w = await World.create({ seed: 1, gravity: [0, 0, 0] });
+    const ch = w.addCharacter(character, ragdoll, { position: [0, 3, 0], yaw: 0 });
+    w.step();
+    const v0 = ch.getState().comVel;
+    ch.hit({ type: 'push', body: 'Spine2', direction: [0, 0, 1], magnitude: 'medium', duration: 0.2 });
+    w.step();
+    const first = ch.getState().comVel[2] - v0[2];
+    expect(first).toBeGreaterThan(0);
+    expect(first).toBeLessThan(0.1 * hitScale.medium);
+    expect(ch.getState().push?.force).toBeGreaterThan(0);
+    const n = Math.round(0.2 / w.dt);
+    for (let i = 1; i < n + 2; i++) w.step();
+    expect(ch.getState().comVel[2] - v0[2]).toBeCloseTo(hitScale.medium, 3);
+    expect(ch.getState().push).toBeUndefined();
     w.free();
   });
 });

@@ -38,6 +38,13 @@ if (flags.has('nv')) (gameCfg as unknown as { variation: { enabled: boolean } })
 // (결정 land-*) 착지 받기(nl3)·몸통 기울기 지금 값(nl4)·피격 뒤 상태 기반 위상(nl5) 끄기, nland = 셋 다(= 이전 master)
 if (flags.has('nland') || flags.has('nl3')) (steppingCfg as unknown as { land?: unknown }).land = null;
 if (flags.has('nland') || flags.has('nl4')) (balanceCfg as unknown as { enable: { tiltImmediate?: boolean } }).enable.tiltImmediate = false;
+// (결정 chest-2) npd: 밀기 기본 접촉 시간 끔(chest 이전 = 한 스텝 충격)
+if (flags.has('npd')) (hm as unknown as { push: { defaultDuration?: number } }).push.defaultDuration = 0;
+// pd<ms>: 밀기 기본 접촉 시간(밀리초), pr: 고른 모양(rect)
+for (const fl of flags) if (/^pd\d+$/.test(fl)) (hm as unknown as { push: { defaultDuration?: number } }).push.defaultDuration = Number(fl.slice(2)) / 1000;
+if (flags.has('pr')) (hm as unknown as { push: { profile?: string } }).push.profile = 'rect';
+// (결정 chest-*) 서기 중 몸통 방향 과제 감지: tsd 지연(chest 이전), tsv 각속도만 지금 값, tsi 둘 다 지금 값
+{ const wb = (balanceCfg as unknown as { wb: { torsoSense?: string } }).wb; if (flags.has('tsd')) wb.torsoSense = 'delayed'; if (flags.has('tsv')) wb.torsoSense = 'velImmediate'; if (flags.has('tsi')) wb.torsoSense = 'immediate'; }
 if (flags.has('nland') || flags.has('nl5')) (animCfg as unknown as { walk: { phase: { stateAfterHit?: number } } }).walk.phase.stateAfterHit = 0;
 const hand = flags.has('h12') ? 12 : flags.has('h8') ? 8 : null;
 const inputs = (sc: Parameters<typeof loadInputs>[0]) => {

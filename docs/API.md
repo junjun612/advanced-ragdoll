@@ -126,7 +126,7 @@ ch.hit({ type: 'bullet', body: 'Spine', point: [0.05, 1.2, 0.1], direction: [0, 
 | `medium` | 0.8 | 몇 걸음 밀려남 |
 | `large` | 1.5 | 대개 넘어짐 |
 
-- `type`: `push`(밀기, `duration`초에 나눠 가할 수 있다), `bullet`(관통 방향 한 점, `magnitude` 없으면 `hitModel.json` 기본값), `melee`, `explosion`(`point` = 폭발 중심 필수, magnitude = 1 m 거리의 Δv, 거리에 반비례).
+- `type`: `push`(밀기, `duration`초에 나눠 가한다 — 주지 않으면 `hitModel.json push.defaultDuration`(기본 0 = 한 스텝 충격), 나눠 가하는 모양은 `push.profile`(rect | halfSine). 접촉 중 상태 `push` {force N, left 초}, 결정 chest-2), `bullet`(관통 방향 한 점, `magnitude` 없으면 `hitModel.json` 기본값), `melee`, `explosion`(`point` = 폭발 중심 필수, magnitude = 1 m 거리의 Δv, 거리에 반비례).
 - 경계값은 바꾸지 않는다(사람 승인 사항, SPEC 7.2).
 
 **보조 힘 (명시적, SPEC 3 원칙 6).** 허공에서 몸통을 잡아 주는 힘은 쓰지 않는다. 예외는 설정으로 켜고 끄며 사용량을 `getState().assist`에 남기는 세 가지뿐이다.

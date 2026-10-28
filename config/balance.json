@@ -32,6 +32,8 @@
     "armMomentum": { "weight": 1.0, "kd": 5.0 },
     "$variation": "개인차 훅: amount > 0이면 캐릭터 생성 때 시드 PRNG로 팔 반사 이득 ×(1 ± amount), DCM 이득 ×(1 ± amount/2)를 뽑는다(같은 충격에도 시드마다 조금 다른 반응). 기본 0 = 끔(시나리오 기대값 재현성).",
     "variation": { "amount": 0 },
+    "$torsoSense": "(2026-10-28, README 결정 chest-1·3) 서기 중 몸통(Spine2) 방향 과제의 감지: delayed = 회전·각속도 모두 지연 0.08초 + 예측(기본), velImmediate = 각속도만 지금 값, immediate = 둘 다 지금 값, relImmediate = 골반 월드 각속도는 지연·골반에 대한 척추 상대 각속도는 지금 값. 지연 중에는 몸통 과제가 충격으로 생긴 몸통 회전을 모르고 각가속도 0을 요구해(QP는 지금 관절 속도로 계획) 척추 모터가 꺾임을 거들었다(충격 0.1초 척추 12° vs 수동 근육 3°). velImmediate·immediate는 초반 몸통 22 → 15°지만 넘어짐 14 → 18·19/96, 뒤쪽 흔들림이 커져 기각(chest-3). torsoSenseWindow > 0이면 바깥 충격 뒤 그 시간만 (진단용)",
+    "torsoSense": "delayed",
     "$motorVelocityTarget": "근육 모터 목표 속도 = QP가 계획한 이번 스텝 끝 관절 속도 (v0.4, README 결정 55). 모터 감쇠는 솔버 안에서 암시적(끝 속도 기준)이라 목표 속도 0이면 계획된 가속도에 kd·q̈·dt만큼 맞서 실제 가속도가 명령의 40~70%가 됐다(스윙발이 안 올라감).",
     "motorVelocityTarget": true,
     "$motorMode": "pose: 모터 목표 = 목표 포즈, 균형 토크에서 모터 추정분을 뺌(v0.3). plan: 모터 목표 위치·속도 = QP 계획의 이번 스텝 끝 상태, 빼기 없음(v0.4, 결정 55). Rapier 모터의 암시적 힘이 PD 추정과 달라 pose 방식은 실제 가속도가 명령과 어긋났다.",

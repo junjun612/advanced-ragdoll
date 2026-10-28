@@ -101,8 +101,12 @@ export interface BalanceConfig {
     /** 'plan': 모터 목표(위치·속도) = QP가 계획한 이번 스텝 끝 상태, 모터 추정분 빼기 없음. 'pose': v0.3 방식 */
     motorMode: 'pose' | 'plan';
     variation: { amount: number };
+    /** (결정 chest-*) 서기 중 몸통 방향 과제 감지: delayed = 회전·각속도 모두 지연+예측(기존), velImmediate = 각속도만 지금 값, immediate = 둘 다 지금 값 */
+    torsoSense?: 'delayed' | 'velImmediate' | 'immediate' | 'relImmediate';
+    /** (결정 chest-*) 0보다 크면 바깥 충격 뒤 이 시간(초) 동안만 torsoSense */
+    torsoSenseWindow?: number;
   };
-  perception: { soleContactDist: number; rayLength: number };
+  perception:{ soleContactDist: number; rayLength: number };
 }
 
 /** 근육 계층에 넘기는 명령. torque는 근육 규약(자식 +τ, 부모 −τ, 월드), strength를 곱하기 전 값 */
@@ -184,6 +188,8 @@ interface Sample {
   vel: Vec3;
   rot: Quat;
   angVel: Vec3;
+  /** (결정 chest-*) 골반(Hips) 월드 각속도 — 몸통 과제 relImmediate에서 지연 골반 각속도로 쓴다 */
+  hipW?: Vec3;
 }
 
 const RAD = Math.PI / 180;
@@ -218,7 +224,7 @@ export function sampleDelayed(buf: readonly Sample[], t: number): Sample {
       const lerp = (x: Readonly<Vec3>, y: Readonly<Vec3>): Vec3 => [x[0] + (y[0] - x[0]) * k, x[1] + (y[1] - x[1]) * k, x[2] + (y[2] - x[2]) * k];
       const s = a.rot[0] * b.rot[0] + a.rot[1] * b.rot[1] + a.rot[2] * b.rot[2] + a.rot[3] * b.rot[3] < 0 ? -1 : 1;
       const rot = normalizeQ([0, 1, 2, 3].map((i2) => a.rot[i2]! + (s * b.rot[i2]! - a.rot[i2]!) * k) as Quat);
-      return { t, com: lerp(a.com, b.com), vel: lerp(a.vel, b.vel), rot, angVel: lerp(a.angVel, b.angVel) };
+      return { t, com: lerp(a.com, b.com), vel: lerp(a.vel, b.vel), rot, angVel: lerp(a.angVel, b.angVel), ...(a.hipW && b.hipW ? { hipW: lerp(a.hipW, b.hipW) } : {}) };
     }
   }
   return buf[buf.length - 1]!;
@@ -355,7 +361,7 @@ export class Balance {
       tPrev += h;
     }
     const rot = multiplyQ(fromRotationVector(scale(d.angVel, this.cfg.delay)), d.rot);
-    return { t, com: c, vel: v, rot, angVel: d.angVel };
+    return { t, com: c, vel: v, rot, angVel: d.angVel, ...(d.hipW ? { hipW: d.hipW } : {}) };
   }
 
   /** 지지발(없으면 두 발) 앞 방향 수평 평균의 yaw 회전. 평균이 0이면 스폰 yaw */
@@ -401,7 +407,8 @@ export class Balance {
     this.extImpulse = [0, 0, 0];
     const s2 = rd.body('Spine2').rb;
     const q = s2.rotation(), w = s2.angvel();
-    this.buf.push({ t, com, vel, rot: [q.x, q.y, q.z, q.w], angVel: [w.x, w.y, w.z] });
+    const hw0 = rd.body('Hips').rb.angvel();
+    this.buf.push({ t, com, vel, rot: [q.x, q.y, q.z, q.w], angVel: [w.x, w.y, w.z], hipW: [hw0.x, hw0.y, hw0.z] });
     while (this.buf.length > 2 && this.buf[1]!.t <= t - cfg.delay - 1e-9) this.buf.shift();
     const delayed = sampleDelayed(this.buf, t - cfg.delay);
     // 지연 예측 보상 (결정 46): 지연된 감지값에서 지금 상태를 예측한다. 내 명령의 사본(efference copy) = 지연 구간 동안 QP가 만든
@@ -656,8 +663,14 @@ export class Balance {
     // 몸통 방향 감지: 기본은 지연 + 예측. 스텝 중 trunkImmediate면 지금 값 (README 결정 56)
     const imm = !!sc && !!this.stepping?.cfg.trunkImmediate;
     const s2now = rd.body('Spine2').rb, s2q0 = s2now.rotation(), s2w0 = s2now.angvel();
-    const trunkRot: Quat = imm ? [s2q0.x, s2q0.y, s2q0.z, s2q0.w] : sensed.rot;
-    const trunkW: Vec3 = imm ? [s2w0.x, s2w0.y, s2w0.z] : sensed.angVel;
+    // (결정 chest-*) torsoSenseWindow > 0이면 바깥 충격 뒤 그 시간 동안만 torsoSense를 쓰고 나머지는 지연(진단·실험)
+    const tsw0 = cfg.wb.torsoSenseWindow ?? 0;
+    const tsense = tsw0 > 0 && !(t - (this.stepping?.lastHitT ?? -Infinity) <= tsw0) ? 'delayed' : cfg.wb.torsoSense ?? 'delayed';
+    const trunkRot: Quat = imm || tsense === 'immediate' ? [s2q0.x, s2q0.y, s2q0.z, s2q0.w] : sensed.rot;
+    // relImmediate: 골반 월드 각속도는 지연(전정·시각), 골반에 대한 척추 상대 각속도는 지금 값(고유 감각 — 자세 과제·QP 모델이 이미 쓰는 관절 속도)
+    const hwNow = rd.body('Hips').rb.angvel();
+    const trunkW: Vec3 = imm || tsense === 'immediate' || tsense === 'velImmediate' ? [s2w0.x, s2w0.y, s2w0.z]
+      : tsense === 'relImmediate' && sensed.hipW ? [s2w0.x - hwNow.x + sensed.hipW[0], s2w0.y - hwNow.y + sensed.hipW[1], s2w0.z - hwNow.z + sensed.hipW[2]] : sensed.angVel;
     let qe = multiplyQ(qT, conjugate(trunkRot));
     if (qe[3] < 0) qe = [-qe[0], -qe[1], -qe[2], -qe[3]];
     const torsoG0 = tr ? tr.torso : cfg.wb.torso, pelvisG = tr ? (sc?.shifting ? cfg.wb.pelvis : tr.pelvis) : cfg.wb.pelvis;

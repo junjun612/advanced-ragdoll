@@ -82,6 +82,18 @@ function pairStat(fr: Frame[], c: string, p: string | null, t0: number, win: num
   return { peak: Math.max(0, ...d.map((v) => length(v))), speed: w.length > 1 ? sp / (w.length - 1) : 0, osc, overshoot: Math.abs(P) > 2 ? over / Math.abs(P) : 0, settle, series: w.map((f, i) => [f.t - t0, length(d[i]!)]) };
 }
 
+/** (결정 chest-1) 초반 꺾임: 묶음 벗어남(기준 = 충격 직전)의 0.1초 값과 0~0.3초 최대 (몸통·골반·척추) */
+export type Early = Record<'trunk' | 'pelvis' | 'spine', { at10: number; max30: number }>;
+export function earlyOf(series: Record<string, [number, number][]>): Early {
+  const e = {} as Early;
+  for (const k of ['trunk', 'pelvis', 'spine'] as const) {
+    const s = series[k]!;
+    const at = s.reduce((b, p) => (Math.abs(p[0] - 0.1) < Math.abs(b[0] - 0.1) ? p : b), s[0]!);
+    e[k] = { at10: at[1], max30: Math.max(0, ...s.filter((p) => p[0] <= 0.3 + 1e-9).map((p) => p[1])) };
+  }
+  return e;
+}
+
 export function toneStats(fr: Frame[], t0: number, win = WINDOW): { g: Record<string, GStat>; series: Record<string, [number, number][]>; trunkSigned: [number, number][] } {
   const g: Record<string, GStat> = {}, series: Record<string, [number, number][]> = {};
   for (const [k, pairs] of Object.entries(GROUPS)) {
@@ -98,6 +110,7 @@ export function toneStats(fr: Frame[], t0: number, win = WINDOW): { g: Record<st
 export interface Row {
   name: string; seed: number; passed: boolean; fell: boolean; steps: number; t0: number; fails: string;
   g: Record<string, GStat>; trunkPeak: number;
+  early?: Early;
   err: Record<string, { mean: number; peak: number }>; str: Record<string, { min: number; mean: number }>;
   /** 30 Hz 시계열 (t − t0): 강도 묶음 평균, 몸통 기울기, 목·손목·팔꿈치 벗어남 */
   ts: { t: number[]; str: Record<string, number[]>; trunk: number[]; neck: number[]; wrist: number[]; elbow: number[]; err: Record<string, number[]>; tone?: Record<string, number[]>; spine?: number[]; pelvis?: number[]; hip?: number[] };
@@ -175,7 +188,7 @@ async function worker(name: string, seed: number): Promise<Row> {
     ts.elbow.push(+sAt(st.series.elbow!, tt).toFixed(2));
     ts.spine!.push(+sAt(st.series.spine!, tt).toFixed(2)); ts.pelvis!.push(+sAt(st.series.pelvis!, tt).toFixed(2)); ts.hip!.push(+sAt(st.series.hip!, tt).toFixed(2));
   }
-  return { name, seed, passed: s.expectations.passed, fell: s.fell, steps: s.stepsTaken ?? 0, t0, fails: s.expectations.failures.join('; '), g: st.g, trunkPeak: st.g.trunk!.peak, err, str, ts };
+  return { name, seed, passed: s.expectations.passed, fell: s.fell, steps: s.stepsTaken ?? 0, t0, fails: s.expectations.failures.join('; '), g: st.g, trunkPeak: st.g.trunk!.peak, early: earlyOf(st.series), err, str, ts };
 }
 
 /** 사람 레퍼런스: 반응 클립 라이브러리(assets/poses/reaction 48개) + 밀림 조사 RP medium(4방향 × 6) */
@@ -184,7 +197,7 @@ async function human(): Promise<void> {
   const kim = opt('--kimodo', 'C:/Users/junjun612/Documents/advanced-ragdoll/assets/kimodo');
   const lib = readdirSync('assets/poses/reaction').filter((f) => f.endsWith('.json')).map((f) => ({ set: 'lib', id: f.replace(/\.json$/, ''), p: join('assets/poses/reaction', f) }));
   const study = ['front', 'back', 'left', 'right'].flatMap((d) => Array.from({ length: 6 }, (_, k) => ({ set: `study_${d}`, id: `push_${d}_medium_s${k + 1}`, p: join(kim, `push_${d}_medium/rp12_s${k + 1}/clip.json`) }))).filter((x) => existsSync(x.p));
-  const out: { set: string; id: string; g: Record<string, GStat>; trunkPeak: number; ts: { t: number[]; trunk: number[]; neck: number[]; wrist: number[]; elbow: number[] } }[] = [];
+  const out: { set: string; id: string; g: Record<string, GStat>; trunkPeak: number; early: Early; ts: { t: number[]; trunk: number[]; neck: number[]; wrist: number[]; elbow: number[] } }[] = [];
   for (const c of [...lib, ...study]) {
     const clip = JSON.parse(readFileSync(c.p, 'utf8')) as { fps?: number; info?: { pushFrame?: number } };
     const t0 = (clip.info?.pushFrame ?? 30) / (clip.fps ?? 30);
@@ -193,7 +206,7 @@ async function human(): Promise<void> {
     const sAt = (arr: [number, number][], tt: number) => { let best = arr[0]; for (const p of arr) if (Math.abs(p[0] - tt) < Math.abs(best![0] - tt)) best = p; return best?.[1] ?? 0; };
     const ts = { t: [] as number[], trunk: [] as number[], neck: [] as number[], wrist: [] as number[], elbow: [] as number[] };
     for (let tt = -0.5; tt <= WINDOW + 1e-9; tt += 1 / 30) { ts.t.push(+tt.toFixed(3)); ts.trunk.push(+sAt(st.trunkSigned, tt).toFixed(2)); ts.neck.push(+sAt(st.series.neck!, tt).toFixed(2)); ts.wrist.push(+sAt(st.series.wrist!, tt).toFixed(2)); ts.elbow.push(+sAt(st.series.elbow!, tt).toFixed(2)); }
-    out.push({ set: c.set, id: c.id, g: st.g, trunkPeak: st.g.trunk!.peak, ts });
+    out.push({ set: c.set, id: c.id, g: st.g, trunkPeak: st.g.trunk!.peak, early: earlyOf(st.series), ts });
   }
   writeFileSync(opt('--json', 'human_tone.json'), JSON.stringify(out));
   console.log(`사람 클립 ${out.length}개 (라이브러리 ${lib.length}, 밀림 조사 ${study.length})`);
@@ -217,6 +230,15 @@ function table(): void {
       return `${a.toFixed(s === 'overshoot' ? 2 : 1)}${b !== null ? `→${b.toFixed(s === 'overshoot' ? 2 : 1)}` : ''}${h ? ` (사람 ${h})` : ''}`;
     };
     console.log(`| ${KO[k]} | ${STATS.map(cell).join(' | ')} |`);
+  }
+  // (결정 chest-1) 초반 꺾임 (0.1초 값 / 0~0.3초 최대)
+  if (A.some((r) => r.early)) {
+    const He = H as unknown as { set: string; early?: Early }[] | null;
+    console.log('\n| 초반 꺾임 | 0.1초 | 0~0.3초 최대 |');
+    for (const k of ['trunk', 'pelvis', 'spine'] as const) {
+      const cell = (q: 'at10' | 'max30') => { const a = med(ok(A).filter((r) => r.early).map((r) => r.early![k][q])); const b = B ? med(ok(B).filter((r) => r.early).map((r) => r.early![k][q])) : null; const h = He ? med(He.filter((x) => x.early).map((x) => x.early![k][q])) : null; return `${a.toFixed(1)}${b !== null ? `→${b.toFixed(1)}` : ''}${h !== null && Number.isFinite(h) ? ` (사람 ${h.toFixed(1)})` : ''}`; };
+      console.log(`| ${KO[k]} | ${cell('at10')} | ${cell('max30')} |`);
+    }
   }
   console.log('\n| 근육 묶음 | 오차 평균° | 오차 최대° | 강도 최소 | 강도 평균 |');
   for (const k of Object.keys(MGROUPS)) {

@@ -12,7 +12,8 @@ export type HitType = 'bullet' | 'melee' | 'explosion' | 'push';
 export interface HitModelConfig {
   bullet: { defaultMagnitude: number; behaviors: string[]; legBodies: BodyName[]; rayBack: number; pointShare: number; maxPointDv: number; carryBodies: BodyName[] };
   melee: { defaultMagnitude: number; selfShare: number; behaviors: string[] };
-  push: { behaviors: string[] };
+  /** (결정 chest-2) defaultDuration: hit.duration이 없을 때 밀기 접촉 시간(초, 0 = 한 스텝), profile: 스텝별 몫 모양 */
+  push: { behaviors: string[]; defaultDuration?: number; profile?: 'rect' | 'halfSine' };
   /** (v0.5c) 폭발: 전 바디 방사형 충격 (SPEC 7.2: magnitude = 중심 1m 거리 COM Δv, 거리에 반비례) */
   explosion?: ExplosionConfig;
   staggerMinDv: number;
@@ -40,6 +41,13 @@ export interface ExplosionConfig {
   behaviors: string[];
   /** 폭발 종류의 사망 임계값 (COM Δv, m/s, 공통 deathDv 대신). null이면 끔. 폭발 Δv는 '날아가는 속도'라 밀기·총탄과 같은 문턱을 쓰지 않는다 (README 결정) */
   deathDv: number | null;
+}
+
+/** (결정 chest-2) 밀기 접촉 n스텝의 몫 (합 1): 반사인 sin(π(k + ½)/n) — 손으로 미는 힘은 0에서 올라 정점을 지나 다시 0으로 */
+export function pushProfile(n: number): number[] {
+  const w = Array.from({ length: n }, (_, k) => Math.sin((Math.PI * (k + 0.5)) / n));
+  const s = w.reduce((a, x) => a + x, 0);
+  return w.map((x) => x / s);
 }
 
 /** 상처: 맞은 바디 로컬 좌표 (SPEC 세부 규칙 — 몸이 움직여도 손이 같은 자리를 따라간다) */

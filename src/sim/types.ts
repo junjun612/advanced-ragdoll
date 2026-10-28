@@ -124,6 +124,8 @@ export interface CharacterState {
   breath?: { b: number; rate: number; depth: number; arousal: number; k: number };
   /** (결정 tone-1) 근긴장: 공동수축 레벨 co, 신장 반사 최대 레벨·관절, 감쇠 최대 배율 */
   tone?: { co: number; reflexMax: number; reflexJoint: string | null; maxKd: number };
+  /** (결정 chest-2) 밀기 접촉 중: 이번 스텝 접촉 힘 N, 남은 접촉 시간 초 */
+  push?: { force: number; left: number };
   /** (v0.8b) 잡기 대상 (잡은 앵커, 뻗는 중이면 손바닥 목표). 잡을 곳·벽이 있는 지형에서만 */
   grabTarget?: Vec3 | null;
   debug: Record<string, number | string>;

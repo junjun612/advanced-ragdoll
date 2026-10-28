@@ -40,6 +40,8 @@ export interface CharacterStateLite {
   breath?: { b: number; rate: number; depth: number; arousal: number; k: number };
   /** (결정 tone-1) 근긴장: 공동수축 레벨, 신장 반사 최대 레벨·관절, 감쇠 최대 배율 */
   tone?: { co: number; reflexMax: number; reflexJoint: string | null; maxKd: number };
+  /** (결정 chest-2) 밀기 접촉 중: 이번 스텝 접촉 힘 N, 남은 접촉 시간 초 */
+  push?: { force: number; left: number };
   /** 균형 계층 (v0.3) */
   balance?: {
     enabled: boolean;

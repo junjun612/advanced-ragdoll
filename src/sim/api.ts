@@ -32,7 +32,7 @@ import { REACTION_CLIPS } from './character/reactionClips.generated';
 import { PoweredStates, type StatesConfig, type StatesLog } from './character/states';
 import { PinAssist, type PinConfig, type PinState } from './character/pin';
 import { WalkController, type WalkConfig, type WalkState } from './character/walk';
-import { resolveHit, type HitModelConfig } from './character/hitModel';
+import { resolveHit, pushProfile, type HitModelConfig } from './character/hitModel';
 import { BehaviorBlender, type BehaviorsConfig } from './character/behaviors/blender';
 import type { BalanceBehaviorInput } from './character/balance';
 import { Prng } from './prng';
@@ -491,8 +491,10 @@ export class Character {
   private cache: { step: number; state: CharacterState } | null = null;
   private colliderIdx = new Map<number, number>();
   private perCache: { step: number; per: Perception } | null = null;
-  /** 시간에 걸쳐 나눠 가하는 충격 (push duration): 바디, 스텝당 충격량, 바디 로컬 작용점, 남은 스텝 */
-  private ongoing: { body: BodyName; J: Vec3; local: Vec3 | null; left: number }[] = [];
+  /** 시간에 걸쳐 나눠 가하는 충격 (push duration): 바디, 스텝당 충격량, 바디 로컬 작용점, 남은 스텝. (결정 chest-2) w = 남은 스텝별 몫(전체 J 대비, 반사인 모양), 있으면 J는 전체 충격량 */
+  private ongoing: { body: BodyName; J: Vec3; local: Vec3 | null; left: number; w?: number[] }[] = [];
+  /** (결정 chest-2) 이번 스텝 밀기 접촉 힘(N = 충격량/dt)·남은 접촉 시간(초). 접촉이 없으면 null (로그 push, 필름 균형 줄 '미는 힘') */
+  private pushNow: { force: number; left: number } | null = null;
   /** (v0.8c) 이름 (여러 캐릭터 월드). 없으면 혼자 */
   readonly name: string | undefined;
   /** (v0.8c) 다른 캐릭터·프롭 접촉 감지기 */
@@ -1329,10 +1331,14 @@ export class Character {
       return [c.x, c.y, c.z];
     };
     // 나눠 가하는 충격의 나머지 (push duration)
+    let pushJ: Vec3 = [0, 0, 0], pushLeft = 0;
     for (const o of this.ongoing) {
       const rb = this.rd.body(o.body).rb, tr = rb.translation(), q = rb.rotation();
-      applyJ(o.body, o.J, o.local ? add([tr.x, tr.y, tr.z], rotate([q.x, q.y, q.z, q.w], o.local)) : undefined);
+      const Jk = o.w ? scale(o.J, o.w[o.w.length - o.left] ?? 0) : o.J;
+      applyJ(o.body, Jk, o.local ? add([tr.x, tr.y, tr.z], rotate([q.x, q.y, q.z, q.w], o.local)) : undefined);
+      pushJ = add(pushJ, Jk);
       o.left--;
+      pushLeft = Math.max(pushLeft, o.left);
     }
     this.ongoing = this.ongoing.filter((o) => o.left > 0);
     for (const p of this.pending) {
@@ -1352,15 +1358,20 @@ export class Character {
         // 피격 모델 (v0.5a): 종류별 충격량 분배·상처·행동
         const res = resolveHit(p.hit, p.hit.dv, this.rd, this.def.totalMass, this.hitModel);
         let point: Vec3 | undefined;
-        const n = p.hit.type === 'push' && p.hit.duration ? Math.max(1, Math.round(p.hit.duration / this.world.dt)) : 1;
+        // (결정 chest-2) 밀기 접촉 시간: 주지 않으면 hitModel.json push.defaultDuration(손으로 미는 접촉 0.1~0.3초), 모양 push.profile(rect 고르게 | halfSine 반사인)
+        const pushDur = p.hit.type === 'push' ? p.hit.duration ?? this.hitModel.push.defaultDuration ?? 0 : 0;
+        const n = pushDur > 0 ? Math.max(1, Math.round(pushDur / this.world.dt)) : 1;
+        const prof = n > 1 && this.hitModel.push.profile === 'halfSine' ? pushProfile(n) : null;
         res.impulses.forEach((im, i) => {
-          const J = scale(im.J, 1 / n);
+          const J = prof ? scale(im.J, prof[0]!) : scale(im.J, 1 / n);
           const pt = applyJ(im.body, J, im.point);
           if (i === 0) point = im.point ?? pt;
           if (n > 1) {
+            pushJ = add(pushJ, J);
+            pushLeft = Math.max(pushLeft, n - 1);
             const rb = this.rd.body(im.body).rb, tr = rb.translation(), q = rb.rotation();
             const local = im.point ? rotate([-q.x, -q.y, -q.z, q.w], sub(im.point, [tr.x, tr.y, tr.z])) : null;
-            this.ongoing.push({ body: im.body, J, local, left: n - 1 });
+            this.ongoing.push(prof ? { body: im.body, J: im.J, local, left: n - 1, w: prof } : { body: im.body, J, local, left: n - 1 });
           }
         });
         this.emit({ t, type: 'hit', body: res.body, point: res.point ?? point, direction: res.dir, dv: res.dv, detail: res.type });
@@ -1372,6 +1383,7 @@ export class Character {
         this.scheduleReaction(t, p.hit.type, res.dv, res.body);
       } else if (p.body && p.impulse) applyJ(p.body, p.impulse, p.point);
     }
+    this.pushNow = pushLeft > 0 || length(pushJ) > 0 ? { force: length(pushJ) / this.world.dt, left: pushLeft * this.world.dt } : null;
     const hitNow = this.pending.some((p) => !!p.hit || !!p.impulse);
     // (README 9f-11) 이번 스텝에 바깥 충격(피격·나눠 가하는 밀기)을 넣었는가 — 폭발 판정의 에너지 증가에서 뺀다
     this.extImpulseNow = hitNow || this.ongoing.length > 0;
@@ -2242,6 +2254,7 @@ export class Character {
       ...(this.handPose.cfg.enabled ? { fingers: this.handPose.log() } : {}),
       ...(this.breath.cfg.enabled ? { breath: this.breath.log() } : {}),
       ...(this.tone.cfg.enabled ? { tone: this.tone.log } : {}),
+      ...(this.pushNow ? { push: this.pushNow } : {}),
       ...(this.behaviors.state.grab ? { grabTarget: this.behaviors.state.grab.hands.map((h) => h.anchor ?? h.target).find((p) => !!p) ?? null } : {}),
       debug: {
         spine2TiltDeg: tilt,
